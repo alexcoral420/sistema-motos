@@ -103,3 +103,37 @@ def obtener_galeria(moto_id: int):
     """Fotos de galería de una moto. En modo prueba, sin galería (lista vacía)."""
     # return repositorios.obtener_fotos_moto(moto_id)
     return []
+
+    # ============================================================
+#  ESCRITURA (modo prueba: simula sin tocar la base de datos)
+# ============================================================
+# Cuando conectemos Supabase, estas funciones llamarán al repositorio.
+# Por ahora solo imprimen lo que HARÍAN, para probar el panel sin
+# escribir en producción.
+
+def agregar_moto(datos: dict):
+    """Agregaría una moto nueva. En modo prueba, solo lo registra."""
+    # return repositorios.agregar_moto(datos)
+    print(f"[PRUEBA] Se agregaría la moto: {datos.get('marca')} {datos.get('modelo')}")
+    return {"id": 999, **datos}
+
+
+def actualizar_moto(id: int, datos: dict):
+    """Actualizaría una moto existente. En modo prueba, solo lo registra."""
+    # return repositorios.actualizar_moto(id, datos)
+    print(f"[PRUEBA] Se actualizaría la moto id={id}")
+    return {"id": id, **datos}
+
+
+def marcar_vendida(id: int):
+    """Marcaría una moto como vendida. En modo prueba, solo lo registra."""
+    # return repositorios.marcar_como_vendida(id)
+    print(f"[PRUEBA] Se marcaría como vendida la moto id={id}")
+    return True
+
+
+def eliminar_moto(id: int):
+    """Eliminaría una moto. En modo prueba, solo lo registra."""
+    # return repositorios.eliminar_moto(id)
+    print(f"[PRUEBA] Se eliminaría la moto id={id}")
+    return True
