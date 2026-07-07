@@ -66,6 +66,9 @@ def create_app(nombre_config=None):
     from app.publico.routes import publico_bp
     app.register_blueprint(publico_bp)
 
+    from app.auth.routes import auth_bp
+    app.register_blueprint(auth_bp)
+
     # 5. Aquí luego inicializaremos extensiones de seguridad
     #    (flask-limiter para rate limiting, logging de auditoría, etc.)
 
