@@ -44,7 +44,12 @@ def create_app(nombre_config=None):
     # template_folder le dice a Flask dónde buscar los .html.
     # Como este archivo está dentro de app/, y templates/ también,
     # la ruta es relativa a app/.
-    app = Flask(__name__, template_folder="templates")
+    app = Flask(
+        __name__,
+        template_folder="templates",
+        static_folder="../static",
+        static_url_path="/static",
+    )
 
     # 3. Aplicar la clase de configuración correspondiente.
     # config_por_nombre["production"] -> ProduccionConfig, etc.

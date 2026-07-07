@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Motors — Compraventa de Motos, Financiación y Taller</title>
+    <meta name="description" content="Universal Motors: compraventa de motocicletas usadas, financiación fácil y taller especializado en Bogotá. Encuentra tu moto ideal.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }
+
+        /* Navegación */
+        .navbar { background: #000000; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #ff7a00; }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: bold; text-decoration: none; }
+        .navbar .logo img { height: 42px; width: 42px; border-radius: 50%; }
+        .navbar .logo span { color: #ff7a00; }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a { color: #bbb; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+        .nav-links a:hover { color: #ff7a00; }
+        .nav-links .btn-nav { background: #ff7a00; color: #000; padding: 8px 18px; border-radius: 8px; font-weight: bold; }
+        .nav-links .btn-nav:hover { background: #ff9633; color: #000; }
+
+        /* Hero */
+        .hero { background: linear-gradient(160deg, #000000 0%, #1c1c1c 60%, #2a1a08 100%); color: white; padding: 90px 24px; text-align: center; }
+        .hero h1 { font-size: 42px; margin-bottom: 16px; color: #f5f5f5; text-shadow: 0 4px 20px rgba(0, 0, 0, 0.9); }
+        .hero h1 span { color: #ff7a00; }
+        .hero p { font-size: 18px; color: #e8e8e8; max-width: 600px; margin: 0 auto 32px; line-height: 1.6; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9); }
+        .hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        .btn { padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 16px; font-weight: bold; transition: transform 0.2s, box-shadow 0.2s; display: inline-block; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,122,0,0.3); }
+        .btn-primary { background: #ff7a00; color: #000; }
+        .btn-outline { border: 2px solid #c0c0c0; color: #e8e8e8; }
+        .btn-outline:hover { border-color: #ff7a00; color: #ff7a00; }
+        .hero-badge { display: inline-block; background: rgba(0, 0, 0, 0.55); border: 1px solid #ff7a00; color: #ff7a00; padding: 6px 18px; border-radius: 20px; font-size: 13px; margin-bottom: 24px; font-weight: bold; }
+
+        /* Servicios */
+        .servicios { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
+        .seccion-titulo { text-align: center; font-size: 32px; color: #f5f5f5; margin-bottom: 12px; }
+        .seccion-sub { text-align: center; color: #888; margin-bottom: 48px; font-size: 16px; }
+        .servicios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+        .servicio-card { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 32px; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+        .servicio-card:hover { transform: translateY(-6px); border-color: #ff7a00; }
+        .servicio-icon { font-size: 48px; margin-bottom: 16px; }
+        .servicio-card h3 { color: #ff7a00; font-size: 20px; margin-bottom: 12px; }
+        .servicio-card p { color: #aaa; font-size: 14px; line-height: 1.6; }
+
+        /* CTA */
+        .cta { background: linear-gradient(135deg, #ff7a00 0%, #e05f00 100%); color: #000; padding: 64px 24px; text-align: center; }
+        .cta h2 { font-size: 30px; margin-bottom: 12px; }
+        .cta p { font-size: 16px; margin-bottom: 28px; opacity: 0.85; }
+        .cta .btn { background: #000; color: #ff7a00; }
+
+        /* Footer */
+        .footer { background: #000000; color: #999; padding: 48px 24px 24px; border-top: 2px solid #ff7a00; }
+        .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-bottom: 32px; }
+        .footer h4 { color: #ff7a00; font-size: 15px; margin-bottom: 14px; }
+        .footer a { color: #999; text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
+        .footer a:hover { color: #ff7a00; }
+        .footer p { font-size: 13px; line-height: 1.7; }
+        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid #222; font-size: 12px; }
+
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 30px; }
+            .nav-links { gap: 12px; }
+            .nav-links a:not(.btn-nav) { display: none; }
+        }
+
+        /* ===== Fondo dinámico del hero ===== */
+        .hero {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-fondos {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+        }
+
+        .hero-fondos img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;       /* la foto llena todo sin deformarse */
+            opacity: 0;
+            transition: opacity 2s ease;  /* el fundido dura 2 segundos */
+        }
+
+        .hero-fondos img.activa {
+            opacity: 1;
+        }
+
+        /* Degradado oscuro encima de las fotos: más oscuro arriba y abajo,
+           más transparente en el medio para que la moto se luzca */
+        .hero-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 0, 0, 0.85) 0%,
+                rgba(0, 0, 0, 0.55) 40%,
+                rgba(0, 0, 0, 0.80) 100%
+            );
+            z-index: 1;
+        }
+
+        /* El contenido del hero (badge, título, botones) queda por encima */
+        .hero > *:not(.hero-fondos):not(.hero-overlay) {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Línea naranja de acento en la parte baja del hero */
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(to right, transparent, #ff7a00, transparent);
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navegación -->
+    <nav class="navbar">
+        <a href="/inicio" class="logo">
+            <img src="/static/logo.png" alt="Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <div class="nav-links">
+            <a href="/inicio">Inicio</a>
+            <a href="/catalogo">Catálogo</a>
+            <a href="/privacidad">Privacidad</a>
+            <a href="https://wa.me/573204951482" class="btn-nav" target="_blank">💬 Escríbenos</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-fondos">
+            <img src="/static/fondos/fondo1.webp" class="activa" alt="">
+            <img src="/static/fondos/fondo2.webp" alt="">
+            <img src="/static/fondos/fondo3.webp" alt="">
+        </div>
+        <div class="hero-overlay"></div>
+        <div class="hero-badge">🏍️ {{ total_motos }} motos disponibles ahora</div>
+        <h1>Tu próxima moto está en <span>Universal Motors</span></h1>
+        <p>Compraventa de motocicletas usadas con papeles al día, financiación fácil y taller especializado. Más de 10.000 clientes han renovado su camino con Universal Motors.</p>
+        <div class="hero-btns">
+            <a href="/catalogo" class="btn btn-primary">Ver catálogo</a>
+            <a href="https://wa.me/573204951482" class="btn btn-outline" target="_blank">Hablar con un asesor</a>
+        </div>
+    </section>
+
+    <!-- Servicios -->
+    <section class="servicios">
+        <h2 class="seccion-titulo">Nuestros servicios</h2>
+        <p class="seccion-sub">Todo lo que necesitas para tu moto en un solo lugar</p>
+        <div class="servicios-grid">
+            <div class="servicio-card">
+                <div class="servicio-icon">🏍️</div>
+                <h3>Compraventa de motos</h3>
+                <p>Motos usadas revisadas, con papeles al día, SOAT y tecnomecánica vigentes. Compramos tu moto al mejor precio del mercado.</p>
+            </div>
+            <div class="servicio-card">
+                <div class="servicio-icon">💳</div>
+                <h3>Financiación fácil</h3>
+                <p>Financiamos tu moto a través de Banco de Bogotá, Addy y Vanti. Solo necesitas tu cédula y no estar reportado.</p>
+            </div>
+            <div class="servicio-card">
+                <div class="servicio-icon">🔧</div>
+                <h3>Taller y repuestos</h3>
+                <p>Taller especializado con técnicos certificados y repuestos originales para todas las marcas.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <h2>¿Listo para encontrar tu moto ideal?</h2>
+        <p>Escríbenos por WhatsApp y nuestro asistente te atiende al instante, 24/7</p>
+        <a href="https://wa.me/573204951482" class="btn" target="_blank">💬 Chatear ahora</a>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <h4>Universal Motors</h4>
+                <p>Compraventa de motocicletas, financiación y taller especializado en Bogotá, Colombia.</p>
+            </div>
+            <div>
+                <h4>Enlaces</h4>
+                <a href="/inicio">Inicio</a>
+                <a href="/catalogo">Catálogo</a>
+                <a href="/privacidad">Política de privacidad</a>
+                <a href="/terminos">Términos y condiciones</a>
+            </div>
+            <div>
+                <h4>Contacto</h4>
+                <p>📍 Av. 1 de Mayo #29c-35, Bogotá<br>
+                    📍 Av. boyacá #75-12, Bogotá<br>
+                🕐 Lunes a sábado 9:30am - 6:30pm<br>
+                💬 WhatsApp: +57 3042827795</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            © 2026 Universal Motors. Todos los derechos reservados.
+        </div>
+    </footer>
+
+    <script>
+    const fondos = document.querySelectorAll('.hero-fondos img');
+    let fondoActual = 0;
+
+    setInterval(() => {
+        fondos[fondoActual].classList.remove('activa');
+        fondoActual = (fondoActual + 1) % fondos.length;  // vuelve a 0 al llegar al final
+        fondos[fondoActual].classList.add('activa');
+    }, 5000);  // cambia cada 5000 ms = 5 segundos
+    </script>
+
+</body>
+</html>

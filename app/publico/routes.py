@@ -1,28 +1,48 @@
 """
-Blueprint público: rutas que cualquiera puede ver, sin login.
-Aquí vivirán /inicio, /catalogo, /moto/<id>, /privacidad, /terminos.
+Blueprint público: rutas visibles para cualquiera, sin login.
 
-Qué es un Blueprint:
-En el app.py viejo, TODAS las rutas colgaban de la misma variable
-global 'app' con @app.route(...). Todo mezclado: públicas, admin, webhook.
-
-Un Blueprint es un "grupo de rutas portátil" que vive en su propio
-archivo. Se define aquí y luego el factory lo "enchufa" a la app con
-register_blueprint(). Beneficio de seguridad: las superficies quedan
-separadas físicamente. Lo público, lo admin y el webhook en archivos
-distintos. Más adelante, al blueprint de admin le aplicamos protección
-de login de una sola vez, a todo el grupo.
+Rutas: /inicio, /catalogo, /moto/<id>, /privacidad, /terminos.
+Cada una llama a la capa de SERVICIOS (inventario), nunca a la base
+de datos directo. La ruta solo: recibe la petición, pide datos al
+servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 
-from flask import Blueprint
+from flask import Blueprint, render_template
 
-# Creamos el blueprint. Primer argumento: nombre interno ("publico").
-# Flask lo usa para identificar estas rutas.
+from app.servicios import inventario
+
 publico_bp = Blueprint("publico", __name__)
 
 
-# @publico_bp.route en vez de @app.route: la ruta se registra en el
-# BLUEPRINT, no directo en la app. El factory se encarga de conectarlo.
 @publico_bp.route("/inicio")
 def inicio():
-    return "¡La app vive! Blueprint público funcionando."
+    """Página principal. Muestra el conteo de motos disponibles."""
+    motos = inventario.listar_motos_disponibles()
+    return render_template("home.html", total_motos=len(motos))
+
+
+@publico_bp.route("/catalogo")
+def catalogo():
+    """Catálogo público: todas las motos disponibles."""
+    motos = inventario.listar_motos_disponibles()
+    return render_template("catalogo.html", motos=motos)
+
+
+@publico_bp.route("/moto/<int:id>")
+def detalle_moto(id):
+    """Detalle de una moto. es_admin=False -> vista pública."""
+    moto = inventario.obtener_moto(id)
+    fotos = inventario.obtener_galeria(id)
+    return render_template("detalle.html", moto=moto, fotos=fotos, es_admin=False)
+
+
+@publico_bp.route("/privacidad")
+def privacidad():
+    """Política de privacidad (contenido estático)."""
+    return render_template("privacidad.html")
+
+
+@publico_bp.route("/terminos")
+def terminos():
+    """Términos y condiciones (contenido estático)."""
+    return render_template("terminos.html")

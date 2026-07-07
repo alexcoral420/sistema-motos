@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Moto</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+        .header { background: #1a1a2e; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 22px; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #e94560; color: white; }
+        .btn-back { background: #666; color: white; }
+        .container { padding: 24px; max-width: 600px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 14px; color: #444; margin-bottom: 6px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #e94560; }
+        .preview { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-top: 8px; }
+        .upload-area { border: 2px dashed #ddd; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; margin-bottom: 8px; }
+        .upload-area:hover { border-color: #e94560; }
+        .btn-full { width: 100%; padding: 14px; font-size: 16px; margin-top: 8px; }
+        .row { display: flex; gap: 12px; }
+        .row .form-group { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✏️ Editar moto</h1>
+        <a href="/" class="btn btn-back">← Volver</a>
+    </div>
+    <div class="container">
+        <div class="card">
+            <form method="POST">
+                <div class="row">
+                    <div class="form-group">
+                        <label>Marca *</label>
+                        <input type="text" name="marca" value="{{ moto.marca }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo *</label>
+                        <input type="text" name="modelo" value="{{ moto.modelo }}" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>Año *</label>
+                        <input type="number" name="anio" value="{{ moto.anio }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Color *</label>
+                        <input type="text" name="color" value="{{ moto.color }}" required>
+                    </div>
+                </div>
+                <div class="row">
+                <div class="form-group">
+                <label>Placa</label>
+                <input type="text" name="placa" value="{{ moto.placa or '' }}" style="text-transform:uppercase">
+                 </div>
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label>Precio (COP) *</label>
+                        <input type="number" name="precio" value="{{ moto.precio }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kilometraje *</label>
+                        <input type="number" name="kilometraje" value="{{ moto.kilometraje }}" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>Vencimiento SOAT</label>
+                        <input type="date" name="soat" value="{{ moto.soat or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Vencimiento Tecnomecánica</label>
+                        <input type="date" name="tecno" value="{{ moto.tecno or '' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select name="estado">
+                        <option value="disponible" {% if moto.estado == 'disponible' %}selected{% endif %}>Disponible</option>
+                        <option value="reservado" {% if moto.estado == 'reservado' %}selected{% endif %}>Reservado</option>
+                        <option value="vendido" {% if moto.estado == 'vendido' %}selected{% endif %}>Vendido</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea name="descripcion" rows="3">{{ moto.descripcion }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Foto actual</label>
+                    {% if moto.foto_url %}
+                        <img src="{{ moto.foto_url }}" class="preview">
+                    {% else %}
+                        <p style="color:#888; font-size:13px">Sin foto</p>
+                    {% endif %}
+                    <div class="upload-area" style="margin-top:8px" onclick="document.getElementById('foto').click()">
+                        <p>📷 Cambiar foto</p>
+                    </div>
+                    <input type="file" id="foto" name="foto" accept="image/*" style="display:none" onchange="previewFoto(this)">
+                    <input type="hidden" name="foto_url" value="{{ moto.foto_url }}">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">💾 Guardar cambios</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        function previewFoto(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.querySelector('.preview')
+                        ? document.querySelector('.preview').src = e.target.result
+                        : null;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ moto.marca }} {{ moto.modelo }} — Universal Motors</title>
+    <meta name="description" content="{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }} en venta en Universal Motors, Bogotá. Consulta precio, kilometraje, fotos y disponibilidad.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }
+
+        /* Navegación (igual a catalogo.html) */
+        .navbar { background: #000000; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #ff7a00; }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: bold; text-decoration: none; }
+        .navbar .logo img { height: 42px; width: 42px; border-radius: 50%; }
+        .navbar .logo span { color: #ff7a00; }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a { color: #bbb; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+        .nav-links a:hover { color: #ff7a00; }
+        .nav-links a.active { color: #ff7a00; }
+        .nav-links .btn-nav { background: #ff7a00; color: #000; padding: 8px 18px; border-radius: 8px; font-weight: bold; }
+        .nav-links .btn-nav:hover { background: #ff9633; color: #000; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; }
+
+        /* Botón volver */
+        .volver { display: inline-flex; align-items: center; gap: 6px; color: #bbb; text-decoration: none; font-size: 14px; margin-bottom: 20px; transition: color 0.2s; }
+        .volver:hover { color: #ff7a00; }
+
+        /* Galería */
+        .galeria-principal {
+            width: 100%; height: 440px; border-radius: 16px; background: #0f0f0f;
+            border: 1px solid #2a2a2a; display: flex; align-items: center; justify-content: center;
+            font-size: 80px; overflow: hidden;
+        }
+        .galeria-principal img { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; cursor: pointer; }
+        .thumbnails { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .thumbnail {
+            width: 84px; height: 84px; object-fit: cover; border-radius: 10px; cursor: pointer;
+            border: 2px solid #2a2a2a; transition: border-color 0.2s;
+        }
+        .thumbnail.active { border-color: #ff7a00; }
+        .thumbnail:hover { border-color: #ff7a00; }
+
+        /* Info card */
+        .info-card { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 28px; margin-top: 28px; }
+        .moto-titulo { font-size: 26px; font-weight: bold; color: #f5f5f5; }
+        .moto-precio { font-size: 32px; color: #ff7a00; font-weight: bold; margin: 8px 0 16px; }
+
+        .badge { display: inline-block; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; border: 1px solid transparent; }
+        .badge-disponible { background: rgba(37,211,102,0.12); color: #4ee584; border-color: rgba(37,211,102,0.3); }
+        .badge-vendido { background: rgba(233,69,96,0.12); color: #ff6b81; border-color: rgba(233,69,96,0.3); }
+        .badge-reservado { background: rgba(255,122,0,0.12); color: #ffa64d; border-color: rgba(255,122,0,0.3); }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+        .info-item { background: #0f0f0f; border: 1px solid #2a2a2a; padding: 14px 16px; border-radius: 10px; }
+        .info-item label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
+        .info-item span { font-size: 15px; color: #e8e8e8; font-weight: bold; }
+
+        .descripcion { margin-top: 16px; padding: 16px; background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 10px; color: #bbb; font-size: 14px; line-height: 1.6; }
+
+        .acciones { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+        .btn { padding: 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 15px; font-weight: bold; text-decoration: none; display: inline-block; text-align: center; transition: all 0.2s; }
+        .acciones .btn { flex: 1; min-width: 140px; }
+        .btn-whatsapp { background: #25D366; color: #000; }
+        .btn-whatsapp:hover { background: #1ebe57; }
+        .btn-primary { background: #ff7a00; color: #000; }
+        .btn-primary:hover { background: #ff9633; }
+
+        /* Subir fotos (solo admin) */
+        .upload-card { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 28px; margin-top: 28px; }
+        .upload-card h3 { font-size: 16px; color: #f5f5f5; margin-bottom: 16px; }
+        .upload-area { border: 2px dashed #2a2a2a; border-radius: 10px; padding: 22px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+        .upload-area:hover { border-color: #ff7a00; }
+        .upload-area p { color: #bbb; }
+        input[type="file"] { display: none; }
+        .btn-full { width: 100%; padding: 13px; margin-top: 12px; font-size: 15px; }
+
+        /* Modal imagen grande */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal img { max-width: 90%; max-height: 90%; border-radius: 10px; }
+        .modal-close { position: absolute; top: 20px; right: 24px; color: white; font-size: 34px; cursor: pointer; }
+
+        /* Footer (igual a catalogo.html) */
+        .footer { background: #000000; color: #999; padding: 48px 24px 24px; border-top: 2px solid #ff7a00; margin-top: 40px; }
+        .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-bottom: 32px; }
+        .footer h4 { color: #ff7a00; font-size: 15px; margin-bottom: 14px; }
+        .footer a { color: #999; text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
+        .footer a:hover { color: #ff7a00; }
+        .footer p { font-size: 13px; line-height: 1.7; }
+        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid #222; font-size: 12px; }
+
+        @media (max-width: 600px) {
+            .galeria-principal { height: 280px; }
+            .moto-titulo { font-size: 22px; }
+            .moto-precio { font-size: 26px; }
+            .info-grid { grid-template-columns: 1fr; }
+            .nav-links { gap: 12px; }
+            .nav-links a:not(.btn-nav) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navegación -->
+    <nav class="navbar">
+        <a href="/inicio" class="logo">
+            <img src="/static/logo.png" alt="Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <div class="nav-links">
+            <a href="/inicio">Inicio</a>
+            <a href="/catalogo" class="active">Catálogo</a>
+            <a href="/privacidad">Privacidad</a>
+            <a href="https://wa.me/573204951482" class="btn-nav" target="_blank">💬 Escríbenos</a>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <!-- Volver -->
+        {% if es_admin %}
+            <a href="/" class="volver">← Volver al panel</a>
+        {% else %}
+            <a href="/catalogo" class="volver">← Volver al catálogo</a>
+        {% endif %}
+
+        <!-- Galería de fotos -->
+        <div class="galeria-principal" id="galeria-principal">
+            {% if fotos %}
+                <img src="{{ fotos[0].foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
+            {% elif moto.foto_url %}
+                <img src="{{ moto.foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
+            {% else %}
+                🏍️
+            {% endif %}
+        </div>
+
+        <!-- Thumbnails -->
+        <div class="thumbnails">
+            {% if moto.foto_url %}
+            <img src="{{ moto.foto_url }}" class="thumbnail active" onclick="cambiarFoto(this)">
+            {% endif %}
+            {% for foto in fotos %}
+            <img src="{{ foto.foto_url }}" class="thumbnail" onclick="cambiarFoto(this)">
+            {% endfor %}
+        </div>
+
+        <!-- Info de la moto -->
+        <div class="info-card">
+            <div class="moto-titulo">{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }}</div>
+            <div class="moto-precio">${{ "{:,}".format(moto.precio) }}</div>
+            <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Color</label>
+                    <span>🎨 {{ moto.color }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Kilometraje</label>
+                    <span>📍 {{ "{:,}".format(moto.kilometraje) }} km</span>
+                </div>
+                {% if moto.soat %}
+                <div class="info-item">
+                    <label>SOAT vigente hasta</label>
+                    <span>📋 {{ moto.soat }}</span>
+                </div>
+                {% endif %}
+                {% if moto.tecno %}
+                <div class="info-item">
+                    <label>Tecnomecánica hasta</label>
+                    <span>🔧 {{ moto.tecno }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if moto.descripcion %}
+            <div class="descripcion">📝 {{ moto.descripcion }}</div>
+            {% endif %}
+
+            <div class="acciones">
+                <a href="https://wa.me/573204951482?text=Hola,%20me%20interesa%20la%20{{ moto.marca }}%20{{ moto.modelo }}%20{{ moto.anio }}"
+                   class="btn btn-whatsapp" target="_blank">
+                    💬 Preguntar por esta moto
+                </a>
+                {% if es_admin %}
+                <a href="/editar/{{ moto.id }}" class="btn btn-primary">✏️ Editar</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Subir fotos adicionales (solo admin) -->
+        {% if es_admin %}
+        <div class="upload-card">
+            <h3>📷 Agregar fotos a la galería</h3>
+            <form method="POST" action="/moto/{{ moto.id }}/agregar-foto" enctype="multipart/form-data">
+                <div class="upload-area" onclick="document.getElementById('foto-nueva').click()">
+                    <p>📷 Toca aquí para subir una foto</p>
+                    <p style="font-size:12px; color:#888; margin-top:4px">JPG, PNG — máx 5MB</p>
+                </div>
+                <input type="file" id="foto-nueva" name="foto" accept="image/*">
+                <input type="hidden" name="orden" value="{{ fotos|length }}">
+                <button type="submit" class="btn btn-primary btn-full">➕ Agregar foto</button>
+            </form>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <h4>Universal Motors</h4>
+                <p>Compraventa de motocicletas, financiación y taller especializado en Bogotá, Colombia.</p>
+            </div>
+            <div>
+                <h4>Enlaces</h4>
+                <a href="/inicio">Inicio</a>
+                <a href="/catalogo">Catálogo</a>
+                <a href="/privacidad">Política de privacidad</a>
+                <a href="/terminos">Términos y condiciones</a>
+            </div>
+            <div>
+                <h4>Contacto</h4>
+                <p>📍 Av. 1 de Mayo #29c-35, Bogotá<br>
+                🕐 Lunes a sábado 9:30am - 6:30pm<br>
+                💬 WhatsApp: +57 320 495 1482</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            © 2026 Universal Motors. Todos los derechos reservados.
+        </div>
+    </footer>
+
+    <!-- Modal -->
+    <div class="modal" id="modal" onclick="cerrarModal()">
+        <span class="modal-close">✕</span>
+        <img id="modal-img" src="">
+    </div>
+
+    <script>
+        function cambiarFoto(thumb) {
+            document.getElementById('foto-principal').src = thumb.src;
+            document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
+            thumb.classList.add('active');
+        }
+
+        function abrirModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+    </script>
+
+</body>
+</html>

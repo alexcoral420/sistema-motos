@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo de Motos — Universal Motors</title>
+    <meta name="description" content="Catálogo de motocicletas usadas disponibles en Universal Motors, Bogotá. Filtra por precio y encuentra tu moto ideal.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }
+
+        /* Navegación (igual a home.html) */
+        .navbar { background: #000000; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #ff7a00; }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: bold; text-decoration: none; }
+        .navbar .logo img { height: 42px; width: 42px; border-radius: 50%; }
+        .navbar .logo span { color: #ff7a00; }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a { color: #bbb; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+        .nav-links a:hover { color: #ff7a00; }
+        .nav-links a.active { color: #ff7a00; }
+        .nav-links .btn-nav { background: #ff7a00; color: #000; padding: 8px 18px; border-radius: 8px; font-weight: bold; }
+        .nav-links .btn-nav:hover { background: #ff9633; color: #000; }
+
+        /* Header del catálogo (mini-hero) */
+        .catalogo-header { background: linear-gradient(160deg, #000000 0%, #1c1c1c 60%, #2a1a08 100%); padding: 56px 24px 40px; text-align: center; border-bottom: 1px solid #2a2a2a; }
+        .catalogo-header h1 { font-size: 34px; color: #f5f5f5; margin-bottom: 8px; }
+        .catalogo-header p { color: #aaa; font-size: 15px; }
+
+        .contador { text-align: center; padding: 20px 16px 8px; color: #999; font-size: 14px; }
+
+        /* Buscador */
+        .search-box { display: flex; justify-content: center; padding: 8px 20px 20px; }
+        .search-box input {
+            width: 100%; max-width: 420px; padding: 12px 20px;
+            background: #161616; border: 1px solid #2a2a2a; border-radius: 24px;
+            color: #e8e8e8; font-size: 14px; outline: none; transition: border-color 0.2s;
+        }
+        .search-box input::placeholder { color: #777; }
+        .search-box input:focus { border-color: #ff7a00; }
+
+        /* Filtros de precio */
+        .filtros { display: flex; gap: 10px; padding: 0 20px 32px; flex-wrap: wrap; justify-content: center; }
+        .filtro-btn {
+            padding: 9px 20px; border-radius: 20px; border: 1px solid #2a2a2a;
+            background: #161616; color: #bbb; cursor: pointer; font-size: 13px; font-weight: bold;
+            transition: all 0.2s;
+        }
+        .filtro-btn:hover { border-color: #ff7a00; color: #ff7a00; }
+        .filtro-btn.active { background: #ff7a00; color: #000; border-color: #ff7a00; }
+
+        .container { padding: 0 24px 60px; max-width: 1200px; margin: 0 auto; }
+
+        /* Grid — 3 columnas en pantallas grandes */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 28px; }
+        @media (min-width: 1000px) {
+            .grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* Tarjeta de moto */
+        .card {
+            background: #161616; border: 1px solid #2a2a2a; border-radius: 16px;
+            overflow: hidden; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { transform: translateY(-6px); border-color: #ff7a00; box-shadow: 0 12px 28px rgba(255,122,0,0.15); }
+        .card img { width: 100%; height: 230px; object-fit: cover; display: block; }
+        .card-no-img { width: 100%; height: 230px; background: #0f0f0f; display: flex; align-items: center; justify-content: center; font-size: 56px; }
+
+        .card-body { padding: 20px; }
+        .card-title { font-size: 19px; font-weight: bold; color: #f5f5f5; margin-bottom: 6px; }
+        .card-price { font-size: 26px; color: #ff7a00; font-weight: bold; margin-bottom: 14px; }
+
+        .card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(255,122,0,0.08); border: 1px solid #2a2a2a; color: #ccc;
+            padding: 5px 12px; border-radius: 14px; font-size: 12px;
+        }
+        .card-desc { font-size: 13px; color: #999; line-height: 1.5; margin-bottom: 16px; }
+
+        .card-btns { display: flex; flex-direction: column; gap: 10px; }
+        .btn-detalle {
+            display: block; padding: 11px; text-align: center; border-radius: 8px;
+            text-decoration: none; font-size: 14px; font-weight: bold;
+            border: 2px solid #c0c0c0; color: #e8e8e8; transition: all 0.2s;
+        }
+        .btn-detalle:hover { border-color: #ff7a00; color: #ff7a00; }
+        .btn-whatsapp {
+            display: block; padding: 11px; text-align: center; border-radius: 8px;
+            text-decoration: none; font-size: 14px; font-weight: bold;
+            background: #25D366; color: #000; transition: background 0.2s;
+        }
+        .btn-whatsapp:hover { background: #1ebe57; }
+
+        .empty { text-align: center; padding: 100px 20px; color: #888; }
+        .empty p:first-child { font-size: 56px; }
+        .empty p:last-child { font-size: 18px; margin-top: 16px; }
+
+        /* Footer (igual a home.html) */
+        .footer { background: #000000; color: #999; padding: 48px 24px 24px; border-top: 2px solid #ff7a00; margin-top: 40px; }
+        .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-bottom: 32px; }
+        .footer h4 { color: #ff7a00; font-size: 15px; margin-bottom: 14px; }
+        .footer a { color: #999; text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
+        .footer a:hover { color: #ff7a00; }
+        .footer p { font-size: 13px; line-height: 1.7; }
+        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid #222; font-size: 12px; }
+
+        @media (max-width: 600px) {
+            .catalogo-header h1 { font-size: 26px; }
+            .nav-links { gap: 12px; }
+            .nav-links a:not(.btn-nav) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navegación -->
+    <nav class="navbar">
+        <a href="/inicio" class="logo">
+            <img src="/static/logo.png" alt="Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <div class="nav-links">
+            <a href="/inicio">Inicio</a>
+            <a href="/catalogo" class="active">Catálogo</a>
+            <a href="/privacidad">Privacidad</a>
+            <a href="https://wa.me/573204951482" class="btn-nav" target="_blank">💬 Escríbenos</a>
+        </div>
+    </nav>
+
+    <!-- Header del catálogo -->
+    <div class="catalogo-header">
+        <h1>🏍️ Catálogo de Motos</h1>
+        <p>Encuentra tu moto ideal en Universal Motors</p>
+    </div>
+
+    <div class="contador">
+        <span id="contador">{{ motos|length }} motos disponibles</span>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="buscador" placeholder="🔍 Buscar por marca, modelo, color..." onkeyup="filtrar()">
+    </div>
+
+    <div class="filtros">
+        <button class="filtro-btn active" onclick="filtrarPrecio('todos')">Todas</button>
+        <button class="filtro-btn" onclick="filtrarPrecio('0-5000000')">Hasta $5M</button>
+        <button class="filtro-btn" onclick="filtrarPrecio('5000000-10000000')">$5M - $10M</button>
+        <button class="filtro-btn" onclick="filtrarPrecio('10000000-999999999')">Más de $10M</button>
+    </div>
+
+    <div class="container">
+        {% if motos %}
+        <div class="grid" id="grid-motos">
+            {% for moto in motos %}
+            <div class="card"
+                 data-marca="{{ moto.marca|lower }}"
+                 data-modelo="{{ moto.modelo|lower }}"
+                 data-color="{{ moto.color|lower }}"
+                 data-precio="{{ moto.precio }}">
+
+                <a href="/moto/{{ moto.id }}">
+                    {% if moto.foto_url %}
+                        <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}">
+                    {% else %}
+                        <div class="card-no-img">🏍️</div>
+                    {% endif %}
+                </a>
+
+                <div class="card-body">
+                    <a href="/moto/{{ moto.id }}" style="text-decoration:none">
+                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}</div>
+                    </a>
+                    <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
+
+                    <div class="card-tags">
+                        <span class="tag">📅 {{ moto.anio }}</span>
+                        <span class="tag">📍 {{ "{:,}".format(moto.kilometraje) }} km</span>
+                        <span class="tag">🎨 {{ moto.color }}</span>
+                        {% if moto.soat %}
+                        <span class="tag">📋 SOAT: {{ moto.soat }}</span>
+                        {% endif %}
+                        {% if moto.tecno %}
+                        <span class="tag">🔧 Tecno: {{ moto.tecno }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if moto.descripcion %}
+                    <div class="card-desc">📝 {{ moto.descripcion }}</div>
+                    {% endif %}
+
+                    <div class="card-btns">
+                        <a href="/moto/{{ moto.id }}" class="btn-detalle">🔍 Ver detalle y fotos</a>
+                        <a href="https://wa.me/573204951482?text=Hola,%20me%20interesa%20la%20{{ moto.marca }}%20{{ moto.modelo }}%20{{ moto.anio }}"
+                           class="btn-whatsapp" target="_blank">
+                            💬 Preguntar por esta moto
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">
+            <p>🏍️</p>
+            <p>No hay motos disponibles en este momento</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <h4>Universal Motors</h4>
+                <p>Compraventa de motocicletas, financiación y taller especializado en Bogotá, Colombia.</p>
+            </div>
+            <div>
+                <h4>Enlaces</h4>
+                <a href="/inicio">Inicio</a>
+                <a href="/catalogo">Catálogo</a>
+                <a href="/privacidad">Política de privacidad</a>
+                <a href="/terminos">Términos y condiciones</a>
+            </div>
+            <div>
+                <h4>Contacto</h4>
+                <p>📍 Av. 1 de Mayo #29c-35, Bogotá<br>
+                🕐 Lunes a sábado 9:30am - 6:30pm<br>
+                💬 WhatsApp: +57 320 495 1482</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            © 2026 Universal Motors. Todos los derechos reservados.
+        </div>
+    </footer>
+
+    <script>
+        function filtrar() {
+            const busqueda = document.getElementById('buscador').value.toLowerCase();
+            const cards = document.querySelectorAll('.card');
+            let visibles = 0;
+
+            cards.forEach(card => {
+                const texto = card.dataset.marca + ' ' + card.dataset.modelo + ' ' + card.dataset.color;
+                if (texto.includes(busqueda)) {
+                    card.style.display = 'block';
+                    visibles++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            document.getElementById('contador').textContent = visibles + ' motos disponibles';
+        }
+
+        function filtrarPrecio(rango) {
+            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const cards = document.querySelectorAll('.card');
+            let visibles = 0;
+
+            cards.forEach(card => {
+                const precio = parseInt(card.dataset.precio);
+                let mostrar = false;
+
+                if (rango === 'todos') {
+                    mostrar = true;
+                } else {
+                    const [min, max] = rango.split('-').map(Number);
+                    mostrar = precio >= min && precio <= max;
+                }
+
+                card.style.display = mostrar ? 'block' : 'none';
+                if (mostrar) visibles++;
+            });
+
+            document.getElementById('contador').textContent = visibles + ' motos disponibles';
+        }
+    </script>
+</body>
+</html>
