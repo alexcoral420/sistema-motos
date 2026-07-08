@@ -13,11 +13,13 @@ from flask import Blueprint, request, render_template, redirect, url_for, sessio
 
 from config import Config
 from app.auth.security import verificar_password
+from app.seguridad.limites import limiter
 
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute", methods=["POST"])
 def login():
     """
     GET  -> muestra el formulario de login.

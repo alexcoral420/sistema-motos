@@ -59,6 +59,11 @@ def create_app(nombre_config=None):
     clase_config = config_por_nombre[nombre_config]
     app.config.from_object(clase_config)
 
+    # Inicializar el rate limiter con esta app.
+    from app.seguridad.limites import limiter
+    limiter.init_app(app)
+    
+
     # 4. Registrar blueprints (las superficies de la app).
     # Todavía no existen; los iremos creando y descomentando uno a uno.
     # Cada blueprint es un grupo de rutas que vive en su propio archivo.
