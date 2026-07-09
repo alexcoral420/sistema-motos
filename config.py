@@ -48,6 +48,7 @@ class Config:
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
     PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
+    META_APP_SECRET = os.environ.get("META_APP_SECRET")
 
     # --- Seguridad de cookies de sesión (valores base, seguros) ---
     # Impide que JavaScript del navegador lea la cookie de sesión
