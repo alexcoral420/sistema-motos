@@ -33,57 +33,62 @@
     </div>
     <div class="container">
         <div class="card">
+            {% if error %}
+                <div style="background:#ffe6e6; border:1px solid #e94560; color:#c0392b; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px;">
+                    ⚠️ {{ error }}
+                </div>
+                {% endif %}
             <form method="POST" enctype="multipart/form-data">
                 <div class="row">
                     <div class="form-group">
                         <label>Marca *</label>
-                        <input type="text" name="marca" placeholder="Yamaha, Honda..." required>
+                       <input type="text" name="marca" placeholder="Yamaha, Honda..." value="{{ datos.marca if datos else '' }}" required>
                     </div>
                     <div class="form-group">
                         <label>Modelo *</label>
-                        <input type="text" name="modelo" placeholder="FZ, CB125..." required>
+                        <input type="text" name="modelo" placeholder="FZ, CB125..." value="{{ datos.modelo if datos else '' }}" required>
                     </div>
                 </div>
                 <div class="row">
                     <div class="form-group">
                         <label>Año *</label>
-                        <input type="number" name="anio" placeholder="2022" min="1990" max="2026" required>
+                        <input type="number" name="anio" placeholder="2022" min="1990" max="2026" value="{{ datos.anio if datos else '' }}" required>
                     </div>
                     <div class="form-group">
                         <label>Color *</label>
-                        <input type="text" name="color" placeholder="Rojo, Negro..." required>
+                        <input type="text" name="color" placeholder="Rojo, Negro..." value="{{ datos.color if datos else '' }}" required>
                     </div>
                 </div>
                     <div class="row">
                     <div class="form-group">
                     <label>Placa</label>
-                     <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase">
+                     <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase" value="{{ datos.placa if datos else '' }}">
                      </div>
                         </div>
                 
                 <div class="row">
                     <div class="form-group">
                         <label>Precio (COP) *</label>
-                        <input type="number" name="precio" placeholder="8500000" required>
+                        <input type="number" name="precio" placeholder="8500000" value="{{ datos.precio if datos else '' }}" required>
                     </div>
                     <div class="form-group">
                         <label>Kilometraje *</label>
-                        <input type="number" name="kilometraje" placeholder="12000" required>
+                        <input type="number" name="kilometraje" placeholder="12000" value="{{ datos.kilometraje if datos else '' }}" required>
                     </div>
                 </div>
                 <div class="row">
                     <div class="form-group">
                         <label>Vencimiento SOAT</label>
-                        <input type="date" name="soat">
+                        <input type="date" name="soat" value="{{ datos.soat if datos else '' }}">
                     </div>
                     <div class="form-group">
                         <label>Vencimiento Tecnomecánica</label>
-                        <input type="date" name="tecno">
+                        <input type="date" name="tecno" value="{{ datos.tecno if datos else '' }}">
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Descripción</label>
-                    <textarea name="descripcion" rows="3" placeholder="Estado general, extras, observaciones..."></textarea>
+                    <textarea name="descripcion" rows="3" placeholder="Estado general, extras, observaciones...">{{ datos.descripcion if datos else '' }}</textarea>
                 </div>
                 <div class="form-group">
                     <label>Foto</label>
