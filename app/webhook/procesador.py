@@ -22,7 +22,8 @@ en bucle. "Fallar de forma controlada", no "reventar".
 
 # Versiones reales (se reactivan al conectar base de datos e IA):
 # from app.servicios import crm, ia, mensajeria
-
+from app.seguridad import validadores
+from app.seguridad.validadores import ErrorValidacion
 
 def procesar_mensaje(numero: str, texto: str) -> dict:
     """
@@ -41,9 +42,19 @@ def procesar_mensaje(numero: str, texto: str) -> dict:
     """
     # Validación mínima de entrada: sin número o sin texto, no hay nada
     # que procesar. Rechazo controlado (no es un error, es un no-op).
-    if not numero or not texto:
-        return {"ok": False, "motivo": "mensaje vacío o incompleto"}
-
+    # Validación de entrada externa (vulnerabilidad #6).
+    # El webhook recibe datos de un bot, no de una persona: si algo llega
+    # malformado, se descarta de forma controlada, sin procesar y sin
+    # exponer errores. No hay "usuario" a quien mostrarle un mensaje.
+    try:
+        numero = validadores.validar_telefono(numero, "número")
+        texto = validadores.validar_texto(
+            texto, "texto", min_len=1, max_len=4000)
+    except ErrorValidacion as e:
+        # Mensaje inválido: lo registramos para nosotros y lo descartamos.
+        # (Más adelante esto irá al log de auditoría, no a print.)
+        print(f"[webhook] Mensaje descartado por validación: {e.mensaje}")
+        return {"ok": False, "motivo": "entrada inválida"}
     try:
         # --- Paso 1: registrar/actualizar el cliente ---
         # Versión real:

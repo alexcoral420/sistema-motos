@@ -84,31 +84,56 @@ def agregar():
             )
 
     return render_template("agregar.html")
-
-
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])
 @requiere_login
 def editar(id):
-    """Formulario para editar una moto existente."""
+    """Formulario para editar una moto existente, con validación de entrada."""
     if request.method == "POST":
-        datos = {
-            "marca": request.form.get("marca"),
-            "modelo": request.form.get("modelo"),
-            "anio": int(request.form.get("anio")),
-            "color": request.form.get("color"),
-            "precio": int(request.form.get("precio")),
-            "kilometraje": int(request.form.get("kilometraje")),
-            "estado": request.form.get("estado"),
-            "descripcion": request.form.get("descripcion", ""),
-            "soat": request.form.get("soat") or None,
-            "tecno": request.form.get("tecno") or None,
-            "placa": (request.form.get("placa", "") or "").upper() or None,
-        }
-        inventario.actualizar_moto(id, datos)
-        return redirect(url_for("admin.index"))
+        try:
+            datos = {
+                "marca": validadores.validar_texto(
+                    request.form.get("marca"), "marca", min_len=1, max_len=50),
+                "modelo": validadores.validar_texto(
+                    request.form.get("modelo"), "modelo", min_len=1, max_len=50),
+                "anio": validadores.validar_entero(
+                    request.form.get("anio"), "año", minimo=1950, maximo=2100),
+                "color": validadores.validar_texto(
+                    request.form.get("color"), "color", min_len=1, max_len=30),
+                "precio": validadores.validar_entero(
+                    request.form.get("precio"), "precio", minimo=0, maximo=999999999),
+                "kilometraje": validadores.validar_entero(
+                    request.form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
+                "estado": validadores.validar_opcion(
+                    request.form.get("estado"), "estado",
+                    opciones_validas=["disponible", "reservado", "vendido"]),
+                "descripcion": validadores.validar_texto(
+                    request.form.get("descripcion"), "descripción",
+                    max_len=1000, obligatorio=False) or "",
+                "soat": validadores.validar_texto(
+                    request.form.get("soat"), "soat", max_len=20, obligatorio=False),
+                "tecno": validadores.validar_texto(
+                    request.form.get("tecno"), "tecno", max_len=20, obligatorio=False),
+                "placa": validadores.validar_texto(
+                    request.form.get("placa"), "placa", max_len=10, obligatorio=False),
+            }
+            if datos["placa"]:
+                datos["placa"] = datos["placa"].upper()
+
+            inventario.actualizar_moto(id, datos)
+            return redirect(url_for("admin.index"))
+
+        except ErrorValidacion as e:
+            return render_template(
+                "editar.html",
+                error=e.mensaje,
+                moto=request.form,
+                id=id,
+            )
 
     moto = inventario.obtener_moto(id)
-    return render_template("editar.html", moto=moto)
+    return render_template("editar.html", moto=moto, id=id)
+
+
 
 
 @admin_bp.route("/vender/<int:id>")
