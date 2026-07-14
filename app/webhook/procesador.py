@@ -24,6 +24,7 @@ en bucle. "Fallar de forma controlada", no "reventar".
 # from app.servicios import crm, ia, mensajeria
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
+from app.seguridad.logging_config import obtener_logger
 
 def procesar_mensaje(numero: str, texto: str) -> dict:
     """
@@ -51,9 +52,9 @@ def procesar_mensaje(numero: str, texto: str) -> dict:
         texto = validadores.validar_texto(
             texto, "texto", min_len=1, max_len=4000)
     except ErrorValidacion as e:
-        # Mensaje inválido: lo registramos para nosotros y lo descartamos.
-        # (Más adelante esto irá al log de auditoría, no a print.)
-        print(f"[webhook] Mensaje descartado por validación: {e.mensaje}")
+        # Mensaje inválido: lo registramos y lo descartamos.
+        log = obtener_logger()
+        log.warning("Webhook: mensaje descartado por validación (%s).", e.mensaje)
         return {"ok": False, "motivo": "entrada inválida"}
     try:
         # --- Paso 1: registrar/actualizar el cliente ---
@@ -88,9 +89,9 @@ def procesar_mensaje(numero: str, texto: str) -> dict:
         return {"ok": True, "respuesta": respuesta}
 
     except Exception as e:
-        # Fallo controlado: registramos el error para nosotros, pero NO
-        # lo dejamos escapar. La ruta responderá "recibido" al proveedor
-        # igualmente, evitando reintentos en bucle.
-        # (Más adelante esto irá a un log de auditoría real, no a print.)
-        print(f"[ERROR webhook] {type(e).__name__}: {e}")
+        # Fallo controlado: lo registramos como ERROR pero NO lo dejamos
+        # escapar. La ruta responderá "recibido" al proveedor igualmente,
+        # evitando reintentos en bucle.
+        log = obtener_logger()
+        log.error("Webhook: error interno controlado (%s: %s).", type(e).__name__, e)
         return {"ok": False, "motivo": "error interno controlado"}

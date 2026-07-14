@@ -14,6 +14,7 @@ from flask import Blueprint, request, render_template, redirect, url_for, sessio
 from config import Config
 from app.auth.security import verificar_password
 from app.seguridad.limites import limiter
+from app.seguridad.logging_config import obtener_logger
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -35,15 +36,16 @@ def login():
         usuario_ok = usuario == Config.ADMIN_USUARIO
         password_ok = verificar_password(Config.ADMIN_PASSWORD_HASH, password)
 
+        log = obtener_logger()
         if usuario_ok and password_ok:
-            # Credenciales correctas: marcamos la sesión como iniciada.
+            # Login exitoso: evento normal, nivel INFO.
             session["logueado"] = True
-            # Al panel admin. Ese blueprint lo crearemos en la fase admin;
-            # por ahora apuntamos a su futura ruta de inicio.
+            log.info("Login exitoso para el usuario '%s'.", usuario)
             return redirect(url_for("admin.index"))
         else:
-            # Credenciales incorrectas: mismo mensaje para usuario o
-            # contraseña mal (no revelamos cuál de los dos falló).
+            # Login fallido: evento sospechoso, nivel WARNING.
+            # Registramos el USUARIO intentado, NUNCA la contraseña.
+            log.warning("Login fallido para el usuario '%s'.", usuario)
             return render_template("login.html", error="Usuario o contraseña incorrectos")
 
     # GET: primera visita al formulario.

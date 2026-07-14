@@ -20,6 +20,7 @@ from config import Config
 from app.seguridad.limites import limiter
 from app.webhook.verificacion import verificar_firma_twilio, verificar_firma_meta
 from app.webhook.procesador import procesar_mensaje
+from app.seguridad.logging_config import obtener_logger
 
 webhook_bp = Blueprint("webhook", __name__)
 
@@ -72,7 +73,10 @@ def recibir():
         firma = request.headers.get("X-Hub-Signature-256", "")
 
         # >>> VERIFICACIÓN DE FIRMA (antes de procesar nada) <
+        # >>> VERIFICACIÓN DE FIRMA (antes de procesar nada) <
         if not verificar_firma_meta(cuerpo_bruto, firma):
+            log = obtener_logger()
+            log.warning("Webhook: firma Meta inválida rechazada (posible intento no autenticado).")
             return "Firma inválida", 403
 
         # Firma válida: ahora sí parseamos el JSON de Meta.
@@ -90,7 +94,10 @@ def recibir():
         firma = request.headers.get("X-Twilio-Signature", "")
 
         # >>> VERIFICACIÓN DE FIRMA (antes de procesar nada) <
+        # >>> VERIFICACIÓN DE FIRMA (antes de procesar nada) <
         if not verificar_firma_twilio(url, datos_form, firma):
+            log = obtener_logger()
+            log.warning("Webhook: firma Twilio inválida rechazada (posible intento no autenticado).")
             return "Firma inválida", 403
 
         numero = request.form.get("From", "").replace("whatsapp:", "")

@@ -62,6 +62,10 @@ def create_app(nombre_config=None):
     # Inicializar el rate limiter con esta app.
     from app.seguridad.limites import limiter
     limiter.init_app(app)
+
+    # Inicializar el logging de auditoría con esta app.
+    from app.seguridad.logging_config import configurar_logging
+    configurar_logging(app)
     
 
     # 4. Registrar blueprints (las superficies de la app).

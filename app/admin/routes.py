@@ -21,7 +21,7 @@ from app.auth.decorators import requiere_login
 
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
-
+from app.seguridad.logging_config import obtener_logger
 admin_bp = Blueprint("admin", __name__)
 
 
@@ -71,6 +71,8 @@ def agregar():
                 datos["placa"] = datos["placa"].upper()
 
             inventario.agregar_moto(datos)
+            obtener_logger().info(
+                "Admin: moto agregada (%s %s).", datos["marca"], datos["modelo"])
             return redirect(url_for("admin.index"))
 
         except ErrorValidacion as e:
@@ -120,6 +122,7 @@ def editar(id):
                 datos["placa"] = datos["placa"].upper()
 
             inventario.actualizar_moto(id, datos)
+            obtener_logger().info("Admin: moto id=%s actualizada.", id)
             return redirect(url_for("admin.index"))
 
         except ErrorValidacion as e:
@@ -141,6 +144,7 @@ def editar(id):
 def vender(id):
     """Marca una moto como vendida."""
     inventario.marcar_vendida(id)
+    obtener_logger().info("Admin: moto id=%s marcada como vendida.", id)
     return redirect(url_for("admin.index"))
 
 
@@ -149,6 +153,7 @@ def vender(id):
 def eliminar(id):
     """Elimina una moto."""
     inventario.eliminar_moto(id)
+    obtener_logger().warning("Admin: moto id=%s eliminada.", id)
     return redirect(url_for("admin.index"))
 
 
