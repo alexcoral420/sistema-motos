@@ -170,18 +170,17 @@
                     <a href="/moto/{{ moto.id }}" style="text-decoration:none">
                         <div class="card-title">{{ moto.marca }} {{ moto.modelo }}</div>
                     </a>
+                    {% if moto.precio %}
                     <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
+                        {% else %}
+                            <div class="card-price" style="font-size:18px">Consultar precio</div>
+                                {% endif %}
 
                     <div class="card-tags">
-                        <span class="tag">📅 {{ moto.anio }}</span>
-                        <span class="tag">📍 {{ "{:,}".format(moto.kilometraje) }} km</span>
-                        <span class="tag">🎨 {{ moto.color }}</span>
-                        {% if moto.soat %}
-                        <span class="tag">📋 SOAT: {{ moto.soat }}</span>
-                        {% endif %}
-                        {% if moto.tecno %}
-                        <span class="tag">🔧 Tecno: {{ moto.tecno }}</span>
-                        {% endif %}
+                        {% if moto.anio %}<span class="tag">📅 {{ moto.anio }}</span>{% endif %}
+                        {% if moto.kilometraje %}<span class="tag">📍 {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
+                        {% if moto.color %}<span class="tag">🎨 {{ moto.color }}</span>{% endif %}
+                        {% if moto.cilindraje %}<span class="tag">⚙️ {{ moto.cilindraje }}cc</span>{% endif %}
                     </div>
 
                     {% if moto.descripcion %}

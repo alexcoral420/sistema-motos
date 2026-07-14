@@ -150,7 +150,11 @@
         <!-- Info de la moto -->
         <div class="info-card">
             <div class="moto-titulo">{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }}</div>
+            {% if moto.precio %}
             <div class="moto-precio">${{ "{:,}".format(moto.precio) }}</div>
+                {% else %}
+                    <div class="moto-precio" style="font-size:22px">Consultar precio</div>
+                        {% endif %}
             <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
 
             <div class="info-grid">
@@ -158,22 +162,20 @@
                     <label>Color</label>
                     <span>🎨 {{ moto.color }}</span>
                 </div>
+                {% if moto.kilometraje %}
                 <div class="info-item">
                     <label>Kilometraje</label>
                     <span>📍 {{ "{:,}".format(moto.kilometraje) }} km</span>
                 </div>
-                {% if moto.soat %}
+                {% endif %}
+                
+                {% if moto.color %}
                 <div class="info-item">
-                    <label>SOAT vigente hasta</label>
-                    <span>📋 {{ moto.soat }}</span>
+                    <label>Color</label>
+                    <span>🎨 {{ moto.color }}</span>
                 </div>
                 {% endif %}
-                {% if moto.tecno %}
-                <div class="info-item">
-                    <label>Tecnomecánica hasta</label>
-                    <span>🔧 {{ moto.tecno }}</span>
-                </div>
-                {% endif %}
+        
             </div>
 
             {% if moto.descripcion %}

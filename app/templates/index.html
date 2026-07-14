@@ -81,13 +81,13 @@
                 {% endif %}
                 <div class="card-body">
                     <div class="card-title">{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }}</div>
-                    <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
+                    {% if moto.precio %}<div class="card-price">${{ "{:,}".format(moto.precio) }}</div>{% else %}<div class="card-price">Sin precio</div>{% endif %}
                     <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
                     <div class="card-info">🎨 {{ moto.color }}</div>
                     {% if moto.placa %}
                     <div class="card-info" style="font-weight:bold; color:#1a1a2e;">🔖 Placa: {{ moto.placa }}</div>
                     {% endif %}
-                    <div class="card-info">📍 {{ "{:,}".format(moto.kilometraje) }} km</div>
+                    {% if moto.kilometraje %}<div class="card-info">📍 {{ "{:,}".format(moto.kilometraje) }} km</div>{% endif %}
                     {% if moto.soat %}
                     <div class="card-info">📋 SOAT: {{ moto.soat }}</div>
                     {% endif %}
