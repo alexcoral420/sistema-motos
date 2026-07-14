@@ -14,19 +14,30 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import Blueprint, request, render_template, redirect, url_for
+from flask import Blueprint, request, render_template, redirect, url_for, session
 
 from app.servicios import inventario
-from app.auth.decorators import requiere_login
+
 
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
 admin_bp = Blueprint("admin", __name__)
 
+@admin_bp.before_request
+def proteger_todo_el_panel():
+    """
+    Se ejecuta ANTES de cada petición a CUALQUIER ruta de este blueprint.
+    Si no hay sesión, registra el intento y redirige al login.
+    """
+    if "logueado" not in session:
+        obtener_logger().warning(
+            "Acceso denegado a ruta de admin sin sesión: %s", request.path)
+        return redirect(url_for("auth.login"))
+
 
 @admin_bp.route("/")
-@requiere_login
+
 def index():
     """Panel principal: lista todas las motos."""
     motos = inventario.listar_todas_las_motos()
@@ -34,7 +45,7 @@ def index():
 
 
 @admin_bp.route("/agregar", methods=["GET", "POST"])
-@requiere_login
+
 def agregar():
     """Formulario para agregar una moto nueva, con validación de entrada."""
     if request.method == "POST":
@@ -87,7 +98,7 @@ def agregar():
 
     return render_template("agregar.html")
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])
-@requiere_login
+
 def editar(id):
     """Formulario para editar una moto existente, con validación de entrada."""
     if request.method == "POST":
@@ -140,7 +151,7 @@ def editar(id):
 
 
 @admin_bp.route("/vender/<int:id>")
-@requiere_login
+
 def vender(id):
     """Marca una moto como vendida."""
     inventario.marcar_vendida(id)
@@ -149,7 +160,7 @@ def vender(id):
 
 
 @admin_bp.route("/eliminar/<int:id>")
-@requiere_login
+
 def eliminar(id):
     """Elimina una moto."""
     inventario.eliminar_moto(id)
@@ -158,7 +169,7 @@ def eliminar(id):
 
 
 @admin_bp.route("/admin/moto/<int:id>")
-@requiere_login
+
 def detalle_moto_admin(id):
     """Detalle de una moto en vista admin (es_admin=True)."""
     moto = inventario.obtener_moto(id)
