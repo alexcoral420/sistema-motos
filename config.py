@@ -33,6 +33,7 @@ class Config:
     # --- Credenciales externas (todas leídas del .env) ---
     SUPABASE_URL = os.environ.get("SUPABASE_URL")
     SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+    SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
     TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")

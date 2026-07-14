@@ -17,7 +17,7 @@ Vamos migrando por partes. De momento: LECTURA de motos, que es lo que
 necesitan las rutas públicas. Escritura, CRM y archivos vendrán después.
 """
 
-from app.db.cliente import get_supabase
+from app.db.cliente import get_supabase_publico, get_supabase_admin
 
 
 # ============================================================
@@ -26,7 +26,7 @@ from app.db.cliente import get_supabase
 
 def obtener_motos_disponibles():
     """Todas las motos con estado 'disponible' (para el catálogo público)."""
-    supabase = get_supabase()
+    supabase = get_supabase_publico()
     resultado = supabase.table("motos")\
         .select("*")\
         .eq("estado", "disponible")\
@@ -36,7 +36,7 @@ def obtener_motos_disponibles():
 
 def obtener_todas_las_motos():
     """Todas las motos, más recientes primero (para el panel admin)."""
-    supabase = get_supabase()
+    supabase = get_supabase_publico()
     resultado = supabase.table("motos")\
         .select("*")\
         .order("created_at", desc=True)\
@@ -46,7 +46,7 @@ def obtener_todas_las_motos():
 
 def obtener_moto_por_id(id: int):
     """Una moto por su id, o None si no existe."""
-    supabase = get_supabase()
+    supabase = get_supabase_publico()
     resultado = supabase.table("motos")\
         .select("*")\
         .eq("id", id)\
@@ -56,7 +56,7 @@ def obtener_moto_por_id(id: int):
 
 def obtener_fotos_moto(moto_id: int):
     """Fotos de galería de una moto, ordenadas por el campo 'orden'."""
-    supabase = get_supabase()
+    supabase = get_supabase_publico()
     resultado = supabase.table("fotos_motos")\
         .select("*")\
         .eq("moto_id", moto_id)\
@@ -70,7 +70,7 @@ def obtener_fotos_moto(moto_id: int):
 
 def agregar_moto(datos: dict):
     """Inserta una moto nueva."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     resultado = supabase.table("motos")\
         .insert(datos)\
         .execute()
@@ -79,7 +79,7 @@ def agregar_moto(datos: dict):
 
 def actualizar_moto(id: int, datos: dict):
     """Actualiza una moto por su id."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     resultado = supabase.table("motos")\
         .update(datos)\
         .eq("id", id)\
@@ -98,7 +98,7 @@ def eliminar_moto(moto_id: int) -> bool:
     galería y video), igual que la versión de producción. El borrado
     de la fila en fotos_motos lo hace el 'on delete cascade' de la tabla.
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # 1. Traer la moto para conocer sus archivos.
     moto = supabase.table("motos")\
