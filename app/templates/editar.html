@@ -87,6 +87,17 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Sede *</label>
+                    <select name="sede_id" required>
+                        {% for sede in sedes %}
+                        <option value="{{ sede.id }}"
+                            {% if moto.sede_id|string == sede.id|string %}selected{% endif %}>
+                            {{ sede.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Estado</label>
                     <select name="estado">
                         <option value="disponible" {% if moto.estado == 'disponible' %}selected{% endif %}>Disponible</option>

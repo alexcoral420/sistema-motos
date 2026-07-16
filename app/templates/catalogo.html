@@ -181,8 +181,9 @@
                         {% if moto.kilometraje %}<span class="tag">📍 {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
                         {% if moto.color %}<span class="tag">🎨 {{ moto.color }}</span>{% endif %}
                         {% if moto.cilindraje %}<span class="tag">⚙️ {{ moto.cilindraje }}cc</span>{% endif %}
+                        {% if moto.sedes %}<span class="tag">🏢 {{ moto.sedes.nombre }}</span>{% endif %}
                     </div>
-
+                    
                     {% if moto.descripcion %}
                     <div class="card-desc">📝 {{ moto.descripcion }}</div>
                     {% endif %}
