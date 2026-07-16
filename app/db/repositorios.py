@@ -25,10 +25,17 @@ from app.db.cliente import get_supabase_publico, get_supabase_admin
 # ============================================================
 
 def obtener_motos_disponibles():
-    """Todas las motos con estado 'disponible' (para el catálogo público)."""
+    """
+    Motos disponibles, con los datos de su sede incluidos.
+
+    El 'sedes(nombre, direccion)' dentro del select aprovecha la clave
+    foránea: Supabase trae la sede relacionada en la misma consulta,
+    sin necesidad de una segunda llamada por cada moto. Cada moto
+    llegará con un campo 'sedes' que contiene esos datos.
+    """
     supabase = get_supabase_publico()
     resultado = supabase.table("motos")\
-        .select("*")\
+        .select("*, sedes(nombre, direccion)")\
         .eq("estado", "disponible")\
         .execute()
     return resultado.data
@@ -45,10 +52,10 @@ def obtener_todas_las_motos():
 
 
 def obtener_moto_por_id(id: int):
-    """Una moto por su id, o None si no existe."""
+    """Una moto por su id, con los datos de su sede."""
     supabase = get_supabase_publico()
     resultado = supabase.table("motos")\
-        .select("*")\
+        .select("*, sedes(nombre, direccion)")\
         .eq("id", id)\
         .execute()
     return resultado.data[0] if resultado.data else None
@@ -182,3 +189,27 @@ def contar_fotos_galeria(moto_id: int) -> int:
         .eq("moto_id", moto_id)\
         .execute()
     return len(resultado.data)
+
+    # ============================================================
+#  SEDES
+# ============================================================
+
+def obtener_sedes_activas():
+    """Sedes activas, para los selectores y el catálogo público."""
+    supabase = get_supabase_publico()
+    resultado = supabase.table("sedes")\
+        .select("*")\
+        .eq("activa", True)\
+        .order("id")\
+        .execute()
+    return resultado.data
+
+
+def obtener_sede_por_id(id: int):
+    """Una sede por su id, o None si no existe."""
+    supabase = get_supabase_publico()
+    resultado = supabase.table("sedes")\
+        .select("*")\
+        .eq("id", id)\
+        .execute()
+    return resultado.data[0] if resultado.data else None

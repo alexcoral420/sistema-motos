@@ -158,29 +158,57 @@
             <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
 
             <div class="info-grid">
-                <div class="info-item">
-                    <label>Color</label>
-                    <span>🎨 {{ moto.color }}</span>
-                </div>
-                {% if moto.kilometraje %}
-                <div class="info-item">
-                    <label>Kilometraje</label>
-                    <span>📍 {{ "{:,}".format(moto.kilometraje) }} km</span>
-                </div>
-                {% endif %}
-                
                 {% if moto.color %}
                 <div class="info-item">
                     <label>Color</label>
                     <span>🎨 {{ moto.color }}</span>
                 </div>
                 {% endif %}
-        
+
+                {% if moto.kilometraje %}
+                <div class="info-item">
+                    <label>Kilometraje</label>
+                    <span>📍 {{ "{:,}".format(moto.kilometraje) }} km</span>
+                </div>
+                {% endif %}
+
+                {% if moto.cilindraje %}
+                <div class="info-item">
+                    <label>Cilindraje</label>
+                    <span>⚙️ {{ moto.cilindraje }}cc</span>
+                </div>
+                {% endif %}
+
+                {% if moto.sedes %}
+                <div class="info-item">
+                    <label>Disponible en</label>
+                    <span>🏢 {{ moto.sedes.nombre }}</span>
+                </div>
+                {% endif %}
+
+                {% if moto.descripcion %}
+                <div class="descripcion">📝 {{ moto.descripcion }}</div>
+                {% endif %}
+
+                {% if moto.soat %}
+                <div class="info-item">
+                    <label>SOAT vigente hasta</label>
+                    <span>📋 {{ moto.soat }}</span>
+                </div>
+                {% endif %}
+            
+
+                {% if moto.tecno %}
+                <div class="info-item">
+                    <label>Tecnomecánica hasta</label>
+                    <span>🔧 {{ moto.tecno }}</span>
+                </div>
+                {% endif %}
             </div>
 
-            {% if moto.descripcion %}
-            <div class="descripcion">📝 {{ moto.descripcion }}</div>
-            {% endif %}
+                    
+
+            
 
             <div class="acciones">
                 <a href="https://wa.me/573204951482?text=Hola,%20me%20interesa%20la%20{{ moto.marca }}%20{{ moto.modelo }}%20{{ moto.anio }}"

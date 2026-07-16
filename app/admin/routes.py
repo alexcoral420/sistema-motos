@@ -18,7 +18,7 @@ from flask import Blueprint, request, render_template, redirect, url_for, sessio
 
 from app.servicios import inventario
 
-
+from app.servicios import sedes
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
@@ -67,6 +67,8 @@ def agregar():
                 "kilometraje": validadores.validar_entero(
                     request.form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
                 "estado": "disponible",
+                "sede_id": validadores.validar_entero(
+                    request.form.get("sede_id"), "sede", minimo=1),
                 "descripcion": validadores.validar_texto(
                     request.form.get("descripcion"), "descripción",
                     max_len=1000, obligatorio=False) or "",
@@ -77,6 +79,10 @@ def agregar():
                 "placa": validadores.validar_texto(
                     request.form.get("placa"), "placa", max_len=10, obligatorio=False),
             }
+            # Lista blanca DINÁMICA: la sede debe existir de verdad en la
+            # base. Si mañana agregas una sede, se acepta sola.
+            if str(datos["sede_id"]) not in sedes.ids_validos():
+                raise ErrorValidacion("La sede seleccionada no es válida.", "sede")
             # La placa, si vino, la normalizamos a mayúsculas.
             if datos["placa"]:
                 datos["placa"] = datos["placa"].upper()
@@ -87,16 +93,14 @@ def agregar():
             return redirect(url_for("admin.index"))
 
         except ErrorValidacion as e:
-            # Entrada inválida: volvemos al formulario con el mensaje
-            # de error Y con los datos que el usuario ya había escrito,
-            # para que no tenga que llenarlo todo de nuevo.
             return render_template(
                 "agregar.html",
                 error=e.mensaje,
                 datos=request.form,
+                sedes=sedes.listar_sedes(),
             )
 
-    return render_template("agregar.html")
+    return render_template("agregar.html", sedes=sedes.listar_sedes())
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])
 
 def editar(id):
@@ -119,6 +123,8 @@ def editar(id):
                 "estado": validadores.validar_opcion(
                     request.form.get("estado"), "estado",
                     opciones_validas=["disponible", "reservado", "vendido"]),
+                    "sede_id": validadores.validar_entero(
+                    request.form.get("sede_id"), "sede", minimo=1),
                 "descripcion": validadores.validar_texto(
                     request.form.get("descripcion"), "descripción",
                     max_len=1000, obligatorio=False) or "",
@@ -129,6 +135,8 @@ def editar(id):
                 "placa": validadores.validar_texto(
                     request.form.get("placa"), "placa", max_len=10, obligatorio=False),
             }
+            if str(datos["sede_id"]) not in sedes.ids_validos():
+                raise ErrorValidacion("La sede seleccionada no es válida.", "sede")
             if datos["placa"]:
                 datos["placa"] = datos["placa"].upper()
 
@@ -142,10 +150,11 @@ def editar(id):
                 error=e.mensaje,
                 moto=request.form,
                 id=id,
+                sedes=sedes.listar_sedes(),
             )
 
     moto = inventario.obtener_moto(id)
-    return render_template("editar.html", moto=moto, id=id)
+    return render_template("editar.html", moto=moto, id=id, sedes=sedes.listar_sedes())
 
 
 
