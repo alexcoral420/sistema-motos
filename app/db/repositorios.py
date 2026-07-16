@@ -135,3 +135,50 @@ def eliminar_moto(moto_id: int) -> bool:
         .execute()
 
     return True
+
+    # ============================================================
+#  STORAGE (bucket "motos")
+# ============================================================
+
+def subir_archivo(path: str, contenido: bytes, content_type: str) -> str:
+    """
+    Sube un archivo al bucket 'motos' y devuelve su URL pública.
+
+    path: ruta/nombre dentro del bucket (ya generado de forma segura).
+    contenido: los bytes del archivo (ya validados por magic bytes).
+    content_type: el tipo REAL detectado, no el declarado por el cliente.
+
+    Usa la conexión ADMIN porque subir es una operación de escritura,
+    permitida solo desde el panel protegido por login.
+    """
+    supabase = get_supabase_admin()
+    supabase.storage.from_("motos").upload(
+        path=path,
+        file=contenido,
+        file_options={"content-type": content_type},
+    )
+    return supabase.storage.from_("motos").get_public_url(path)
+
+
+def agregar_foto_galeria(moto_id: int, foto_url: str, foto_path: str, orden: int = 0):
+    """Registra una foto de galería en la tabla fotos_motos."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("fotos_motos")\
+        .insert({
+            "moto_id": moto_id,
+            "foto_url": foto_url,
+            "foto_path": foto_path,
+            "orden": orden,
+        })\
+        .execute()
+    return resultado.data
+
+
+def contar_fotos_galeria(moto_id: int) -> int:
+    """Cuántas fotos de galería tiene ya una moto (para calcular el orden)."""
+    supabase = get_supabase_publico()
+    resultado = supabase.table("fotos_motos")\
+        .select("id")\
+        .eq("moto_id", moto_id)\
+        .execute()
+    return len(resultado.data)

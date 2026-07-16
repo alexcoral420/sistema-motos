@@ -169,9 +169,34 @@ def eliminar(id):
 
 
 @admin_bp.route("/admin/moto/<int:id>")
-
 def detalle_moto_admin(id):
     """Detalle de una moto en vista admin (es_admin=True)."""
     moto = inventario.obtener_moto(id)
     fotos = inventario.obtener_galeria(id)
     return render_template("detalle.html", moto=moto, fotos=fotos, es_admin=True)
+
+@admin_bp.route("/moto/<int:id>/subir-fotos", methods=["POST"])
+def subir_fotos(id):
+    """
+    Sube VARIAS fotos de una moto de una sola vez.
+
+    Protegida automáticamente por el before_request del blueprint
+    (no necesita decorador: el guardián de la entrada ya la cubre).
+
+    request.files.getlist("fotos") devuelve TODOS los archivos que el
+    usuario seleccionó, no solo el primero. Esa es la clave de la
+    subida múltiple.
+    """
+    lista = request.files.getlist("fotos")
+    resultado = inventario.subir_fotos_moto(id, lista)
+
+    log = obtener_logger()
+    log.info("Admin: %s foto(s) subida(s) a la moto id=%s.",
+             resultado["subidas"], id)
+    if resultado["rechazadas"]:
+        # Registramos los rechazos: útil para auditoría y para detectar
+        # si alguien intenta subir archivos que no son imágenes.
+        log.warning("Admin: %s archivo(s) rechazado(s) en moto id=%s: %s",
+                    len(resultado["rechazadas"]), id, resultado["rechazadas"])
+
+    return redirect(url_for("admin.detalle_moto_admin", id=id))

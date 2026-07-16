@@ -194,17 +194,21 @@
         </div>
 
         <!-- Subir fotos adicionales (solo admin) -->
+        <!-- Subir fotos (solo admin) -->
         {% if es_admin %}
         <div class="upload-card">
             <h3>📷 Agregar fotos a la galería</h3>
-            <form method="POST" action="/moto/{{ moto.id }}/agregar-foto" enctype="multipart/form-data">
-                <div class="upload-area" onclick="document.getElementById('foto-nueva').click()">
-                    <p>📷 Toca aquí para subir una foto</p>
-                    <p style="font-size:12px; color:#888; margin-top:4px">JPG, PNG — máx 5MB</p>
+            <form method="POST" action="/moto/{{ moto.id }}/subir-fotos" enctype="multipart/form-data">
+                <div class="upload-area" onclick="document.getElementById('fotos-nuevas').click()">
+                    <p>📷 Toca aquí para seleccionar fotos</p>
+                    <p style="font-size:12px; color:#888; margin-top:4px">
+                        Puedes elegir VARIAS a la vez (Ctrl + clic) — JPG, PNG o WEBP, máx 5MB c/u
+                    </p>
                 </div>
-                <input type="file" id="foto-nueva" name="foto" accept="image/*">
-                <input type="hidden" name="orden" value="{{ fotos|length }}">
-                <button type="submit" class="btn btn-primary btn-full">➕ Agregar foto</button>
+                <input type="file" id="fotos-nuevas" name="fotos" accept="image/jpeg,image/png,image/webp"
+                       multiple onchange="mostrarSeleccion(this)">
+                <p id="conteo-fotos" style="color:#ff7a00; font-size:13px; margin-top:10px; text-align:center"></p>
+                <button type="submit" class="btn btn-primary btn-full">⬆️ Subir fotos</button>
             </form>
         </div>
         {% endif %}
@@ -257,6 +261,18 @@
 
         function cerrarModal() {
             document.getElementById('modal').classList.remove('active');
+        }
+
+        function mostrarSeleccion(input) {
+            const n = input.files.length;
+            const texto = document.getElementById('conteo-fotos');
+            if (n === 0) {
+                texto.textContent = '';
+            } else if (n === 1) {
+                texto.textContent = '✓ 1 foto seleccionada';
+            } else {
+                texto.textContent = '✓ ' + n + ' fotos seleccionadas';
+            }
         }
     </script>
 
