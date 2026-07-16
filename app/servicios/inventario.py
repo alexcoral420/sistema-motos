@@ -130,3 +130,95 @@ def subir_fotos_moto(moto_id: int, lista_archivos: list) -> dict:
             rechazadas.append(f"{archivo.filename}: {motivo}")
 
     return {"subidas": subidas, "rechazadas": rechazadas}
+
+    # ============================================================
+#  GESTIÓN DE FOTOS
+# ============================================================
+
+def eliminar_foto(moto_id: int, foto_id: int) -> bool:
+    """
+    Borra una foto de la GALERÍA de una moto.
+
+    Verifica que la foto pertenezca a esa moto antes de borrarla:
+    nunca confíes en que el id que llega por la URL es legítimo.
+    """
+    foto = repositorios.obtener_foto_galeria(foto_id)
+    if not foto:
+        return False
+
+    # Control de pertenencia: la foto debe ser de ESTA moto.
+    # Sin esto, alguien podría pasar el id de la foto de otra moto.
+    if foto.get("moto_id") != moto_id:
+        return False
+
+    # Primero el archivo del bucket, luego la fila.
+    repositorios.borrar_archivo(foto.get("foto_path"))
+    repositorios.eliminar_foto_galeria(foto_id)
+    return True
+
+
+def eliminar_portada(moto_id: int) -> bool:
+    """
+    Borra la foto de portada. Si la moto tiene fotos en galería, la
+    primera SUBE automáticamente a ocupar su lugar (opción A), para
+    que la moto nunca quede sin imagen si tiene otras disponibles.
+    """
+    moto = repositorios.obtener_moto_por_id(moto_id)
+    if not moto or not moto.get("foto_url"):
+        return False
+
+    # 1. Borrar el archivo de la portada actual del bucket.
+    repositorios.borrar_archivo(moto.get("foto_path"))
+
+    # 2. ¿Hay fotos en galería para promover?
+    galeria = repositorios.obtener_fotos_moto(moto_id)
+    if galeria:
+        nueva = galeria[0]
+        # La primera de galería pasa a ser portada...
+        repositorios.actualizar_moto(moto_id, {
+            "foto_url": nueva["foto_url"],
+            "foto_path": nueva["foto_path"],
+        })
+        # ...y se quita de la galería (su archivo NO se borra: ahora es
+        # la portada y lo sigue usando).
+        repositorios.eliminar_foto_galeria(nueva["id"])
+    else:
+        # Sin galería: la moto queda sin imagen.
+        repositorios.actualizar_moto(moto_id, {"foto_url": None, "foto_path": None})
+
+    return True
+
+
+def hacer_portada(moto_id: int, foto_id: int) -> bool:
+    """
+    Convierte una foto de galería en la portada.
+
+    La portada actual NO se borra: baja a la galería. Es un intercambio,
+    no un reemplazo destructivo. Así nunca pierdes una foto por elegir
+    otra portada.
+    """
+    moto = repositorios.obtener_moto_por_id(moto_id)
+    foto = repositorios.obtener_foto_galeria(foto_id)
+
+    if not moto or not foto:
+        return False
+    if foto.get("moto_id") != moto_id:
+        return False
+
+    portada_url = moto.get("foto_url")
+    portada_path = moto.get("foto_path")
+
+    # 1. La foto elegida pasa a ser portada.
+    repositorios.actualizar_moto(moto_id, {
+        "foto_url": foto["foto_url"],
+        "foto_path": foto["foto_path"],
+    })
+    # 2. Se quita de la galería (ya no está ahí, está arriba).
+    repositorios.eliminar_foto_galeria(foto_id)
+
+    # 3. La portada anterior baja a la galería (si existía).
+    if portada_url:
+        orden = repositorios.contar_fotos_galeria(moto_id)
+        repositorios.agregar_foto_galeria(moto_id, portada_url, portada_path, orden)
+
+    return True
