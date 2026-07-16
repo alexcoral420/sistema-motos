@@ -42,6 +42,19 @@
         .thumbnail.active { border-color: #ff7a00; }
         .thumbnail:hover { border-color: #ff7a00; }
 
+        /* Controles de fotos (solo admin) */
+        .thumb-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .thumb-acciones { display: flex; gap: 4px; justify-content: center; }
+        .thumb-portada { font-size: 10px; color: #ff7a00; font-weight: bold; }
+        .btn-mini {
+            padding: 3px 9px; border-radius: 6px; border: 1px solid #2a2a2a;
+            background: #161616; color: #e8e8e8; cursor: pointer; font-size: 12px;
+            transition: border-color 0.2s;
+        }
+        .btn-mini:hover { border-color: #ff7a00; }
+        .btn-mini-rojo:hover { border-color: #c0392b; color: #ff6b81; }
+        .portada-acciones { text-align: center; margin-top: 10px; }
+
         /* Info card */
         .info-card { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 28px; margin-top: 28px; }
         .moto-titulo { font-size: 26px; font-weight: bold; color: #f5f5f5; }
@@ -126,24 +139,53 @@
             <a href="/catalogo" class="volver">← Volver al catálogo</a>
         {% endif %}
 
-        <!-- Galería de fotos -->
+        <!-- Galería de fotos. La PORTADA (moto.foto_url) manda: es la que
+             el catálogo muestra. Solo si no hay portada, cae a la galería. -->
         <div class="galeria-principal" id="galeria-principal">
-            {% if fotos %}
-                <img src="{{ fotos[0].foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
-            {% elif moto.foto_url %}
+            {% if moto.foto_url %}
                 <img src="{{ moto.foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
+            {% elif fotos %}
+                <img src="{{ fotos[0].foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
             {% else %}
                 🏍️
             {% endif %}
         </div>
 
+        {% if es_admin and moto.foto_url %}
+        <div class="portada-acciones">
+            <form method="POST" action="/moto/{{ moto.id }}/portada/eliminar"
+                  onsubmit="return confirm('¿Eliminar la portada? Si hay fotos en galería, la primera la reemplazará.')">
+                <button type="submit" class="btn-mini btn-mini-rojo">🗑️ Eliminar portada</button>
+            </form>
+        </div>
+        {% endif %}
+
         <!-- Thumbnails -->
         <div class="thumbnails">
             {% if moto.foto_url %}
-            <img src="{{ moto.foto_url }}" class="thumbnail active" onclick="cambiarFoto(this)">
+            <div class="thumb-wrap">
+                <img src="{{ moto.foto_url }}" class="thumbnail active" onclick="cambiarFoto(this)">
+                {% if es_admin %}
+                <div class="thumb-acciones"><span class="thumb-portada">⭐ Portada</span></div>
+                {% endif %}
+            </div>
             {% endif %}
+
             {% for foto in fotos %}
-            <img src="{{ foto.foto_url }}" class="thumbnail" onclick="cambiarFoto(this)">
+            <div class="thumb-wrap">
+                <img src="{{ foto.foto_url }}" class="thumbnail" onclick="cambiarFoto(this)">
+                {% if es_admin %}
+                <div class="thumb-acciones">
+                    <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/portada">
+                        <button type="submit" class="btn-mini" title="Poner como portada">⭐</button>
+                    </form>
+                    <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/eliminar"
+                          onsubmit="return confirm('¿Eliminar esta foto?')">
+                        <button type="submit" class="btn-mini btn-mini-rojo" title="Eliminar foto">🗑️</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
 
@@ -152,9 +194,9 @@
             <div class="moto-titulo">{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }}</div>
             {% if moto.precio %}
             <div class="moto-precio">${{ "{:,}".format(moto.precio) }}</div>
-                {% else %}
-                    <div class="moto-precio" style="font-size:22px">Consultar precio</div>
-                        {% endif %}
+            {% else %}
+            <div class="moto-precio" style="font-size:22px">Consultar precio</div>
+            {% endif %}
             <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
 
             <div class="info-grid">
@@ -186,17 +228,12 @@
                 </div>
                 {% endif %}
 
-                {% if moto.descripcion %}
-                <div class="descripcion">📝 {{ moto.descripcion }}</div>
-                {% endif %}
-
                 {% if moto.soat %}
                 <div class="info-item">
                     <label>SOAT vigente hasta</label>
                     <span>📋 {{ moto.soat }}</span>
                 </div>
                 {% endif %}
-            
 
                 {% if moto.tecno %}
                 <div class="info-item">
@@ -206,9 +243,9 @@
                 {% endif %}
             </div>
 
-                    
-
-            
+            {% if moto.descripcion %}
+            <div class="descripcion">📝 {{ moto.descripcion }}</div>
+            {% endif %}
 
             <div class="acciones">
                 <a href="https://wa.me/573204951482?text=Hola,%20me%20interesa%20la%20{{ moto.marca }}%20{{ moto.modelo }}%20{{ moto.anio }}"
@@ -221,7 +258,6 @@
             </div>
         </div>
 
-        <!-- Subir fotos adicionales (solo admin) -->
         <!-- Subir fotos (solo admin) -->
         {% if es_admin %}
         <div class="upload-card">

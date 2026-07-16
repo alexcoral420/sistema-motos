@@ -209,3 +209,34 @@ def subir_fotos(id):
                     len(resultado["rechazadas"]), id, resultado["rechazadas"])
 
     return redirect(url_for("admin.detalle_moto_admin", id=id))
+
+@admin_bp.route("/moto/<int:id>/foto/<int:foto_id>/eliminar", methods=["POST"])
+def eliminar_foto_moto(id, foto_id):
+    """Elimina una foto de la galería de una moto."""
+    ok = inventario.eliminar_foto(id, foto_id)
+    log = obtener_logger()
+    if ok:
+        log.warning("Admin: foto id=%s eliminada de la moto id=%s.", foto_id, id)
+    else:
+        # Un intento fallido puede significar que alguien pasó ids que no
+        # corresponden: vale la pena dejarlo registrado.
+        log.warning("Admin: intento fallido de borrar foto id=%s en moto id=%s.",
+                    foto_id, id)
+    return redirect(url_for("admin.detalle_moto_admin", id=id))
+
+
+@admin_bp.route("/moto/<int:id>/portada/eliminar", methods=["POST"])
+def eliminar_portada_moto(id):
+    """Elimina la portada. La primera de galería la reemplaza (si hay)."""
+    inventario.eliminar_portada(id)
+    obtener_logger().warning("Admin: portada eliminada de la moto id=%s.", id)
+    return redirect(url_for("admin.detalle_moto_admin", id=id))
+
+
+@admin_bp.route("/moto/<int:id>/foto/<int:foto_id>/portada", methods=["POST"])
+def hacer_portada_moto(id, foto_id):
+    """Convierte una foto de galería en portada (la anterior baja a galería)."""
+    inventario.hacer_portada(id, foto_id)
+    obtener_logger().info("Admin: foto id=%s puesta como portada de la moto id=%s.",
+                          foto_id, id)
+    return redirect(url_for("admin.detalle_moto_admin", id=id))

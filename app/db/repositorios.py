@@ -272,3 +272,39 @@ def obtener_motos_filtradas(filtros: dict):
         consulta = consulta.or_(f"marca.ilike.%{texto}%,modelo.ilike.%{texto}%")
 
     return consulta.order("created_at", desc=True).execute().data
+
+    # ============================================================
+#  GESTIÓN DE FOTOS (borrar, cambiar portada)
+# ============================================================
+
+def obtener_foto_galeria(foto_id: int):
+    """Una foto de galería por su id, o None."""
+    supabase = get_supabase_publico()
+    resultado = supabase.table("fotos_motos")\
+        .select("*")\
+        .eq("id", foto_id)\
+        .execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def borrar_archivo(path: str):
+    """
+    Borra un archivo del bucket.
+
+    IMPORTANTE: borrar la fila de la base NO basta. Si el archivo queda
+    en el bucket, sigue accesible por su URL pública para siempre y
+    ocupando espacio. 'Borrado' tiene que significar borrado de verdad.
+    """
+    if not path:
+        return
+    supabase = get_supabase_admin()
+    supabase.storage.from_("motos").remove([path])
+
+
+def eliminar_foto_galeria(foto_id: int):
+    """Borra una foto de galería: primero el archivo, luego la fila."""
+    supabase = get_supabase_admin()
+    supabase.table("fotos_motos")\
+        .delete()\
+        .eq("id", foto_id)\
+        .execute()
