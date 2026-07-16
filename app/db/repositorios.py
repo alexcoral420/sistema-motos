@@ -213,3 +213,62 @@ def obtener_sede_por_id(id: int):
         .eq("id", id)\
         .execute()
     return resultado.data[0] if resultado.data else None
+
+    # ============================================================
+#  CATÁLOGO CON FILTROS
+# ============================================================
+
+def obtener_marcas_disponibles():
+    """
+    Lista de marcas que existen en el inventario disponible.
+
+    Se calcula desde la BASE, no de una lista fija: si mañana entra una
+    moto de una marca nueva, aparece sola en el filtro.
+    """
+    supabase = get_supabase_publico()
+    resultado = supabase.table("motos")\
+        .select("marca")\
+        .eq("estado", "disponible")\
+        .execute()
+    # set() elimina duplicados, sorted() las ordena alfabéticamente.
+    return sorted({m["marca"] for m in resultado.data if m.get("marca")})
+
+
+def obtener_motos_filtradas(filtros: dict):
+    """
+    Motos disponibles que cumplen los filtros indicados.
+
+    La consulta se CONSTRUYE dinámicamente: empezamos con la base
+    (disponibles) y le vamos encadenando condiciones solo por los
+    filtros que llegaron. Un filtro vacío simplemente no se aplica.
+
+    filtros: dict ya VALIDADO (la ruta se encarga de limpiarlo).
+        marca, sede_id, precio_min, precio_max, texto
+    """
+    supabase = get_supabase_publico()
+
+    # Consulta base: siempre solo las disponibles, con su sede.
+    consulta = supabase.table("motos")\
+        .select("*, sedes(nombre, direccion)")\
+        .eq("estado", "disponible")
+
+    # Cada filtro presente añade una condición a la consulta.
+    if filtros.get("marca"):
+        consulta = consulta.eq("marca", filtros["marca"])
+
+    if filtros.get("sede_id"):
+        consulta = consulta.eq("sede_id", filtros["sede_id"])
+
+    if filtros.get("precio_min") is not None:
+        consulta = consulta.gte("precio", filtros["precio_min"])   # gte = mayor o igual
+
+    if filtros.get("precio_max") is not None:
+        consulta = consulta.lte("precio", filtros["precio_max"])   # lte = menor o igual
+
+    if filtros.get("texto"):
+        # Búsqueda en marca O modelo. 'ilike' = contiene, sin distinguir
+        # mayúsculas. El % es comodín: %yamaha% = "contiene yamaha".
+        texto = filtros["texto"]
+        consulta = consulta.or_(f"marca.ilike.%{texto}%,modelo.ilike.%{texto}%")
+
+    return consulta.order("created_at", desc=True).execute().data

@@ -28,25 +28,7 @@
 
         .contador { text-align: center; padding: 20px 16px 8px; color: #999; font-size: 14px; }
 
-        /* Buscador */
-        .search-box { display: flex; justify-content: center; padding: 8px 20px 20px; }
-        .search-box input {
-            width: 100%; max-width: 420px; padding: 12px 20px;
-            background: #161616; border: 1px solid #2a2a2a; border-radius: 24px;
-            color: #e8e8e8; font-size: 14px; outline: none; transition: border-color 0.2s;
-        }
-        .search-box input::placeholder { color: #777; }
-        .search-box input:focus { border-color: #ff7a00; }
-
-        /* Filtros de precio */
-        .filtros { display: flex; gap: 10px; padding: 0 20px 32px; flex-wrap: wrap; justify-content: center; }
-        .filtro-btn {
-            padding: 9px 20px; border-radius: 20px; border: 1px solid #2a2a2a;
-            background: #161616; color: #bbb; cursor: pointer; font-size: 13px; font-weight: bold;
-            transition: all 0.2s;
-        }
-        .filtro-btn:hover { border-color: #ff7a00; color: #ff7a00; }
-        .filtro-btn.active { background: #ff7a00; color: #000; border-color: #ff7a00; }
+        
 
         .container { padding: 0 24px 60px; max-width: 1200px; margin: 0 auto; }
 
@@ -109,6 +91,26 @@
             .nav-links { gap: 12px; }
             .nav-links a:not(.btn-nav) { display: none; }
         }
+
+        .filtros-form { max-width: 900px; margin: 0 auto; padding: 0 20px 28px; }
+        .filtros-fila { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .filtros-fila input, .filtros-fila select {
+            flex: 1; min-width: 150px; padding: 11px 16px;
+            background: #161616; border: 1px solid #2a2a2a; border-radius: 10px;
+            color: #e8e8e8; font-size: 14px; outline: none;
+        }
+        .filtros-fila input:focus, .filtros-fila select:focus { border-color: #ff7a00; }
+        .filtros-fila input::placeholder { color: #777; }
+        .btn-filtrar {
+            padding: 11px 28px; border-radius: 10px; border: none; cursor: pointer;
+            background: #ff7a00; color: #000; font-weight: bold; font-size: 14px;
+        }
+        .btn-filtrar:hover { background: #ff9633; }
+        .btn-limpiar {
+            padding: 11px 24px; border-radius: 10px; border: 1px solid #2a2a2a;
+            color: #bbb; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center;
+        }
+        .btn-limpiar:hover { border-color: #ff7a00; color: #ff7a00; }
     </style>
 </head>
 <body>
@@ -137,16 +139,39 @@
         <span id="contador">{{ motos|length }} motos disponibles</span>
     </div>
 
-    <div class="search-box">
-        <input type="text" id="buscador" placeholder="🔍 Buscar por marca, modelo, color..." onkeyup="filtrar()">
-    </div>
+    <!-- Filtros: formulario real que va al servidor por GET.
+         method="GET" hace que los filtros queden en la URL, así el
+         resultado es compartible por WhatsApp y se puede guardar. -->
+    <form method="GET" action="/catalogo" class="filtros-form">
+        <div class="filtros-fila">
+            <input type="text" name="q" placeholder="🔍 Buscar marca o modelo..."
+                   value="{{ filtros.texto or '' }}" maxlength="50">
 
-    <div class="filtros">
-        <button class="filtro-btn active" onclick="filtrarPrecio('todos')">Todas</button>
-        <button class="filtro-btn" onclick="filtrarPrecio('0-5000000')">Hasta $5M</button>
-        <button class="filtro-btn" onclick="filtrarPrecio('5000000-10000000')">$5M - $10M</button>
-        <button class="filtro-btn" onclick="filtrarPrecio('10000000-999999999')">Más de $10M</button>
-    </div>
+            <select name="marca">
+                <option value="">Todas las marcas</option>
+                {% for m in marcas %}
+                <option value="{{ m }}" {% if filtros.marca == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="sede">
+                <option value="">Todas las sedes</option>
+                {% for s in sedes %}
+                <option value="{{ s.id }}" {% if filtros.sede_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filtros-fila">
+            <input type="number" name="precio_min" placeholder="Precio desde"
+                   value="{{ filtros.precio_min if filtros.precio_min is not none else '' }}" min="0">
+            <input type="number" name="precio_max" placeholder="Precio hasta"
+                   value="{{ filtros.precio_max if filtros.precio_max is not none else '' }}" min="0">
+
+            <button type="submit" class="btn-filtrar">Filtrar</button>
+            <a href="/catalogo" class="btn-limpiar">Limpiar</a>
+        </div>
+    </form>
 
     <div class="container">
         {% if motos %}
@@ -233,49 +258,6 @@
         </div>
     </footer>
 
-    <script>
-        function filtrar() {
-            const busqueda = document.getElementById('buscador').value.toLowerCase();
-            const cards = document.querySelectorAll('.card');
-            let visibles = 0;
 
-            cards.forEach(card => {
-                const texto = card.dataset.marca + ' ' + card.dataset.modelo + ' ' + card.dataset.color;
-                if (texto.includes(busqueda)) {
-                    card.style.display = 'block';
-                    visibles++;
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-
-            document.getElementById('contador').textContent = visibles + ' motos disponibles';
-        }
-
-        function filtrarPrecio(rango) {
-            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-
-            const cards = document.querySelectorAll('.card');
-            let visibles = 0;
-
-            cards.forEach(card => {
-                const precio = parseInt(card.dataset.precio);
-                let mostrar = false;
-
-                if (rango === 'todos') {
-                    mostrar = true;
-                } else {
-                    const [min, max] = rango.split('-').map(Number);
-                    mostrar = precio >= min && precio <= max;
-                }
-
-                card.style.display = mostrar ? 'block' : 'none';
-                if (mostrar) visibles++;
-            });
-
-            document.getElementById('contador').textContent = visibles + ' motos disponibles';
-        }
-    </script>
 </body>
 </html>

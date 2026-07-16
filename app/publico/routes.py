@@ -7,8 +7,8 @@ de datos directo. La ruta solo: recibe la petición, pide datos al
 servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 
-from flask import Blueprint, render_template
-
+from flask import Blueprint, render_template, request
+from app.servicios import catalogo
 from app.servicios import inventario
 
 publico_bp = Blueprint("publico", __name__)
@@ -22,10 +22,17 @@ def inicio():
 
 
 @publico_bp.route("/catalogo")
-def catalogo():
-    """Catálogo público: todas las motos disponibles."""
-    motos = inventario.listar_motos_disponibles()
-    return render_template("catalogo.html", motos=motos)
+def catalogo_publico():
+    """
+    Catálogo público con filtros.
+
+    Los filtros llegan por la URL (?marca=...&sede=...&q=...).
+    El servicio los valida y devuelve todo lo que la página necesita.
+    La ruta solo pasa 'request.args' y entrega el HTML: no valida ni
+    consulta nada por su cuenta.
+    """
+    datos = catalogo.buscar_motos(request.args)
+    return render_template("catalogo.html", **datos)
 
 
 @publico_bp.route("/moto/<int:id>")
