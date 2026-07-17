@@ -1,35 +1,35 @@
 """
-Servicio de archivos: subida validada de imágenes (vulnerabilidad #7).
+Servicio de archivos: subida validada y optimizada de imágenes.
 
-El sistema viejo validaba así:
-    extension = nombre_archivo.split('.')[-1]   # <-- confía en el NOMBRE
+Dos trabajos:
 
-Problema: el nombre no prueba nada. Cualquiera puede renombrar un
-programa malicioso a "foto.jpg" y pasaría la validación.
+1. VALIDAR (vulnerabilidad #7). Con magic bytes: los primeros bytes de un
+   archivo llevan la firma binaria de su formato real. El nombre no prueba
+   nada; el contenido sí.
 
-Aquí validamos con MAGIC BYTES: los primeros bytes de un archivo llevan
-una firma binaria característica de su formato, puesta por el programa
-que lo creó. No dependen del nombre. Miramos DENTRO del archivo en vez
-de creerle a la etiqueta.
-
-    JPEG -> FF D8 FF
-    PNG  -> 89 50 4E 47 0D 0A 1A 0A
-    WEBP -> "RIFF" .... "WEBP"
-
-Enfoque LISTA BLANCA: solo aceptamos estos tres formatos; todo lo demás
-se rechaza, sin importar cómo se llame el archivo.
+2. COMPRIMIR. Una foto de celular pesa 3-8 MB. Guardarla tal cual hace que
+   el catálogo tarde una eternidad en datos móviles. La redimensionamos y
+   la convertimos a WebP: de ~4 MB a ~200 KB, sin diferencia visible.
 """
 
+import io
 import uuid
+
+from PIL import Image, ImageOps
 
 from app.seguridad.validadores import ErrorValidacion
 
-# Tamaño máximo permitido por archivo (5 MB), igual que el límite del
-# bucket. Doble capa: la app rechaza antes de subir, el bucket también.
 MAX_BYTES = 5 * 1024 * 1024
 
-# Firmas binarias de los formatos permitidos (lista blanca).
-# Cada entrada: (bytes de la firma, extensión, content-type)
+# Defensa contra BOMBAS DE DESCOMPRESIÓN: un PNG de 10 KB puede declarar
+# 50.000 x 50.000 píxeles y, al abrirlo, agotar toda la RAM del servidor.
+# Pasa los magic bytes (es un PNG legítimo) y pesa poco: nuestras otras
+# validaciones no lo detectan. Este límite sí.
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
+ANCHO_MAX = 1600      # suficiente: la galería se ve a 440px
+CALIDAD_WEBP = 82     # buen equilibrio calidad/peso
+
 _FIRMAS = [
     (b"\xff\xd8\xff", "jpeg", "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "png", "image/png"),
@@ -37,79 +37,95 @@ _FIRMAS = [
 
 
 def _detectar_tipo(contenido: bytes):
-    """
-    Identifica el formato real del archivo por sus magic bytes.
-
-    Devuelve (extension, content_type) si es un formato permitido,
-    o None si no reconoce la firma (archivo no permitido).
-    """
-    # JPEG y PNG: comparación directa del inicio del archivo.
+    """Identifica el formato real por sus magic bytes, o None."""
     for firma, extension, content_type in _FIRMAS:
         if contenido.startswith(firma):
             return extension, content_type
 
-    # WEBP es especial: empieza con "RIFF", 4 bytes de tamaño, y luego
-    # "WEBP". Por eso se comprueba en dos posiciones.
     if contenido[:4] == b"RIFF" and contenido[8:12] == b"WEBP":
         return "webp", "image/webp"
 
-    # Ninguna firma conocida -> no es una imagen permitida.
     return None
+
+
+def _comprimir(contenido: bytes) -> bytes:
+    """
+    Redimensiona y convierte a WebP.
+
+    Efectos secundarios importantes y deseados:
+      - Se aplica la orientación EXIF antes de descartarla, para que las
+        fotos de celular no salgan giradas.
+      - Los metadatos EXIF NO se copian al WebP. Eso BORRA las coordenadas
+        GPS que los celulares incrustan en cada foto. Publicar fotos con
+        GPS revela ubicaciones sin que nadie se dé cuenta.
+    """
+    imagen = Image.open(io.BytesIO(contenido))
+
+    # El celular no rota el píxel: guarda una etiqueta EXIF que dice "esta
+    # foto va girada 90°". Si descartamos el EXIF sin aplicarlo, la foto
+    # sale de lado. Esto la rota de verdad y ya no hace falta la etiqueta.
+    imagen = ImageOps.exif_transpose(imagen)
+
+    # Modos raros (paleta, CMYK) a RGB. WebP maneja RGB y RGBA sin problema.
+    if imagen.mode not in ("RGB", "RGBA"):
+        imagen = imagen.convert("RGB")
+
+    # Redimensionar solo si es más ancha que el máximo (nunca agrandamos).
+    if imagen.width > ANCHO_MAX:
+        alto = round(imagen.height * ANCHO_MAX / imagen.width)
+        imagen = imagen.resize((ANCHO_MAX, alto), Image.LANCZOS)
+
+    salida = io.BytesIO()
+    imagen.save(salida, format="WEBP", quality=CALIDAD_WEBP, method=6)
+    return salida.getvalue()
 
 
 def validar_imagen(archivo) -> dict:
     """
-    Valida un archivo subido y devuelve su contenido y tipo real.
-
-    archivo: el objeto de Flask (request.files[...]).
-
-    Devuelve un dict: {"contenido": bytes, "extension": str, "content_type": str}
-    Lanza ErrorValidacion si el archivo no es una imagen válida o es
-    demasiado grande.
+    Valida un archivo subido, lo comprime, y devuelve el resultado listo
+    para guardar. Lanza ErrorValidacion si no es una imagen aceptable.
     """
     if archivo is None or not archivo.filename:
         raise ErrorValidacion("No se recibió ningún archivo.", "foto")
 
-    # Leemos el contenido completo en memoria para poder inspeccionarlo.
     contenido = archivo.read()
-    # Rebobinamos por si alguien más necesita leerlo después.
     archivo.seek(0)
 
     if not contenido:
         raise ErrorValidacion("El archivo está vacío.", "foto")
 
-    # --- Control de tamaño (antes de nada más) ---
     if len(contenido) > MAX_BYTES:
         raise ErrorValidacion(
             "La imagen supera el tamaño máximo permitido (5 MB).", "foto")
 
-    # --- Validación por MAGIC BYTES (el control de verdad) ---
-    tipo = _detectar_tipo(contenido)
-    if tipo is None:
-        # No importa que se llame "foto.jpg": su contenido no es una
-        # imagen JPEG/PNG/WEBP. Se rechaza.
+    # Capa 1: magic bytes. ¿Es realmente una imagen permitida?
+    if _detectar_tipo(contenido) is None:
         raise ErrorValidacion(
             "El archivo no es una imagen válida (solo JPG, PNG o WEBP).", "foto")
 
-    extension, content_type = tipo
+    # Capa 2: que Pillow pueda abrirla y procesarla de verdad. Un archivo
+    # con magic bytes correctos pero contenido corrupto falla aquí.
+    try:
+        comprimido = _comprimir(contenido)
+    except Image.DecompressionBombError:
+        raise ErrorValidacion(
+            "La imagen tiene dimensiones desproporcionadas.", "foto")
+    except Exception:
+        raise ErrorValidacion(
+            "No se pudo procesar la imagen (¿archivo dañado?).", "foto")
+
+    # Todo lo que entra sale como WebP, sin importar cómo entró.
     return {
-        "contenido": contenido,
-        "extension": extension,
-        "content_type": content_type,
+        "contenido": comprimido,
+        "extension": "webp",
+        "content_type": "image/webp",
     }
 
 
 def generar_nombre_seguro(extension: str, carpeta: str = "") -> str:
     """
-    Genera un nombre de archivo aleatorio y seguro para el bucket.
-
-    Por qué NO usar el nombre original del archivo:
-      - Podría contener caracteres peligrosos o rutas ("../../secreto").
-      - Podría chocar con otro archivo del mismo nombre.
-      - Podría revelar información (nombres de clientes, rutas internas).
-
-    Usamos un UUID: un identificador único aleatorio. La extensión la
-    ponemos según el tipo REAL detectado, no según el nombre original.
+    Nombre aleatorio (UUID) para el bucket. El nombre original se descarta:
+    podría traer rutas maliciosas, chocar con otro, o filtrar información.
     """
     nombre = f"{uuid.uuid4()}.{extension}"
     if carpeta:
