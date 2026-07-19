@@ -101,8 +101,13 @@
                         <a href="/admin/moto/{{ moto.id }}" class="btn btn-primary">🖼️ Fotos</a>
                         <a href="/editar/{{ moto.id }}" class="btn btn-warning">✏️ Editar</a>
                         {% if moto.estado == 'disponible' %}
-                        <a href="/vender/{{ moto.id }}" class="btn btn-success" onclick="return confirm('¿Marcar como vendida?')">✅ Vendida</a>
+                        <form method="POST" action="/vender/{{ moto.id }}" onsubmit="return confirm('¿Marcar como vendida?')" style="display:inline">
+                            <button type="submit" class="btn btn-success">✅ Vendida</button>
+                        </form>
                         {% endif %}
+                        <form method="POST" action="/eliminar/{{ moto.id }}" onsubmit="return confirm('¿Eliminar esta moto?')" style="display:inline">
+                            <button type="submit" class="btn btn-danger">🗑️</button>
+                        </form>
                         <a href="/eliminar/{{ moto.id }}" class="btn btn-danger" onclick="return confirm('¿Eliminar esta moto?')">🗑️</a>
                     </div>
                 </div>

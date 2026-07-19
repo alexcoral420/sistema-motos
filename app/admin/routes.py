@@ -157,10 +157,7 @@ def editar(id):
     return render_template("editar.html", moto=moto, id=id, sedes=sedes.listar_sedes())
 
 
-
-
-@admin_bp.route("/vender/<int:id>")
-
+@admin_bp.route("/vender/<int:id>", methods=["POST"])
 def vender(id):
     """Marca una moto como vendida."""
     inventario.marcar_vendida(id)
@@ -168,13 +165,14 @@ def vender(id):
     return redirect(url_for("admin.index"))
 
 
-@admin_bp.route("/eliminar/<int:id>")
-
+@admin_bp.route("/eliminar/<int:id>", methods=["POST"])
 def eliminar(id):
     """Elimina una moto."""
     inventario.eliminar_moto(id)
     obtener_logger().warning("Admin: moto id=%s eliminada.", id)
     return redirect(url_for("admin.index"))
+
+
 
 
 @admin_bp.route("/admin/moto/<int:id>")
