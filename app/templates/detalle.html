@@ -155,6 +155,7 @@
         <div class="portada-acciones">
             <form method="POST" action="/moto/{{ moto.id }}/portada/eliminar"
                   onsubmit="return confirm('¿Eliminar la portada? Si hay fotos en galería, la primera la reemplazará.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-mini btn-mini-rojo">🗑️ Eliminar portada</button>
             </form>
         </div>
@@ -177,10 +178,12 @@
                 {% if es_admin %}
                 <div class="thumb-acciones">
                     <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/portada">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini" title="Poner como portada">⭐</button>
                     </form>
                     <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/eliminar"
                           onsubmit="return confirm('¿Eliminar esta foto?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini btn-mini-rojo" title="Eliminar foto">🗑️</button>
                     </form>
                 </div>
@@ -263,6 +266,7 @@
         <div class="upload-card">
             <h3>📷 Agregar fotos a la galería</h3>
             <form method="POST" action="/moto/{{ moto.id }}/subir-fotos" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="upload-area" onclick="document.getElementById('fotos-nuevas').click()">
                     <p>📷 Toca aquí para seleccionar fotos</p>
                     <p style="font-size:12px; color:#888; margin-top:4px">

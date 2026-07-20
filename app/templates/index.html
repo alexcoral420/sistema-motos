@@ -102,13 +102,16 @@
                         <a href="/editar/{{ moto.id }}" class="btn btn-warning">✏️ Editar</a>
                         {% if moto.estado == 'disponible' %}
                         <form method="POST" action="/vender/{{ moto.id }}" onsubmit="return confirm('¿Marcar como vendida?')" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-success">✅ Vendida</button>
                         </form>
                         {% endif %}
                         <form method="POST" action="/eliminar/{{ moto.id }}" onsubmit="return confirm('¿Eliminar esta moto?')" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger">🗑️</button>
                         </form>
                         <a href="/eliminar/{{ moto.id }}" class="btn btn-danger" onclick="return confirm('¿Eliminar esta moto?')">🗑️</a>
+                        
                     </div>
                 </div>
             </div>

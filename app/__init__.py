@@ -22,9 +22,10 @@ todo en un lugar ordenado y controlado.
 
 import os
 from flask import Flask
+from flask_wtf.csrf import CSRFProtect
 
 from config import config_por_nombre
-
+csrf = CSRFProtect()
 
 def create_app(nombre_config=None):
     """
@@ -58,6 +59,12 @@ def create_app(nombre_config=None):
     # seguras entran en vigor.
     clase_config = config_por_nombre[nombre_config]
     app.config.from_object(clase_config)
+
+    # Protección CSRF: a partir de aquí, TODOS los formularios POST del
+    # sistema exigen un token válido. Un POST sin token (o de otro origen)
+    # se rechaza automáticamente. No hay que acordarse de proteger cada
+    # ruta: quedan todas protegidas por defecto. Seguridad por diseño.
+    csrf.init_app(app)
 
     # Inicializar el rate limiter con esta app.
     from app.seguridad.limites import limiter
