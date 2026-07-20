@@ -222,3 +222,20 @@ def hacer_portada(moto_id: int, foto_id: int) -> bool:
         repositorios.agregar_foto_galeria(moto_id, portada_url, portada_path, orden)
 
     return True
+
+    # ============================================================
+#  INTENCIONES
+# ============================================================
+
+def registrar_intencion(moto_id: int):
+    """
+    Registra el interés en una moto. Busca la sede de la moto para
+    guardarla junto al evento (útil para métricas por sede).
+
+    Si la moto no existe, no registra nada (silencioso): un id inválido
+    en la URL no debe romper la redirección a WhatsApp.
+    """
+    moto = repositorios.obtener_moto_por_id(moto_id)
+    if not moto:
+        return
+    repositorios.registrar_intencion(moto_id, moto.get("sede_id"))

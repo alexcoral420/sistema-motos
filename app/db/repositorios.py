@@ -308,3 +308,18 @@ def eliminar_foto_galeria(foto_id: int):
         .delete()\
         .eq("id", foto_id)\
         .execute()
+
+        # ============================================================
+#  INTENCIONES (registro anónimo de interés)
+# ============================================================
+
+def registrar_intencion(moto_id: int, sede_id: int):
+    """
+    Guarda una intención de compra (clic en 'Preguntar por esta moto').
+    Escritura desde el servidor -> conexión admin.
+    """
+    supabase = get_supabase_admin()
+    supabase.table("intenciones").insert({
+        "moto_id": moto_id,
+        "sede_id": sede_id,
+    }).execute()

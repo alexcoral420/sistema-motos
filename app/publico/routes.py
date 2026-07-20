@@ -7,7 +7,7 @@ de datos directo. La ruta solo: recibe la petición, pide datos al
 servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, redirect
 from app.servicios import catalogo
 from app.servicios import inventario
 
@@ -53,3 +53,29 @@ def privacidad():
 def terminos():
     """Términos y condiciones (contenido estático)."""
     return render_template("terminos.html")
+
+@publico_bp.route("/consultar/<int:moto_id>")
+def consultar_moto(moto_id):
+    """
+    Registra la intención de compra y redirige a WhatsApp.
+
+    Es una ruta 'puente': el botón del catálogo apunta aquí en vez de
+    ir directo a WhatsApp. Registramos el interés (anónimo) y luego
+    mandamos a la persona a WhatsApp con el mensaje prellenado.
+
+    Es un GET a propósito: el usuario está 'navegando' hacia WhatsApp.
+    No modifica datos del usuario ni requiere protección CSRF; el único
+    efecto es incrementar un contador anónimo de interés.
+    """
+    inventario.registrar_intencion(moto_id)
+
+    # Traemos la moto para armar el mensaje de WhatsApp.
+    moto = inventario.obtener_moto(moto_id)
+    if not moto:
+        # Si no existe, mandamos a WhatsApp sin mensaje específico.
+        return redirect("https://wa.me/573204951482")
+
+    mensaje = f"Hola, me interesa la {moto['marca']} {moto['modelo']} {moto.get('anio', '')}"
+    from urllib.parse import quote
+    url = f"https://wa.me/573204951482?text={quote(mensaje)}"
+    return redirect(url)
