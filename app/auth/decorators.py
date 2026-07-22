@@ -12,9 +12,8 @@ necesite (sobre todo, a todo el panel de admin de una sola vez).
 """
 
 from functools import wraps
-from flask import session, redirect, url_for
-from functools import wraps
 from flask import session, redirect, url_for, abort
+
 
 
 def requiere_rol(*roles_permitidos):
