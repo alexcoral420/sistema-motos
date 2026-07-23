@@ -1,20 +1,10 @@
-"""
-Seguridad de contraseñas: hashing y verificación.
 
-En el app.py viejo se comparaba la contraseña en texto plano:
-    if password == ADMIN_PASSWORD   # <-- vulnerabilidad #1
-
-Aquí lo hacemos bien, con werkzeug (incluido en Flask):
-  - hashear_password(): convierte una contraseña en un hash irreversible.
-    Se usa UNA vez, para generar el valor que guardas en el .env.
-  - verificar_password(): compara lo que alguien escribió contra el hash
-    guardado, sin conocer nunca la contraseña real.
-
-Un hash es una "huella digital" de una sola vía: de la contraseña sale
-el hash, pero del hash NO se puede volver a la contraseña.
-"""
-
+def autenticar(usuario: str, password: str):
+    from app.db import repositorios   # import local: rompe el ciclo
+    datos = repositorios.obtener_usuario_por_nombre(usuario)
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 
 def hashear_password(password_plano: str) -> str:
@@ -43,3 +33,24 @@ def verificar_password(hash_guardado: str, password_intento: str) -> bool:
         # Si por error el hash está vacío, negamos el acceso por seguridad.
         return False
     return check_password_hash(hash_guardado, password_intento)
+
+
+
+
+def autenticar(usuario: str, password: str):
+    """
+    Verifica usuario y contraseña contra la tabla de usuarios.
+
+    Devuelve el dict del usuario si las credenciales son correctas,
+    o None si no. Nunca revela si falló el usuario o la contraseña:
+    un atacante no debe saber si un usuario existe (no dar pistas).
+    """
+    from app.db import repositorios   # import local: evita el ciclo de imports
+
+    datos = repositorios.obtener_usuario_por_nombre(usuario)
+    if not datos:
+        return None
+
+    if verificar_password(datos["password_hash"], password):
+        return datos
+    return None

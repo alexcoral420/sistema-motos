@@ -151,10 +151,11 @@
             {% endif %}
         </div>
 
-        {% if es_admin and moto.foto_url %}
+        {% if session.rol == 'admin' and moto.foto_url %}
         <div class="portada-acciones">
             <form method="POST" action="/moto/{{ moto.id }}/portada/eliminar"
                   onsubmit="return confirm('¿Eliminar la portada? Si hay fotos en galería, la primera la reemplazará.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-mini btn-mini-rojo">🗑️ Eliminar portada</button>
             </form>
         </div>
@@ -174,13 +175,15 @@
             {% for foto in fotos %}
             <div class="thumb-wrap">
                 <img src="{{ foto.foto_url }}" class="thumbnail" onclick="cambiarFoto(this)">
-                {% if es_admin %}
+                {% if session.rol == 'admin' %}
                 <div class="thumb-acciones">
                     <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/portada">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini" title="Poner como portada">⭐</button>
                     </form>
                     <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/eliminar"
                           onsubmit="return confirm('¿Eliminar esta foto?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini btn-mini-rojo" title="Eliminar foto">🗑️</button>
                     </form>
                 </div>
@@ -251,7 +254,7 @@
                 <a href="/consultar/{{ moto.id }}" class="btn btn-whatsapp" target="_blank">
                     💬 Preguntar por esta moto
                 </a>
-                {% if es_admin %}
+                {% if session.rol == 'admin' %}
                 <a href="/editar/{{ moto.id }}" class="btn btn-primary">✏️ Editar</a>
                 {% endif %}
             </div>
@@ -263,10 +266,11 @@
         </div>
 
         <!-- Subir fotos (solo admin) -->
-        {% if es_admin %}
+        {% if session.rol == 'admin' %}
         <div class="upload-card">
             <h3>📷 Agregar fotos a la galería</h3>
             <form method="POST" action="/moto/{{ moto.id }}/subir-fotos" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="upload-area" onclick="document.getElementById('fotos-nuevas').click()">
                     <p>📷 Toca aquí para seleccionar fotos</p>
                     <p style="font-size:12px; color:#888; margin-top:4px">

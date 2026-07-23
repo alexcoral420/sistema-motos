@@ -222,18 +222,45 @@ def hacer_portada(moto_id: int, foto_id: int) -> bool:
         repositorios.agregar_foto_galeria(moto_id, portada_url, portada_path, orden)
 
     return True
+    # ============================================================
+#  REGISTRO DE VENTAS
+# ============================================================
 
+def registrar_venta(moto_id: int, usuario_id: int, usuario_nombre: str):
+    """
+    Deja constancia histórica de una venta.
+
+    Congela la descripción de la moto (marca modelo año) y el nombre
+    del vendedor como TEXTO, para que el reporte siga siendo legible
+    aunque después se borre la moto o cambie el usuario.
+    """
+    moto = repositorios.obtener_moto_por_id(moto_id)
+    if not moto:
+        return
+
+    # "YAMAHA Fazer 2026" — se arma aquí y se guarda tal cual.
+    partes = [moto.get("marca") or "", moto.get("modelo") or ""]
+    if moto.get("anio"):
+        partes.append(str(moto["anio"]))
+    descripcion = " ".join(p for p in partes if p).strip()
+
+    repositorios.registrar_venta({
+        "moto_id": moto_id,
+        "descripcion": descripcion,
+        "usuario_id": usuario_id,
+        "usuario_nombre": usuario_nombre,
+        "sede_id": moto.get("sede_id"),
+    })
+    
     # ============================================================
 #  INTENCIONES
 # ============================================================
 
 def registrar_intencion(moto_id: int):
     """
-    Registra el interés en una moto. Busca la sede de la moto para
-    guardarla junto al evento (útil para métricas por sede).
-
-    Si la moto no existe, no registra nada (silencioso): un id inválido
-    en la URL no debe romper la redirección a WhatsApp.
+    Registra el interés en una moto (clic en 'Preguntar por esta moto').
+    Si la moto no existe, no registra nada: un id inválido en la URL no
+    debe romper la redirección a WhatsApp.
     """
     moto = repositorios.obtener_moto_por_id(moto_id)
     if not moto:

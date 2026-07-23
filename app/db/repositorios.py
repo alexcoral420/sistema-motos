@@ -310,13 +310,42 @@ def eliminar_foto_galeria(foto_id: int):
         .execute()
 
         # ============================================================
+#  USUARIOS
+# ============================================================
+
+def obtener_usuario_por_nombre(usuario: str):
+    """
+    Busca un usuario activo por su nombre de login.
+
+    Usa la conexión ADMIN: la tabla usuarios tiene RLS que la hace
+    invisible al rol público. Solo el service_role puede leerla.
+    Devuelve el usuario (con su hash y rol) o None.
+    """
+    supabase = get_supabase_admin()
+    resultado = supabase.table("usuarios")\
+        .select("*")\
+        .eq("usuario", usuario)\
+        .eq("activo", True)\
+        .execute()
+    return resultado.data[0] if resultado.data else None
+    # ============================================================
+#  VENTAS (registro de operaciones)
+# ============================================================
+
+def registrar_venta(datos: dict):
+    """Guarda el registro histórico de una venta."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("ventas").insert(datos).execute()
+    return resultado.data
+
+    # ============================================================
 #  INTENCIONES (registro anónimo de interés)
 # ============================================================
 
 def registrar_intencion(moto_id: int, sede_id: int):
     """
-    Guarda una intención de compra (clic en 'Preguntar por esta moto').
-    Escritura desde el servidor -> conexión admin.
+    Guarda una intención de compra. Escritura desde el servidor,
+    con la conexión admin.
     """
     supabase = get_supabase_admin()
     supabase.table("intenciones").insert({
