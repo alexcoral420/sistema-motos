@@ -328,3 +328,12 @@ def obtener_usuario_por_nombre(usuario: str):
         .eq("activo", True)\
         .execute()
     return resultado.data[0] if resultado.data else None
+    # ============================================================
+#  VENTAS (registro de operaciones)
+# ============================================================
+
+def registrar_venta(datos: dict):
+    """Guarda el registro histórico de una venta."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("ventas").insert(datos).execute()
+    return resultado.data

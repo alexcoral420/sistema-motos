@@ -161,9 +161,19 @@ def editar(id):
 @admin_bp.route("/vender/<int:id>", methods=["POST"])
 @requiere_rol("admin", "asesor")
 def vender(id):
-    """Marca una moto como vendida."""
+    """Marca una moto como vendida y registra quién la vendió."""
     inventario.marcar_vendida(id)
-    obtener_logger().info("Admin: moto id=%s marcada como vendida.", id)
+
+    # Registro histórico: quién vendió qué. La identidad sale de la
+    # SESIÓN, no del formulario: el usuario no puede falsear quién es.
+    inventario.registrar_venta(
+        id,
+        session.get("usuario_id"),
+        session.get("usuario_nombre"),
+    )
+
+    obtener_logger().info("%s marcó como vendida la moto id=%s.",
+                          session.get("usuario_nombre"), id)
     return redirect(url_for("admin.index"))
 
 

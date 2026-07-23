@@ -99,19 +99,24 @@
                     {% endif %}
                     <div class="card-actions">
                         <a href="/admin/moto/{{ moto.id }}" class="btn btn-primary">🖼️ Fotos</a>
+
+                        {% if session.rol == 'admin' %}
                         <a href="/editar/{{ moto.id }}" class="btn btn-warning">✏️ Editar</a>
+                        {% endif %}
+
                         {% if moto.estado == 'disponible' %}
                         <form method="POST" action="/vender/{{ moto.id }}" onsubmit="return confirm('¿Marcar como vendida?')" style="display:inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-success">✅ Vendida</button>
                         </form>
                         {% endif %}
+
+                        {% if session.rol == 'admin' %}
                         <form method="POST" action="/eliminar/{{ moto.id }}" onsubmit="return confirm('¿Eliminar esta moto?')" style="display:inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger">🗑️</button>
                         </form>
-                        
-                        
+                        {% endif %}
                     </div>
                 </div>
             </div>
