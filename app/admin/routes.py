@@ -189,7 +189,7 @@ def eliminar(id):
 
 
 @admin_bp.route("/admin/moto/<int:id>")
-@requiere_rol("admin")
+@requiere_rol("admin", "asesor")
 def detalle_moto_admin(id):
     """Detalle de una moto en vista admin (es_admin=True)."""
     moto = inventario.obtener_moto(id)
