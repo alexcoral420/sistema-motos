@@ -8,6 +8,8 @@ servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 
 from flask import Blueprint, render_template, request, redirect
+from urllib.parse import quote
+
 from app.servicios import catalogo
 from app.servicios import inventario
 
@@ -75,7 +77,7 @@ def consultar_moto(moto_id):
         # Si no existe, mandamos a WhatsApp sin mensaje específico.
         return redirect("https://wa.me/573042827795")
 
-    mensaje = f"Hola, me interesa la {moto['marca']} {moto['modelo']} {moto.get('anio', '')}"
-    from urllib.parse import quote
+    mensaje = (f"Hola, He Visto su Catalogo y me interesa la {moto['marca']} {moto['modelo']} "
+               f"{moto.get('anio', '')} (Ref: {moto_id})")
     url = f"https://wa.me/573042827795?text={quote(mensaje)}"
     return redirect(url)

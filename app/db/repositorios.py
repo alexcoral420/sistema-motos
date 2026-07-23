@@ -352,3 +352,27 @@ def registrar_intencion(moto_id: int, sede_id: int):
         "moto_id": moto_id,
         "sede_id": sede_id,
     }).execute()
+
+    # ============================================================
+#  BÚSQUEDA EN EL PANEL ADMIN
+# ============================================================
+
+def buscar_motos_admin(moto_id=None, placa=None):
+    """
+    Todas las motos del panel, con filtros opcionales por id o placa.
+
+    Es una LECTURA -> conexión pública (mínimo privilegio: leer no
+    requiere la llave administrativa).
+    """
+    supabase = get_supabase_publico()
+    consulta = supabase.table("motos").select("*, sedes(nombre)")
+
+    if moto_id is not None:
+        consulta = consulta.eq("id", moto_id)
+
+    if placa:
+        # ilike + comodines: encuentra la placa aunque escriban solo
+        # una parte, y sin distinguir mayúsculas.
+        consulta = consulta.ilike("placa", f"%{placa}%")
+
+    return consulta.order("created_at", desc=True).execute().data

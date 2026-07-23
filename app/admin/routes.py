@@ -24,6 +24,7 @@ from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
 admin_bp = Blueprint("admin", __name__)
 from app.auth.decorators import requiere_rol
+from app.servicios import busqueda
 
 @admin_bp.before_request
 def proteger_todo_el_panel():
@@ -38,11 +39,10 @@ def proteger_todo_el_panel():
 
 
 @admin_bp.route("/")
-
 def index():
-    """Panel principal: lista todas las motos."""
-    motos = inventario.listar_todas_las_motos()
-    return render_template("index.html", motos=motos)
+    """Panel principal: lista las motos, con filtros opcionales."""
+    datos = busqueda.buscar(request.args)
+    return render_template("index.html", **datos)
 
 
 @admin_bp.route("/agregar", methods=["GET", "POST"])

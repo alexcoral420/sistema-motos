@@ -42,11 +42,6 @@
         <a href="/agregar" class="btn btn-primary">+ Agregar moto</a>
     </div>
 
-    <div style="padding: 20px 20px 0; max-width: 1200px; margin: 0 auto;">
-        <input type="text" id="buscador-placa" placeholder="🔍 Buscar por placa..." 
-               style="width:100%; max-width:400px; padding:12px 18px; border:1px solid #ddd; border-radius:8px; font-size:14px; text-transform:uppercase;"
-               onkeyup="filtrarPorPlaca()">
-    </div>
 
     <div class="container">
         <!-- Estadísticas -->
@@ -68,12 +63,22 @@
                 <p>Reservadas</p>
             </div>
         </div>
-
+<!-- Búsqueda del panel. GET a propósito: los filtros quedan en la
+         URL, así el resultado es compartible y recargable. Al ser una
+         lectura, no lleva token CSRF. -->
+        <form method="GET" action="/" class="busqueda-admin">
+            <input type="number" name="id" placeholder="Buscar por ID"
+                     value="{{ filtros.id if filtros.id else '' }}" min="1">
+             <input type="text" name="placa" placeholder="Buscar por placa"
+                    value="{{ filtros.placa or '' }}" maxlength="10">
+            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+            <a href="/" class="btn btn-secundario">Limpiar</a>
+        </form>
         <!-- Grid de motos -->
         {% if motos %}
         <div class="grid">
             {% for moto in motos %}
-            <div class="card" data-placa="{{ moto.placa|lower if moto.placa else '' }}">
+                <div class="card">
                 {% if moto.foto_url %}
                     <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}">
                 {% else %}
@@ -131,20 +136,6 @@
         {% endif %}
     </div>
 
-    <script>
-    function filtrarPorPlaca() {
-        const busqueda = document.getElementById('buscador-placa').value.toLowerCase();
-        const cards = document.querySelectorAll('.card');
 
-        cards.forEach(card => {
-            const placa = card.dataset.placa;
-            if (placa.includes(busqueda)) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    }
-    </script>
 </body>
 </html>
