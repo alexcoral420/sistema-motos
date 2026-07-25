@@ -59,6 +59,12 @@ def create_app(nombre_config=None):
     # seguras entran en vigor.
     clase_config = config_por_nombre[nombre_config]
     app.config.from_object(clase_config)
+    # Filtro de plantilla: formatea números como pesos ($1.234.567).
+    @app.template_filter('pesos')
+    def pesos(v):
+        if v is None:
+            return ''
+        return f"{v:,.0f}".replace(",", ".")
 
     # Protección CSRF: a partir de aquí, TODOS los formularios POST del
     # sistema exigen un token válido. Un POST sin token (o de otro origen)
