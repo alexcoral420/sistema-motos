@@ -3,188 +3,466 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Motors — Compraventa de Motos, Financiación y Taller</title>
-    <meta name="description" content="Universal Motors: compraventa de motocicletas usadas, financiación fácil y taller especializado en Bogotá. Encuentra tu moto ideal.">
+    <title>Universal Motors — Compraventa de Motos, Financiación y Taller en Bogotá</title>
+    <meta name="description" content="Universal Motors: compraventa de motocicletas usadas con papeles al día, financiación fácil y taller especializado en Bogotá. Encuentra tu moto ideal.">
+
+    <!-- Open Graph / redes sociales -->
+    <meta property="og:title" content="Universal Motors — Tu próxima moto está aquí">
+    <meta property="og:description" content="Motos usadas revisadas, financiación fácil y taller especializado en Bogotá.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/static/fondos/fondo1.webp">
+    <meta property="og:locale" content="es_CO">
+
+    <!-- Tipografías: display condensada (espíritu motor) + cuerpo legible -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Precarga del primer fondo del hero para que no parpadee -->
+    <link rel="preload" as="image" href="/static/fondos/fondo1.webp">
+
+    <!-- Datos estructurados para Google (negocio local) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "MotorcycleDealer",
+      "name": "Universal Motors",
+      "description": "Compraventa de motocicletas usadas, financiación y taller especializado en Bogotá.",
+      "telephone": "+573042827795",
+      "address": [
+        {"@type": "PostalAddress", "streetAddress": "Av. 1 de Mayo #29c-35", "addressLocality": "Bogotá", "addressCountry": "CO"},
+        {"@type": "PostalAddress", "streetAddress": "Av. Boyacá #75-12", "addressLocality": "Bogotá", "addressCountry": "CO"}
+      ],
+      "openingHours": "Mo-Sa 09:30-18:30"
+    }
+    </script>
+
     <style>
+        :root {
+            /* Naranja de marca */
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --naranja-oscuro: #e05f00;
+
+            /* Escala de negros: cada paso se distingue del anterior.
+               900 = barras (nav/footer) · 800 = fondo · 700 = bandas · 600 = tarjetas */
+            --negro-900: #050505;
+            --negro-800: #0d0d0d;
+            --negro-700: #141414;
+            --negro-600: #1c1c1c;
+            --borde: #2e2e2e;
+
+            /* Texto: tres niveles de jerarquía, todos legibles sobre fondo oscuro */
+            --blanco: #f5f5f5;
+            --texto: #ededed;
+            --texto-suave: #b0b0b0;
+            --texto-tenue: #8c8c8c;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3, .btn, .btn-nav, .hero-badge, .stat-num { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: 0.3px; }
 
-        /* Navegación */
-        .navbar { background: #000000; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #ff7a00; }
-        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: bold; text-decoration: none; }
+        a:focus-visible, button:focus-visible { outline: 3px solid var(--naranja); outline-offset: 3px; border-radius: 4px; }
+
+        /* ===== Íconos SVG =====
+           Heredan el color del texto y se alinean con la línea base.
+           .ico-trazo = contorno, .ico-solido = relleno (marcas como WhatsApp) */
+        .ico { width: 1.15em; height: 1.15em; flex-shrink: 0; vertical-align: -0.2em; }
+        .ico-trazo { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+        .ico-solido { fill: currentColor; }
+
+        /* ===== Navegación ===== */
+        .navbar { background: var(--negro-900); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 22px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
         .navbar .logo img { height: 42px; width: 42px; border-radius: 50%; }
-        .navbar .logo span { color: #ff7a00; }
+        .navbar .logo span { color: var(--naranja); }
         .nav-links { display: flex; gap: 24px; align-items: center; }
-        .nav-links a { color: #bbb; text-decoration: none; font-size: 14px; transition: color 0.2s; }
-        .nav-links a:hover { color: #ff7a00; }
-        .nav-links .btn-nav { background: #ff7a00; color: #000; padding: 8px 18px; border-radius: 8px; font-weight: bold; }
-        .nav-links .btn-nav:hover { background: #ff9633; color: #000; }
+        .nav-links a { color: var(--texto-suave); text-decoration: none; font-size: 15px; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--naranja); }
+        .nav-links .btn-nav { background: var(--naranja); color: #000; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; }
+        .nav-links .btn-nav:hover { background: var(--naranja-claro); color: #000; }
 
-        /* Hero */
-        .hero { background: linear-gradient(160deg, #000000 0%, #1c1c1c 60%, #2a1a08 100%); color: white; padding: 90px 24px; text-align: center; }
-        .hero h1 { font-size: 42px; margin-bottom: 16px; color: #f5f5f5; text-shadow: 0 4px 20px rgba(0, 0, 0, 0.9); }
-        .hero h1 span { color: #ff7a00; }
-        .hero p { font-size: 18px; color: #e8e8e8; max-width: 600px; margin: 0 auto 32px; line-height: 1.6; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9); }
-        .hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-        .btn { padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 16px; font-weight: bold; transition: transform 0.2s, box-shadow 0.2s; display: inline-block; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,122,0,0.3); }
-        .btn-primary { background: #ff7a00; color: #000; }
-        .btn-outline { border: 2px solid #c0c0c0; color: #e8e8e8; }
-        .btn-outline:hover { border-color: #ff7a00; color: #ff7a00; }
-        .hero-badge { display: inline-block; background: rgba(0, 0, 0, 0.55); border: 1px solid #ff7a00; color: #ff7a00; padding: 6px 18px; border-radius: 20px; font-size: 13px; margin-bottom: 24px; font-weight: bold; }
+        /* Menú hamburguesa (solo móvil) */
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-        /* Servicios */
-        .servicios { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
-        .seccion-titulo { text-align: center; font-size: 32px; color: #f5f5f5; margin-bottom: 12px; }
-        .seccion-sub { text-align: center; color: #888; margin-bottom: 48px; font-size: 16px; }
-        .servicios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
-        .servicio-card { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 32px; text-align: center; transition: transform 0.2s, border-color 0.2s; }
-        .servicio-card:hover { transform: translateY(-6px); border-color: #ff7a00; }
-        .servicio-icon { font-size: 48px; margin-bottom: 16px; }
-        .servicio-card h3 { color: #ff7a00; font-size: 20px; margin-bottom: 12px; }
-        .servicio-card p { color: #aaa; font-size: 14px; line-height: 1.6; }
+        /* ===== Hero ===== */
+        .hero { background: var(--negro-900); color: white; padding: 100px 24px 90px; text-align: center; position: relative; overflow: hidden; }
 
-        /* CTA */
-        .cta { background: linear-gradient(135deg, #ff7a00 0%, #e05f00 100%); color: #000; padding: 64px 24px; text-align: center; }
-        .cta h2 { font-size: 30px; margin-bottom: 12px; }
-        .cta p { font-size: 16px; margin-bottom: 28px; opacity: 0.85; }
-        .cta .btn { background: #000; color: #ff7a00; }
-
-        /* Footer */
-        .footer { background: #000000; color: #999; padding: 48px 24px 24px; border-top: 2px solid #ff7a00; }
-        .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-bottom: 32px; }
-        .footer h4 { color: #ff7a00; font-size: 15px; margin-bottom: 14px; }
-        .footer a { color: #999; text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
-        .footer a:hover { color: #ff7a00; }
-        .footer p { font-size: 13px; line-height: 1.7; }
-        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid #222; font-size: 12px; }
-
-        @media (max-width: 600px) {
-            .hero h1 { font-size: 30px; }
-            .nav-links { gap: 12px; }
-            .nav-links a:not(.btn-nav) { display: none; }
-        }
-
-        /* ===== Fondo dinámico del hero ===== */
-        .hero {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .hero-fondos {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 0;
-        }
-
+        .hero-fondos { position: absolute; inset: 0; z-index: 0; }
         .hero-fondos img {
-            position: absolute;
-            top: 0; left: 0;
+            position: absolute; inset: 0;
             width: 100%; height: 100%;
-            object-fit: cover;       /* la foto llena todo sin deformarse */
+            object-fit: cover;
             opacity: 0;
-            transition: opacity 2s ease;  /* el fundido dura 2 segundos */
+            transition: opacity 2s ease;
+            transform: scale(1.05);
         }
+        .hero-fondos img.activa { opacity: 1; animation: hero-zoom 7s ease-out forwards; }
+        @keyframes hero-zoom { from { transform: scale(1.08); } to { transform: scale(1); } }
 
-        .hero-fondos img.activa {
-            opacity: 1;
-        }
-
-        /* Degradado oscuro encima de las fotos: más oscuro arriba y abajo,
-           más transparente en el medio para que la moto se luzca */
         .hero-overlay {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: linear-gradient(
-                to bottom,
-                rgba(0, 0, 0, 0.85) 0%,
-                rgba(0, 0, 0, 0.55) 40%,
-                rgba(0, 0, 0, 0.80) 100%
-            );
+            position: absolute; inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.80) 100%);
             z-index: 1;
         }
-
-        /* El contenido del hero (badge, título, botones) queda por encima */
-        .hero > *:not(.hero-fondos):not(.hero-overlay) {
-            position: relative;
+        .hero > *:not(.hero-fondos):not(.hero-overlay) { position: relative; z-index: 2; }
+        .hero::after {
+            content: '';
+            position: absolute; bottom: 0; left: 0;
+            width: 100%; height: 3px;
+            background: linear-gradient(to right, transparent, var(--naranja), transparent);
             z-index: 2;
         }
 
-        /* Línea naranja de acento en la parte baja del hero */
-        .hero::after {
-            content: '';
-            position: absolute;
-            bottom: 0; left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(to right, transparent, #ff7a00, transparent);
-            z-index: 2;
+        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.55); border: 1px solid var(--naranja); color: var(--naranja); padding: 6px 18px; border-radius: 20px; font-size: 15px; margin-bottom: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+        .hero h1 { font-size: 52px; line-height: 1.05; margin-bottom: 16px; color: var(--blanco); text-shadow: 0 4px 20px rgba(0,0,0,0.9); text-transform: uppercase; font-weight: 800; }
+        .hero h1 span { color: var(--naranja); }
+        .hero p { font-size: 18px; color: var(--texto); max-width: 600px; margin: 0 auto 32px; line-height: 1.6; text-shadow: 0 2px 10px rgba(0,0,0,0.9); }
+        .hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+        .btn { padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 18px; font-weight: 700; transition: transform 0.2s, box-shadow 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,122,0,0.3); }
+        .btn-primary { background: var(--naranja); color: #000; }
+        .btn-outline { border: 2px solid var(--texto-suave); color: var(--texto); }
+        .btn-outline:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        /* ===== Franja de confianza ===== */
+        .confianza { background: var(--negro-700); border-bottom: 1px solid var(--borde); padding: 28px 24px; }
+        .confianza-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; text-align: center; }
+        .stat-num { font-size: 34px; font-weight: 800; color: var(--naranja); }
+        .stat-label { font-size: 13px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+        /* ===== Categorías por marca ===== */
+        .marcas { padding: 64px 24px 0; max-width: 1100px; margin: 0 auto; }
+        .marcas-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 8px; }
+        .pill {
+            display: inline-block;
+            padding: 10px 22px;
+            border: 1px solid var(--borde);
+            border-radius: 999px;
+            background: var(--negro-600);
+            color: var(--texto);
+            text-decoration: none;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 17px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s;
+        }
+        .pill:hover { border-color: var(--naranja); color: var(--naranja); transform: translateY(-2px); }
+        .pill-todas { background: var(--naranja); color: #000; border-color: var(--naranja); }
+        .pill-todas:hover { background: var(--naranja-claro); color: #000; transform: translateY(-2px); }
+
+        /* ===== Motos destacadas (opcional, si el backend envía la lista) ===== */
+        .destacadas { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
+        .destacadas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+        .moto-card { background: var(--negro-600); border: 1px solid var(--borde); border-radius: 16px; overflow: hidden; transition: transform 0.2s, border-color 0.2s; text-decoration: none; display: block; }
+        .moto-card:hover { transform: translateY(-6px); border-color: var(--naranja); }
+        /* La foto va dentro de un contenedor relativo para poder posicionar el badge encima */
+        .moto-card-foto { position: relative; }
+        .moto-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: center; background: var(--negro-700); display: block; }
+        /* Badge superpuesto en la esquina superior izquierda de la foto */
+        .moto-badge {
+            position: absolute; top: 12px; left: 12px;
+            display: inline-block;
+            padding: 5px 12px;
+            background: var(--naranja); color: #000;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        /* Variante neutra para el cilindraje, esquina opuesta */
+        .moto-badge-cc {
+            left: auto; right: 12px;
+            background: rgba(0,0,0,0.75); color: var(--blanco);
+            border: 1px solid var(--borde);
+        }
+        .moto-card-info { padding: 18px 20px; }
+        .moto-card h3 { color: var(--blanco); font-size: 20px; margin-bottom: 4px; text-transform: uppercase; }
+        .moto-card .precio { color: var(--naranja); font-weight: 700; font-size: 18px; }
+        .moto-card .detalle { color: var(--texto-suave); font-size: 13px; margin-top: 6px; }
+        .ver-todas { text-align: center; margin-top: 36px; }
+
+        /* ===== Servicios ===== */
+        .servicios { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
+        .seccion-titulo { text-align: center; font-size: 36px; color: var(--blanco); margin-bottom: 12px; text-transform: uppercase; font-weight: 800; }
+        .seccion-sub { text-align: center; color: var(--texto-tenue); margin-bottom: 48px; font-size: 16px; }
+        .servicios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+        .servicio-card { background: var(--negro-600); border: 1px solid var(--borde); border-radius: 16px; padding: 32px; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+        .servicio-card:hover { transform: translateY(-6px); border-color: var(--naranja); }
+        .servicio-icon {
+            width: 68px; height: 68px; margin: 0 auto 20px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--borde); border-radius: 50%;
+            background: var(--negro-700); color: var(--naranja);
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .servicio-icon .ico { width: 32px; height: 32px; vertical-align: 0; }
+        .servicio-card:hover .servicio-icon { border-color: var(--naranja); background: rgba(255,122,0,0.08); }
+        .servicio-card h3 { color: var(--naranja); font-size: 22px; margin-bottom: 12px; text-transform: uppercase; }
+        .servicio-card p { color: var(--texto-suave); font-size: 14px; line-height: 1.6; }
+
+        /* ===== Cómo funciona la financiación ===== */
+        .pasos { background: var(--negro-700); border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); padding: 80px 24px; }
+        .pasos-inner { max-width: 1100px; margin: 0 auto; }
+        .pasos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+        .paso { position: relative; padding: 24px 20px 24px 24px; border-left: 3px solid var(--naranja); background: var(--negro-600); border-radius: 0 12px 12px 0; }
+        .paso h3 { color: var(--blanco); font-size: 19px; margin-bottom: 8px; text-transform: uppercase; }
+        .paso p { color: var(--texto-suave); font-size: 14px; line-height: 1.6; }
+
+        /* ===== CTA ===== */
+        .cta { background: linear-gradient(135deg, var(--naranja) 0%, var(--naranja-oscuro) 100%); color: #000; padding: 64px 24px; text-align: center; }
+        .cta h2 { font-size: 34px; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; }
+        .cta p { font-size: 16px; margin-bottom: 28px; opacity: 0.85; }
+        .cta .btn { background: #000; color: var(--naranja); }
+
+        /* ===== Footer ===== */
+        .footer { background: var(--negro-900); color: var(--texto-suave); padding: 48px 24px 24px; border-top: 2px solid var(--naranja); }
+        .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-bottom: 32px; }
+        .footer h4 { color: var(--naranja); font-size: 16px; margin-bottom: 14px; text-transform: uppercase; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 1px; }
+        .footer a { color: var(--texto-suave); text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
+        .footer a:hover { color: var(--naranja); }
+        .footer p { font-size: 13px; line-height: 1.7; }
+        .contacto-lista { list-style: none; }
+        .contacto-lista li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+        .contacto-lista .ico { color: var(--naranja); width: 16px; height: 16px; margin-top: 2px; vertical-align: 0; }
+        .contacto-lista a { display: inline; margin: 0; }
+        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid var(--borde); font-size: 12px; }
+
+        /* ===== Botón flotante de WhatsApp ===== */
+        .wa-flotante {
+            position: fixed; bottom: 22px; right: 22px; z-index: 200;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: #25D366; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+        .wa-flotante:hover { transform: scale(1.1); }
+        .wa-flotante svg { width: 30px; height: 30px; fill: #fff; }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 720px) {
+            .hero { padding: 70px 20px 64px; }
+            .hero h1 { font-size: 34px; }
+            .seccion-titulo { font-size: 28px; }
+            .menu-toggle { display: block; }
+            .nav-links {
+                display: none;
+                position: absolute; top: 100%; left: 0; right: 0;
+                background: var(--negro-900); border-bottom: 2px solid var(--naranja);
+                flex-direction: column; padding: 20px 24px; gap: 18px;
+            }
+            .nav-links.abierto { display: flex; }
+        }
+
+        /* Respeta la preferencia de menos movimiento */
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .hero-fondos img { transition: none; animation: none !important; transform: none; }
+            .btn:hover, .servicio-card:hover, .moto-card:hover, .wa-flotante:hover { transform: none; }
         }
     </style>
 </head>
 <body>
 
+    <!-- ===== Sprite de íconos =====
+         Se define una sola vez y se reutiliza con <use href="#id">.
+         No se muestra: solo sirve de biblioteca. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="ico-moto" viewBox="0 0 24 24">
+            <circle cx="5" cy="17" r="4"/>
+            <circle cx="19" cy="17" r="4"/>
+            <path d="M5 17h4.5l4-8H18"/>
+            <path d="m13.5 9-1.5-3h3"/>
+            <path d="M15 6h3.5"/>
+            <path d="m19 17-2.5-5"/>
+        </symbol>
+        <symbol id="ico-tarjeta" viewBox="0 0 24 24">
+            <rect x="2.5" y="5" width="19" height="14" rx="2.5"/>
+            <path d="M2.5 10h19"/>
+            <path d="M6.5 15h3.5"/>
+        </symbol>
+        <symbol id="ico-llave" viewBox="0 0 24 24">
+            <path d="M15.5 3.5a6 6 0 0 0-4.6 9.9l-7 7a2.1 2.1 0 0 0 3 3l7-7a6 6 0 0 0 7.4-7.7l-3.2 3.2a1.5 1.5 0 0 1-2.1 0l-1.4-1.4a1.5 1.5 0 0 1 0-2.1l3.2-3.2a6 6 0 0 0-2.3-.7z"/>
+        </symbol>
+        <symbol id="ico-pin" viewBox="0 0 24 24">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+        </symbol>
+        <symbol id="ico-reloj" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 6.5V12l3.5 2"/>
+        </symbol>
+        <symbol id="ico-whatsapp" viewBox="0 0 32 32">
+            <path d="M16 3C9.4 3 4 8.4 4 15c0 2.1.6 4.2 1.6 6L4 29l8.2-1.5c1.7.9 3.6 1.4 5.8 1.4 6.6 0 12-5.4 12-12S22.6 3 16 3zm0 21.8c-1.8 0-3.5-.5-5-1.3l-.4-.2-4.9.9 1-4.7-.3-.4c-1-1.6-1.5-3.4-1.5-5.1 0-5.4 4.5-9.8 10-9.8s10 4.4 10 9.8-4.4 9.8-9.9 9.8zm5.5-7.3c-.3-.2-1.8-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.6.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6-.1-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.1 1.3 3.3c.2.2 2.3 3.5 5.6 4.9.8.3 1.4.5 1.9.7.8.2 1.5.2 2.1.1.6-.1 1.8-.7 2.1-1.5.3-.7.3-1.3.2-1.5-.1-.1-.3-.2-.6-.4z"/>
+        </symbol>
+    </svg>
+
     <!-- Navegación -->
     <nav class="navbar">
         <a href="/inicio" class="logo">
-            <img src="/static/logo.png" alt="Universal Motors">
+            <img src="/static/logo.png" alt="Logo Universal Motors">
             Universal <span>Motors</span>
         </a>
-        <div class="nav-links">
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
             <a href="/inicio">Inicio</a>
             <a href="/catalogo">Catálogo</a>
             <a href="/privacidad">Privacidad</a>
-            <a href="https://wa.me/573042827795" class="btn-nav" target="_blank">💬 Escríbenos</a>
+            <a href="https://wa.me/573042827795" class="btn-nav" target="_blank" rel="noopener">
+                <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+                Escríbenos
+            </a>
         </div>
     </nav>
 
     <!-- Hero -->
     <section class="hero">
-        <div class="hero-fondos">
+        <div class="hero-fondos" aria-hidden="true">
             <img src="/static/fondos/fondo1.webp" class="activa" alt="">
-            <img src="/static/fondos/fondo2.webp" alt="">
-            <img src="/static/fondos/fondo3.webp" alt="">
+            <img src="/static/fondos/fondo2.webp" alt="" loading="lazy">
+            <img src="/static/fondos/fondo3.webp" alt="" loading="lazy">
         </div>
         <div class="hero-overlay"></div>
-        <div class="hero-badge">🏍️ {{ total_motos }} motos disponibles ahora</div>
+        <div class="hero-badge">
+            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg>
+            {{ total_motos }} motos disponibles ahora
+        </div>
         <h1>Tu próxima moto está en <span>Universal Motors</span></h1>
-        <p>Compraventa de motocicletas usadas con papeles al día, financiación fácil y taller especializado. Más de 10.000 clientes han renovado su camino con Universal Motors.</p>
+        <p>Motos usadas revisadas, con papeles al día, SOAT y tecnomecánica vigentes. Financiamos con tu cédula y tenemos taller propio para el mantenimiento de después.</p>
         <div class="hero-btns">
             <a href="/catalogo" class="btn btn-primary">Ver catálogo</a>
-            <a href="https://wa.me/573042827795" class="btn btn-outline" target="_blank">Hablar con un asesor</a>
+            <a href="https://wa.me/573042827795" class="btn btn-outline" target="_blank" rel="noopener">
+                <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+                Hablar con un asesor
+            </a>
         </div>
     </section>
+
+    <!-- Franja de confianza -->
+    <section class="confianza" aria-label="Cifras de Universal Motors">
+        <div class="confianza-grid">
+            <div><div class="stat-num">+10.000</div><div class="stat-label">Clientes atendidos</div></div>
+            <div><div class="stat-num">{{ total_motos }}</div><div class="stat-label">Motos disponibles</div></div>
+            <div><div class="stat-num">2</div><div class="stat-label">Sedes en Bogotá</div></div>
+            <div><div class="stat-num">24/7</div><div class="stat-label">Atención por WhatsApp</div></div>
+        </div>
+    </section>
+
+    <!-- Categorías por marca -->
+    <!-- INVARIANTE (filtrado en servidor): cada píldora DEBE ser un enlace a
+         /catalogo?marca={{ marca }}. No convertir a filtro JavaScript en el
+         navegador: rompe el patrón de filtrado en servidor del proyecto. -->
+    {% if marcas %}
+    <section class="marcas" aria-label="Buscar motos por marca">
+        <h2 class="seccion-titulo">Busca por marca</h2>
+        <p class="seccion-sub">Filtra el catálogo por tu marca favorita</p>
+        <div class="marcas-pills">
+            <a href="/catalogo" class="pill pill-todas">Todas</a>
+            {% for marca in marcas %}
+            <a href="/catalogo?marca={{ marca }}" class="pill">{{ marca }}</a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Motos destacadas: se muestra solo si el backend envía "motos_destacadas" -->
+    {% if motos_destacadas %}
+    <section class="destacadas">
+        <h2 class="seccion-titulo">Motos destacadas</h2>
+        <p class="seccion-sub">Recién llegadas y listas para rodar</p>
+        <div class="destacadas-grid">
+            {% for moto in motos_destacadas %}
+            <a href="/moto/{{ moto.id }}" class="moto-card">
+                {% if moto.foto_url %}
+                <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
+                {% endif %}
+                <div class="moto-card-info">
+                    <h3>{{ moto.marca }} {{ moto.modelo }}</h3>
+                    <div class="precio">
+                        {% if moto.precio %}${{ "{:,}".format(moto.precio) }}{% else %}Consultar precio{% endif %}
+                    </div>
+                    <div class="detalle">
+                        {{ moto.anio }}{% if moto.kilometraje %} · {{ "{:,}".format(moto.kilometraje) }} km{% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        <div class="ver-todas">
+            <a href="/catalogo" class="btn btn-primary">Ver todo el catálogo</a>
+        </div>
+    </section>
+    {% endif %}
 
     <!-- Servicios -->
     <section class="servicios">
         <h2 class="seccion-titulo">Nuestros servicios</h2>
-        <p class="seccion-sub">Todo lo que necesitas para tu moto en un solo lugar</p>
+        <p class="seccion-sub">Compra, financiación y mantenimiento en el mismo lugar</p>
         <div class="servicios-grid">
             <div class="servicio-card">
-                <div class="servicio-icon">🏍️</div>
+                <div class="servicio-icon"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
                 <h3>Compraventa de motos</h3>
-                <p>Motos usadas revisadas, con papeles al día, SOAT y tecnomecánica vigentes. Compramos tu moto al mejor precio del mercado.</p>
+                <p>Motos usadas revisadas, con papeles al día y SOAT y tecnomecánica vigentes. Si ya tienes moto, también te la compramos.</p>
             </div>
             <div class="servicio-card">
-                <div class="servicio-icon">💳</div>
-                <h3>Financiación fácil</h3>
-                <p>Financiamos tu moto a través de Banco de Bogotá, Addy y Vanti. Solo necesitas tu cédula y no estar reportado.</p>
+                <div class="servicio-icon"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-tarjeta"/></svg></div>
+                <h3>Financiación</h3>
+                <p>Trabajamos con Banco de Bogotá, Addy y Vanti. Solo necesitas tu cédula y no estar reportado en centrales.</p>
             </div>
             <div class="servicio-card">
-                <div class="servicio-icon">🔧</div>
+                <div class="servicio-icon"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-llave"/></svg></div>
                 <h3>Taller y repuestos</h3>
-                <p>Taller especializado con técnicos certificados y repuestos originales para todas las marcas.</p>
+                <p>Técnicos certificados y repuestos originales para todas las marcas, tanto para mantenimiento como para reparación.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cómo funciona la financiación -->
+    <section class="pasos">
+        <div class="pasos-inner">
+            <h2 class="seccion-titulo">Estrena moto en 4 pasos</h2>
+            <p class="seccion-sub">Así de fácil es financiar con nosotros</p>
+            <div class="pasos-grid">
+                <div class="paso">
+                    <h3>1 · Elige tu moto</h3>
+                    <p>Explora el catálogo o visítanos en cualquiera de nuestras dos sedes en Bogotá.</p>
+                </div>
+                <div class="paso">
+                    <h3>2 · Trae tu cédula</h3>
+                    <p>Solo necesitas tu cédula y no estar reportado. Sin trámites eternos ni papeleo complicado.</p>
+                </div>
+                <div class="paso">
+                    <h3>3 · Aprobación rápida</h3>
+                    <p>Estudiamos tu crédito con Banco de Bogotá, Addy o Vanti y te respondemos el mismo día.</p>
+                </div>
+                <div class="paso">
+                    <h3>4 · Sal rodando</h3>
+                    <p>Firmas, recibes tu moto con papeles al día y sales rodando desde el concesionario.</p>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- CTA -->
     <section class="cta">
-        <h2>¿Listo para encontrar tu moto ideal?</h2>
-        <p>Escríbenos por WhatsApp y nuestro asistente te atiende al instante, 24/7</p>
-        <a href="https://wa.me/573042827795" class="btn" target="_blank">💬 Chatear ahora</a>
+        <h2>¿Tienes dudas con alguna moto?</h2>
+        <p>Escríbenos por WhatsApp y te decimos precio, cuota mensual y disponibilidad. A cualquier hora, todos los días.</p>
+        <a href="https://wa.me/573042827795" class="btn" target="_blank" rel="noopener">
+            <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+            Chatear ahora
+        </a>
     </section>
 
     <!-- Footer -->
@@ -200,13 +478,24 @@
                 <a href="/catalogo">Catálogo</a>
                 <a href="/privacidad">Política de privacidad</a>
                 <a href="/terminos">Términos y condiciones</a>
+                <a href="/login">Acceso equipo</a>
             </div>
             <div>
                 <h4>Contacto</h4>
-                <p>📍 Av. 1 de Mayo #29c-35, Bogotá<br>
-                    📍 Av. boyacá #75-12, Bogotá<br>
-                🕐 Lunes a sábado 9:30am - 6:30pm<br>
-                💬 WhatsApp: +57 3042827795</p>
+                <ul class="contacto-lista">
+                    <li>
+                        <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-pin"/></svg>
+                        <span>Av. 1 de Mayo #29c-35, Bogotá<br>Av. Boyacá #75-12, Bogotá</span>
+                    </li>
+                    <li>
+                        <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-reloj"/></svg>
+                        <span>Lunes a sábado, 9:30am – 6:30pm</span>
+                    </li>
+                    <li>
+                        <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+                        <a href="https://wa.me/573042827795" target="_blank" rel="noopener">+57 304 282 7795</a>
+                    </li>
+                </ul>
             </div>
         </div>
         <div class="footer-bottom">
@@ -214,15 +503,42 @@
         </div>
     </footer>
 
+    <!-- Botón flotante de WhatsApp -->
+    <a href="https://wa.me/573042827795" class="wa-flotante" target="_blank" rel="noopener" aria-label="Chatear por WhatsApp">
+        <svg aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+    </a>
+
     <script>
+    // ===== Carrusel de fondos del hero =====
     const fondos = document.querySelectorAll('.hero-fondos img');
+    const prefiereMenosMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let fondoActual = 0;
 
-    setInterval(() => {
-        fondos[fondoActual].classList.remove('activa');
-        fondoActual = (fondoActual + 1) % fondos.length;  // vuelve a 0 al llegar al final
-        fondos[fondoActual].classList.add('activa');
-    }, 5000);  // cambia cada 5000 ms = 5 segundos
+    if (fondos.length > 1 && !prefiereMenosMovimiento) {
+        setInterval(() => {
+            fondos[fondoActual].classList.remove('activa');
+            fondoActual = (fondoActual + 1) % fondos.length;
+            fondos[fondoActual].classList.add('activa');
+        }, 6000);
+    }
+
+    // ===== Menú hamburguesa en móvil =====
+    const toggle = document.querySelector('.menu-toggle');
+    const links = document.getElementById('nav-links');
+
+    toggle.addEventListener('click', () => {
+        const abierto = links.classList.toggle('abierto');
+        toggle.classList.toggle('abierto', abierto);
+        toggle.setAttribute('aria-expanded', abierto);
+        toggle.setAttribute('aria-label', abierto ? 'Cerrar menú' : 'Abrir menú');
+    });
+
+    // Cierra el menú al tocar un enlace
+    links.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+        links.classList.remove('abierto');
+        toggle.classList.remove('abierto');
+        toggle.setAttribute('aria-expanded', 'false');
+    }));
     </script>
 
 </body>

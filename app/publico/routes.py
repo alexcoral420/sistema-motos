@@ -12,15 +12,21 @@ from urllib.parse import quote
 
 from app.servicios import catalogo
 from app.servicios import inventario
-
+from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
 
 @publico_bp.route("/inicio")
 def inicio():
-    """Página principal. Muestra el conteo de motos disponibles."""
+    """Página de inicio con cifras reales del inventario."""
     motos = inventario.listar_motos_disponibles()
-    return render_template("home.html", total_motos=len(motos))
+    return render_template(
+        "home.html",
+        total_motos=len(motos),
+        motos_destacadas=motos[:6],
+        marcas=repositorios.obtener_marcas_disponibles(),
+    )
+    
 
 
 @publico_bp.route("/catalogo")
@@ -81,3 +87,4 @@ def consultar_moto(moto_id):
                f"{moto.get('anio', '')} (Ref: {moto_id})")
     url = f"https://wa.me/573042827795?text={quote(mensaje)}"
     return redirect(url)
+    
