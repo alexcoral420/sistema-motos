@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerencia · Universal Motors</title>
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #050505;
+            --negro-800: #0d0d0d;
+            --negro-700: #141414;
+            --negro-600: #1c1c1c;
+            --borde: #2a2a2a;
+            --blanco: #f5f5f5;
+            --texto: #e8e8e8;
+            --texto-suave: #a8a8a8;
+            --texto-tenue: #777;
+            --verde: #34c759;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3, .stat-num { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: 0.3px; }
+
+        /* Barra superior */
+        .barra { background: var(--negro-900); border-bottom: 2px solid var(--naranja); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .barra h1 { color: var(--blanco); font-size: 24px; text-transform: uppercase; }
+        .barra h1 span { color: var(--naranja); }
+        .barra .volver { color: var(--texto-suave); text-decoration: none; font-size: 14px; padding: 8px 16px; border: 1px solid var(--borde); border-radius: 8px; transition: border-color 0.2s, color 0.2s; }
+        .barra .volver:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        .contenedor { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
+
+        /* Resumen: tarjetas de cifra */
+        .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 40px; }
+        .cifra { background: var(--negro-600); border: 1px solid var(--borde); border-left: 3px solid var(--naranja); border-radius: 12px; padding: 22px 24px; }
+        .cifra .stat-num { font-size: 40px; font-weight: 800; color: var(--blanco); line-height: 1; }
+        .cifra .stat-label { font-size: 13px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; }
+
+        /* Secciones de reporte */
+        .reporte { margin-bottom: 44px; }
+        .reporte h2 { color: var(--blanco); font-size: 22px; text-transform: uppercase; margin-bottom: 4px; }
+        .reporte .sub { color: var(--texto-tenue); font-size: 14px; margin-bottom: 18px; }
+
+        /* Tablas */
+        table { width: 100%; border-collapse: collapse; background: var(--negro-600); border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; }
+        thead th { background: var(--negro-700); color: var(--naranja); text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        tbody td { padding: 12px 16px; border-top: 1px solid var(--borde); font-size: 15px; }
+        tbody tr:hover { background: var(--negro-700); }
+        .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--naranja); }
+        .tenue { color: var(--texto-tenue); font-size: 13px; }
+        .vendido { color: var(--texto-tenue); }
+
+        /* Barra de proporción dentro de la celda (para marcas) */
+        .barra-dato { display: flex; align-items: center; gap: 10px; }
+        .barra-dato .track { flex: 1; height: 8px; background: var(--negro-800); border-radius: 4px; overflow: hidden; }
+        .barra-dato .fill { height: 100%; background: var(--naranja); border-radius: 4px; }
+
+        /* Estado vacío */
+        .vacio { background: var(--negro-600); border: 1px dashed var(--borde); border-radius: 12px; padding: 32px; text-align: center; color: var(--texto-tenue); font-size: 15px; }
+
+        /* Distintivo: badge de posición en rankings */
+        .pos { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--negro-800); border: 1px solid var(--borde); font-size: 13px; font-weight: 700; color: var(--texto-suave); }
+        tbody tr:first-child .pos { background: var(--naranja); color: #000; border-color: var(--naranja); }
+
+        @media (max-width: 600px) {
+            thead th, tbody td { padding: 10px 12px; font-size: 14px; }
+            .reporte h2 { font-size: 19px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Panel de <span>Gerencia</span></h1>
+        <a href="/" class="volver">← Volver al inventario</a>
+    </div>
+
+    <div class="contenedor">
+
+        <!-- Resumen rápido: cifras derivadas de los reportes -->
+        <div class="resumen">
+            <div class="cifra">
+                <div class="stat-num">{{ ventas_usuario | sum(attribute='total_ventas') }}</div>
+                <div class="stat-label">Ventas registradas</div>
+            </div>
+            <div class="cifra">
+                <div class="stat-num">{{ ventas_usuario | length }}</div>
+                <div class="stat-label">Vendedores activos</div>
+            </div>
+            <div class="cifra">
+                <div class="stat-num">{{ consultas_marca | sum(attribute='consultas') }}</div>
+                <div class="stat-label">Consultas totales</div>
+            </div>
+        </div>
+
+        <!-- ============ VENTAS POR VENDEDOR ============ -->
+        <section class="reporte">
+            <h2>Ventas por vendedor</h2>
+            <p class="sub">Cuántas motos ha registrado como vendidas cada persona</p>
+            {% if ventas_usuario %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th class="num">Ventas</th>
+                        <th>Última venta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in ventas_usuario %}
+                    <tr>
+                        <td>{{ v.usuario_nombre }}</td>
+                        <td class="num">{{ v.total_ventas }}</td>
+                        <td class="tenue">{{ v.ultima_venta[:10] if v.ultima_venta else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay ventas registradas.</div>
+            {% endif %}
+        </section>
+
+        <!-- ============ MOTOS MÁS CONSULTADAS ============ -->
+        <section class="reporte">
+            <h2>Motos más consultadas</h2>
+            <p class="sub">Las que más interés generan al pulsar "Preguntar por esta moto"</p>
+            {% if motos_consultadas %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Moto</th>
+                        <th>Estado</th>
+                        <th class="num">Consultas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in motos_consultadas %}
+                    <tr>
+                        <td><span class="pos">{{ loop.index }}</span></td>
+                        <td>
+                            {% if m.marca %}{{ m.marca }} {{ m.modelo }} {{ m.anio }}{% else %}<span class="tenue">Moto retirada del inventario</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if m.estado == 'vendido' %}<span class="vendido">vendida</span>{% else %}{{ m.estado or '—' }}{% endif %}
+                        </td>
+                        <td class="num">{{ m.consultas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay consultas registradas.</div>
+            {% endif %}
+        </section>
+
+        <!-- ============ CONSULTAS POR MARCA ============ -->
+        <section class="reporte">
+            <h2>Interés por marca</h2>
+            <p class="sub">Qué marcas buscan más tus clientes — guía para decidir qué comprar</p>
+            {% if consultas_marca %}
+            {% set max_marca = consultas_marca[0].consultas %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Marca</th>
+                        <th style="width:45%">Proporción</th>
+                        <th class="num">Consultas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in consultas_marca %}
+                    <tr>
+                        <td>{{ c.marca }}</td>
+                        <td>
+                            <div class="barra-dato">
+                                <div class="track">
+                                    <div class="fill" style="width: {{ (c.consultas / max_marca * 100) | round }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="num">{{ c.consultas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay consultas registradas.</div>
+            {% endif %}
+        </section>
+
+        <!-- ============ RITMO SEMANAL ============ -->
+        <section class="reporte">
+            <h2>Ritmo de ventas</h2>
+            <p class="sub">Ventas registradas por semana</p>
+            {% if ventas_semana %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Semana del</th>
+                        <th class="num">Ventas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in ventas_semana %}
+                    <tr>
+                        <td>{{ s.semana }}</td>
+                        <td class="num">{{ s.ventas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay ventas registradas.</div>
+            {% endif %}
+        </section>
+
+    </div>
+</body>
+</html>
