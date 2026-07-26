@@ -376,3 +376,56 @@ def buscar_motos_admin(moto_id=None, placa=None):
         consulta = consulta.ilike("placa", f"%{placa}%")
 
     return consulta.order("created_at", desc=True).execute().data
+
+    # ============================================================
+#  DESTACADAS INTELIGENTES (por intención de compra)
+# ============================================================
+
+def obtener_motos_mas_consultadas(limite: int = 6):
+    """
+    Motos DISPONIBLES ordenadas por número de intenciones (consultas
+    'Preguntar por esta moto'), de más a menos, que tengan foto.
+
+    Es el cruce intenciones + motos: el sistema aprende de su propio uso.
+    Si no hay suficientes con consultas, se completa con disponibles
+    recientes para no dejar la sección a medias.
+    """
+    supabase = get_supabase_admin()
+
+    # 1. Contar intenciones por moto. Traemos todas y agrupamos en Python
+    #    (Supabase no da GROUP BY directo desde el cliente).
+    intenciones = supabase.table("intenciones").select("moto_id").execute().data
+    conteo = {}
+    for i in intenciones:
+        mid = i.get("moto_id")
+        if mid is not None:
+            conteo[mid] = conteo.get(mid, 0) + 1
+
+    # 2. Traer las motos disponibles CON foto.
+    motos = supabase.table("motos")\
+        .select("*, sedes(nombre)")\
+        .eq("estado", "disponible")\
+        .not_.is_("foto_url", "null")\
+        .execute().data
+
+    # 3. Ordenar por número de consultas (las sin consultas van al final,
+    #    y entre esas, las más recientes primero por venir ya ordenadas).
+    motos.sort(key=lambda m: conteo.get(m["id"], 0), reverse=True)
+
+    return motos[:limite]
+
+    # ============================================================
+#  REPORTES DE GERENCIA (leen las vistas SQL)
+# ============================================================
+
+def reporte_ventas_por_usuario():
+    return get_supabase_admin().table("reporte_ventas_por_usuario").select("*").execute().data
+
+def reporte_ventas_por_semana():
+    return get_supabase_admin().table("reporte_ventas_por_semana").select("*").execute().data
+
+def reporte_motos_consultadas():
+    return get_supabase_admin().table("reporte_motos_consultadas").select("*").limit(15).execute().data
+
+def reporte_consultas_por_marca():
+    return get_supabase_admin().table("reporte_consultas_por_marca").select("*").execute().data

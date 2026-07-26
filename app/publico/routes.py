@@ -23,7 +23,7 @@ def inicio():
     return render_template(
         "home.html",
         total_motos=len(motos),
-        motos_destacadas=motos[:6],
+        motos_destacadas=repositorios.obtener_motos_mas_consultadas(6),
         marcas=repositorios.obtener_marcas_disponibles(),
     )
     

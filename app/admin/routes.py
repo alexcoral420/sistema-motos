@@ -25,6 +25,7 @@ from app.seguridad.logging_config import obtener_logger
 admin_bp = Blueprint("admin", __name__)
 from app.auth.decorators import requiere_rol
 from app.servicios import busqueda
+from app.servicios import reportes
 
 @admin_bp.before_request
 def proteger_todo_el_panel():
@@ -256,3 +257,14 @@ def hacer_portada_moto(id, foto_id):
     obtener_logger().info("Admin: foto id=%s puesta como portada de la moto id=%s.",
                           foto_id, id)
     return redirect(url_for("admin.detalle_moto_admin", id=id))
+@admin_bp.route("/gerencia")
+@requiere_rol("admin", "gerencia")
+def panel_gerencia():
+    """Panel de métricas del negocio. Solo admin y gerencia."""
+    return render_template(
+        "gerencia.html",
+        ventas_usuario=reportes.ventas_por_usuario(),
+        ventas_semana=reportes.ventas_por_semana(),
+        motos_consultadas=reportes.motos_mas_consultadas(),
+        consultas_marca=reportes.consultas_por_marca(),
+    )
