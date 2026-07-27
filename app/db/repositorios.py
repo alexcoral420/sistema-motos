@@ -429,3 +429,61 @@ def reporte_motos_consultadas():
 
 def reporte_consultas_por_marca():
     return get_supabase_admin().table("reporte_consultas_por_marca").select("*").execute().data
+
+    # ============================================================
+#  GESTIÓN DE USUARIOS (crear, listar, desactivar)
+# ============================================================
+
+def listar_usuarios():
+    """
+    Todos los usuarios, para el panel de gestión. Incluye activos e
+    inactivos (los inactivos se muestran atenuados, no se ocultan:
+    gerencia debe ver a quién desactivó).
+    NUNCA devuelve el password_hash al panel: solo lo que se muestra.
+    """
+    supabase = get_supabase_admin()
+    return supabase.table("usuarios")\
+        .select("id, usuario, nombre_completo, rol, sede_id, activo, created_at")\
+        .order("activo", desc=True)\
+        .order("nombre_completo")\
+        .execute().data
+
+
+def crear_usuario(datos: dict):
+    """Inserta un usuario nuevo. datos ya trae el password_hash calculado."""
+    supabase = get_supabase_admin()
+    return supabase.table("usuarios").insert(datos).execute().data
+
+
+def desactivar_usuario(usuario_id: int):
+    """Borrado lógico: activo = false. No elimina la fila."""
+    supabase = get_supabase_admin()
+    return supabase.table("usuarios")\
+        .update({"activo": False})\
+        .eq("id", usuario_id)\
+        .execute().data
+
+
+def contar_admins_activos():
+    """
+    Cuántos admin activos quedan. Sirve para la salvaguarda de 'no
+    desactivar al último admin' — sin admins activos, nadie puede
+    administrar el sistema.
+    """
+    supabase = get_supabase_admin()
+    resultado = supabase.table("usuarios")\
+        .select("id", count="exact")\
+        .eq("rol", "admin")\
+        .eq("activo", True)\
+        .execute()
+    return resultado.count
+
+
+def obtener_usuario_por_id(usuario_id: int):
+    """Un usuario por su id (para validar antes de desactivar)."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("usuarios")\
+        .select("id, usuario, nombre_completo, rol, activo")\
+        .eq("id", usuario_id)\
+        .execute()
+    return resultado.data[0] if resultado.data else None

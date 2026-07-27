@@ -26,6 +26,7 @@ admin_bp = Blueprint("admin", __name__)
 from app.auth.decorators import requiere_rol
 from app.servicios import busqueda
 from app.servicios import reportes
+from app.servicios import usuarios
 
 @admin_bp.before_request
 def proteger_todo_el_panel():
@@ -40,6 +41,7 @@ def proteger_todo_el_panel():
 
 
 @admin_bp.route("/")
+@requiere_rol("admin", "asesor", "gerencia")
 def index():
     """Panel principal: lista las motos, con filtros opcionales."""
     datos = busqueda.buscar(request.args)
@@ -190,7 +192,7 @@ def eliminar(id):
 
 
 @admin_bp.route("/admin/moto/<int:id>")
-@requiere_rol("admin", "asesor")
+@requiere_rol("admin", "asesor", "gerencia")
 def detalle_moto_admin(id):
     """Detalle de una moto en vista admin (es_admin=True)."""
     moto = inventario.obtener_moto(id)
@@ -268,3 +270,51 @@ def panel_gerencia():
         motos_consultadas=reportes.motos_mas_consultadas(),
         consultas_marca=reportes.consultas_por_marca(),
     )
+
+@admin_bp.route("/usuarios", methods=["GET", "POST"])
+@requiere_rol("admin", "gerencia")
+def gestion_usuarios():
+    """Panel de gestión de usuarios: listar y crear."""
+    error = None
+    exito = None
+
+    if request.method == "POST":
+        try:
+            # La identidad de QUIEN crea viene de la SESIÓN, nunca del form.
+            usuarios.crear(
+                actor_rol=session.get("rol"),
+                usuario=request.form.get("usuario"),
+                nombre=request.form.get("nombre_completo"),
+                password=request.form.get("password"),
+                rol=request.form.get("rol"),
+                sede_id=request.form.get("sede_id") or None,
+            )
+            exito = "Usuario creado correctamente."
+        except usuarios.ErrorGestionUsuario as e:
+            error = str(e)
+
+    return render_template(
+        "usuarios.html",
+        lista_usuarios=usuarios.listar(),
+        sedes=sedes.listar_sedes(),
+        error=error,
+        exito=exito,
+    )
+
+
+@admin_bp.route("/usuarios/<int:usuario_id>/desactivar", methods=["POST"])
+@requiere_rol("admin", "gerencia")
+def desactivar_usuario(usuario_id):
+    """Desactiva un usuario (borrado lógico) con salvaguardas."""
+    try:
+        # Actor id y rol: de la SESIÓN. objetivo: de la URL.
+        usuarios.desactivar(
+            actor_id=session.get("usuario_id"),
+            actor_rol=session.get("rol"),
+            objetivo_id=usuario_id,
+        )
+    except usuarios.ErrorGestionUsuario as e:
+        # Guardamos el mensaje para mostrarlo al volver.
+        obtener_logger().info("Desactivación rechazada: %s", str(e))
+
+    return redirect(url_for("admin.gestion_usuarios"))
