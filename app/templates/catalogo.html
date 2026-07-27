@@ -5,156 +5,241 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catálogo de Motos — Universal Motors</title>
     <meta name="description" content="Catálogo de motocicletas usadas disponibles en Universal Motors, Bogotá. Filtra por precio y encuentra tu moto ideal.">
+
+    <!-- Tipografías de marca (mismas que el home) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --naranja-oscuro: #e05f00;
+            --negro-900: #050505;
+            --negro-800: #0d0d0d;
+            --negro-700: #141414;
+            --negro-600: #1c1c1c;
+            --borde: #2e2e2e;
+            --blanco: #f5f5f5;
+            --texto: #ededed;
+            --texto-suave: #b0b0b0;
+            --texto-tenue: #8c8c8c;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3, h4, .btn-nav, .card-title, .card-price, .btn-filtrar, .btn-detalle, .btn-whatsapp { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
 
-        /* Navegación (igual a home.html) */
-        .navbar { background: #000000; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #ff7a00; }
-        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: bold; text-decoration: none; }
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+        .ico { width: 1.15em; height: 1.15em; flex-shrink: 0; vertical-align: -0.2em; }
+        .ico-trazo { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+        .ico-solido { fill: currentColor; }
+
+        /* ===== Navegación (igual al home) ===== */
+        .navbar { background: var(--negro-900); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 22px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
         .navbar .logo img { height: 42px; width: 42px; border-radius: 50%; }
-        .navbar .logo span { color: #ff7a00; }
+        .navbar .logo span { color: var(--naranja); }
         .nav-links { display: flex; gap: 24px; align-items: center; }
-        .nav-links a { color: #bbb; text-decoration: none; font-size: 14px; transition: color 0.2s; }
-        .nav-links a:hover { color: #ff7a00; }
-        .nav-links a.active { color: #ff7a00; }
-        .nav-links .btn-nav { background: #ff7a00; color: #000; padding: 8px 18px; border-radius: 8px; font-weight: bold; }
-        .nav-links .btn-nav:hover { background: #ff9633; color: #000; }
+        .nav-links a { color: var(--texto-suave); text-decoration: none; font-size: 15px; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--naranja); }
+        .nav-links .btn-nav { background: var(--naranja); color: #000; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 16px; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; }
+        .nav-links .btn-nav:hover { background: var(--naranja-claro); color: #000; }
 
-        /* Header del catálogo (mini-hero) */
-        .catalogo-header { background: linear-gradient(160deg, #000000 0%, #1c1c1c 60%, #2a1a08 100%); padding: 56px 24px 40px; text-align: center; border-bottom: 1px solid #2a2a2a; }
-        .catalogo-header h1 { font-size: 34px; color: #f5f5f5; margin-bottom: 8px; }
-        .catalogo-header p { color: #aaa; font-size: 15px; }
+        /* ===== Header del catálogo (mini-hero con fibra de carbono) ===== */
+        .catalogo-header {
+            padding: 60px 24px 44px; text-align: center; border-bottom: 1px solid var(--borde);
+            position: relative; overflow: hidden;
+            background:
+                radial-gradient(ellipse 90% 70% at 60% 20%, rgba(255,122,0,0.10) 0%, transparent 55%),
+                linear-gradient(27deg, #151515 5px, transparent 5px) 0 5px,
+                linear-gradient(207deg, #151515 5px, transparent 5px) 10px 0,
+                linear-gradient(27deg, #0e0e0e 5px, transparent 5px) 0 10px,
+                linear-gradient(207deg, #0e0e0e 5px, transparent 5px) 10px 5px,
+                var(--negro-900);
+            background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px, 100% 100%;
+        }
+        .catalogo-header h1 { font-size: 40px; color: var(--blanco); margin-bottom: 8px; text-transform: uppercase; font-weight: 800; display: inline-flex; align-items: center; gap: 12px; }
+        .catalogo-header h1 .ico { width: 34px; height: 34px; color: var(--naranja); }
+        .catalogo-header p { color: var(--texto-suave); font-size: 16px; }
 
-        .contador { text-align: center; padding: 20px 16px 8px; color: #999; font-size: 14px; }
+        .contador { text-align: center; padding: 24px 16px 4px; color: var(--texto-tenue); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .contador b { color: var(--naranja); font-weight: 700; }
 
-        
+        /* ===== Filtros (GET a servidor) ===== */
+        .filtros-form { max-width: 940px; margin: 0 auto; padding: 16px 20px 32px; }
+        .filtros-fila { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .filtros-fila .campo-icono { position: relative; flex: 1; min-width: 150px; display: flex; }
+        .filtros-fila .campo-icono .ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--texto-tenue); width: 16px; height: 16px; pointer-events: none; }
+        .filtros-fila .campo-icono input { padding-left: 40px; }
+        .filtros-fila input, .filtros-fila select {
+            flex: 1; min-width: 150px; padding: 12px 16px;
+            background: var(--negro-600); border: 1px solid var(--borde); border-radius: 10px;
+            color: var(--texto); font-family: 'Barlow', sans-serif; font-size: 15px; outline: none;
+            transition: border-color 0.2s;
+        }
+        .filtros-fila select {
+            appearance: none; -webkit-appearance: none; cursor: pointer;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23ff7a00' stroke-width='2'><path d='M2 5l5 5 5-5'/></svg>");
+            background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px;
+        }
+        .filtros-fila input:hover, .filtros-fila select:hover,
+        .filtros-fila input:focus, .filtros-fila select:focus { border-color: var(--naranja); }
+        .filtros-fila input::placeholder { color: var(--texto-tenue); }
+        .btn-filtrar {
+            padding: 12px 30px; border-radius: 10px; border: none; cursor: pointer;
+            background: var(--naranja); color: #000; font-weight: 700; font-size: 16px;
+            text-transform: uppercase; letter-spacing: 0.5px; transition: background 0.2s, transform 0.15s;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-filtrar:hover { background: var(--naranja-claro); transform: translateY(-1px); }
+        .btn-limpiar {
+            padding: 12px 24px; border-radius: 10px; border: 1px solid var(--borde);
+            color: var(--texto-suave); text-decoration: none; font-size: 15px;
+            display: inline-flex; align-items: center; transition: border-color 0.2s, color 0.2s;
+        }
+        .btn-limpiar:hover { border-color: var(--naranja); color: var(--naranja); }
 
         .container { padding: 0 24px 60px; max-width: 1200px; margin: 0 auto; }
 
-        /* Grid — 3 columnas en pantallas grandes */
+        /* ===== Grid ===== */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 28px; }
-        @media (min-width: 1000px) {
-            .grid { grid-template-columns: repeat(3, 1fr); }
-        }
+        @media (min-width: 1000px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
-        /* Tarjeta de moto */
+        /* ===== Tarjeta ===== */
         .card {
-            background: #161616; border: 1px solid #2a2a2a; border-radius: 16px;
+            background: var(--negro-600); border: 1px solid var(--borde); border-radius: 16px;
             overflow: hidden; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
         }
-        .card:hover { transform: translateY(-6px); border-color: #ff7a00; box-shadow: 0 12px 28px rgba(255,122,0,0.15); }
-        .card img { width: 100%; height: 230px; object-fit: cover; display: block; }
-        .card-no-img { width: 100%; height: 230px; background: #0f0f0f; display: flex; align-items: center; justify-content: center; font-size: 56px; }
+        .card:hover { transform: translateY(-6px); border-color: var(--naranja); box-shadow: 0 12px 28px rgba(255,122,0,0.15); }
+        .card img { width: 100%; height: 230px; object-fit: cover; display: block; background: var(--negro-700); }
+        .card-no-img { width: 100%; height: 230px; background: var(--negro-700); display: flex; align-items: center; justify-content: center; color: var(--texto-tenue); }
+        .card-no-img .ico { width: 60px; height: 60px; }
 
         .card-body { padding: 20px; }
-        .card-title { font-size: 19px; font-weight: bold; color: #f5f5f5; margin-bottom: 6px; }
-        .card-price { font-size: 26px; color: #ff7a00; font-weight: bold; margin-bottom: 14px; }
+        .card-title { font-size: 21px; font-weight: 700; color: var(--blanco); margin-bottom: 6px; text-transform: uppercase; }
+        .card-title:hover { color: var(--naranja); }
+        .card-price { font-size: 28px; color: var(--naranja); font-weight: 800; margin-bottom: 14px; }
+        .card-price.consultar { font-size: 20px; color: var(--texto-suave); }
 
         .card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
         .tag {
-            display: inline-flex; align-items: center; gap: 4px;
-            background: rgba(255,122,0,0.08); border: 1px solid #2a2a2a; color: #ccc;
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,122,0,0.08); border: 1px solid var(--borde); color: var(--texto-suave);
             padding: 5px 12px; border-radius: 14px; font-size: 12px;
         }
-        .card-desc { font-size: 13px; color: #999; line-height: 1.5; margin-bottom: 16px; }
+        .tag .ico { width: 13px; height: 13px; color: var(--naranja); }
+        .card-desc { font-size: 13px; color: var(--texto-tenue); line-height: 1.5; margin-bottom: 16px; display: flex; gap: 7px; }
+        .card-desc .ico { width: 14px; height: 14px; margin-top: 2px; flex-shrink: 0; }
 
         .card-btns { display: flex; flex-direction: column; gap: 10px; }
         .btn-detalle {
-            display: block; padding: 11px; text-align: center; border-radius: 8px;
-            text-decoration: none; font-size: 14px; font-weight: bold;
-            border: 2px solid #c0c0c0; color: #e8e8e8; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px; text-align: center; border-radius: 8px;
+            text-decoration: none; font-size: 15px; font-weight: 700; text-transform: uppercase;
+            border: 2px solid var(--texto-suave); color: var(--texto); transition: all 0.2s;
         }
-        .btn-detalle:hover { border-color: #ff7a00; color: #ff7a00; }
+        .btn-detalle:hover { border-color: var(--naranja); color: var(--naranja); }
         .btn-whatsapp {
-            display: block; padding: 11px; text-align: center; border-radius: 8px;
-            text-decoration: none; font-size: 14px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px; text-align: center; border-radius: 8px;
+            text-decoration: none; font-size: 15px; font-weight: 700; text-transform: uppercase;
             background: #25D366; color: #000; transition: background 0.2s;
         }
         .btn-whatsapp:hover { background: #1ebe57; }
 
-        .empty { text-align: center; padding: 100px 20px; color: #888; }
-        .empty p:first-child { font-size: 56px; }
-        .empty p:last-child { font-size: 18px; margin-top: 16px; }
+        .empty { text-align: center; padding: 100px 20px; color: var(--texto-tenue); }
+        .empty .ico { width: 64px; height: 64px; color: var(--borde); }
+        .empty p { font-size: 18px; margin-top: 16px; }
 
-        /* Footer (igual a home.html) */
-        .footer { background: #000000; color: #999; padding: 48px 24px 24px; border-top: 2px solid #ff7a00; margin-top: 40px; }
+        /* ===== Footer (igual al home) ===== */
+        .footer { background: var(--negro-900); color: var(--texto-suave); padding: 48px 24px 24px; border-top: 2px solid var(--naranja); margin-top: 40px; }
         .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-bottom: 32px; }
-        .footer h4 { color: #ff7a00; font-size: 15px; margin-bottom: 14px; }
-        .footer a { color: #999; text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
-        .footer a:hover { color: #ff7a00; }
+        .footer h4 { color: var(--naranja); font-size: 16px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .footer a { color: var(--texto-suave); text-decoration: none; display: block; margin-bottom: 8px; font-size: 13px; }
+        .footer a:hover { color: var(--naranja); }
         .footer p { font-size: 13px; line-height: 1.7; }
-        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid #222; font-size: 12px; }
+        .contacto-lista { list-style: none; }
+        .contacto-lista li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+        .contacto-lista .ico { color: var(--naranja); width: 16px; height: 16px; margin-top: 2px; }
+        .contacto-lista a { display: inline; margin: 0; }
+        .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid var(--borde); font-size: 12px; }
 
         @media (max-width: 600px) {
-            .catalogo-header h1 { font-size: 26px; }
+            .catalogo-header h1 { font-size: 28px; }
             .nav-links { gap: 12px; }
             .nav-links a:not(.btn-nav) { display: none; }
         }
-
-        .filtros-form { max-width: 900px; margin: 0 auto; padding: 0 20px 28px; }
-        .filtros-fila { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        .filtros-fila input, .filtros-fila select {
-            flex: 1; min-width: 150px; padding: 11px 16px;
-            background: #161616; border: 1px solid #2a2a2a; border-radius: 10px;
-            color: #e8e8e8; font-size: 14px; outline: none;
-        }
-        .filtros-fila input:focus, .filtros-fila select:focus { border-color: #ff7a00; }
-        .filtros-fila input::placeholder { color: #777; }
-        .btn-filtrar {
-            padding: 11px 28px; border-radius: 10px; border: none; cursor: pointer;
-            background: #ff7a00; color: #000; font-weight: bold; font-size: 14px;
-        }
-        .btn-filtrar:hover { background: #ff9633; }
-        .btn-limpiar {
-            padding: 11px 24px; border-radius: 10px; border: 1px solid #2a2a2a;
-            color: #bbb; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center;
-        }
-        .btn-limpiar:hover { border-color: #ff7a00; color: #ff7a00; }
     </style>
 </head>
 <body>
 
+    <!-- Sprite de iconos -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="ico-moto" viewBox="0 0 24 24"><circle cx="5.5" cy="16" r="3.2"/><circle cx="18.5" cy="16" r="3.2"/><path d="M8.7 16h4.1l2.7-4.8h-4l-1-1.7H7.8"/><path d="M15.5 11.2 17 8.4h2.3"/><path d="M4 11h3.5"/></symbol>
+        <symbol id="ico-lupa" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></symbol>
+        <symbol id="ico-calendario" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></symbol>
+        <symbol id="ico-km" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l4-3M12 5V3M4.5 6 6 7.5"/></symbol>
+        <symbol id="ico-color" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="ico-motor" viewBox="0 0 24 24"><path d="M9 8h6l2 2h3v6h-2l-2 2H8l-2-2H4v-4l2-2z"/><path d="M9 8V5h4"/></symbol>
+        <symbol id="ico-edificio" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/></symbol>
+        <symbol id="ico-nota" viewBox="0 0 24 24"><path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/></symbol>
+        <symbol id="ico-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+        <symbol id="ico-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6.5V12l3.5 2"/></symbol>
+        <symbol id="ico-whatsapp" viewBox="0 0 32 32"><path d="M16 3C9.4 3 4 8.4 4 15c0 2.1.6 4.2 1.6 6L4 29l8.2-1.5c1.7.9 3.6 1.4 5.8 1.4 6.6 0 12-5.4 12-12S22.6 3 16 3zm0 21.8c-1.8 0-3.5-.5-5-1.3l-.4-.2-4.9.9 1-4.7-.3-.4c-1-1.6-1.5-3.4-1.5-5.1 0-5.4 4.5-9.8 10-9.8s10 4.4 10 9.8-4.4 9.8-9.9 9.8zm5.5-7.3c-.3-.2-1.8-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.6.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6-.1-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.1 1.3 3.3c.2.2 2.3 3.5 5.6 4.9.8.3 1.4.5 1.9.7.8.2 1.5.2 2.1.1.6-.1 1.8-.7 2.1-1.5.3-.7.3-1.3.2-1.5-.1-.1-.3-.2-.6-.4z"/></symbol>
+    </svg>
+
     <!-- Navegación -->
     <nav class="navbar">
         <a href="/inicio" class="logo">
-            <img src="/static/logo.png" alt="Universal Motors">
+            <img src="/static/logo.png" alt="Logo Universal Motors">
             Universal <span>Motors</span>
         </a>
         <div class="nav-links">
             <a href="/inicio">Inicio</a>
             <a href="/catalogo" class="active">Catálogo</a>
             <a href="/privacidad">Privacidad</a>
-            <a href="https://wa.me/573042827795" class="btn-nav" target="_blank">💬 Escríbenos</a>
+            <!-- Contacto general: sí puede ir directo a wa.me (no es por una moto) -->
+            <a href="https://wa.me/573042827795" class="btn-nav" target="_blank" rel="noopener">
+                <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Escríbenos
+            </a>
         </div>
     </nav>
 
     <!-- Header del catálogo -->
     <div class="catalogo-header">
-        <h1>🏍️ Catálogo de Motos</h1>
+        <h1><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg> Catálogo de Motos</h1>
         <p>Encuentra tu moto ideal en Universal Motors</p>
     </div>
 
     <div class="contador">
-        <span id="contador">{{ motos|length }} motos disponibles</span>
+        <b>{{ motos|length }}</b> {{ 'moto disponible' if motos|length == 1 else 'motos disponibles' }}
     </div>
 
     <!-- Filtros: formulario real que va al servidor por GET.
          method="GET" hace que los filtros queden en la URL, así el
-         resultado es compartible por WhatsApp y se puede guardar. -->
-    <form method="GET" action="/catalogo" class="filtros-form">
+         resultado es compartible por WhatsApp y se puede guardar.
+         Los name (q, marca, sede, precio_min, precio_max) son contrato
+         con el servidor: NO renombrar. Sin CSRF (los GET no lo llevan). -->
+    <form method="GET" action="/catalogo" class="filtros-form" role="search">
         <div class="filtros-fila">
-            <input type="text" name="q" placeholder="🔍 Buscar marca o modelo..."
-                   value="{{ filtros.texto or '' }}" maxlength="50">
+            <div class="campo-icono">
+                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg>
+                <input type="text" name="q" placeholder="Buscar marca o modelo..."
+                       value="{{ filtros.texto or '' }}" maxlength="50" aria-label="Buscar marca o modelo">
+            </div>
 
-            <select name="marca">
+            <select name="marca" aria-label="Filtrar por marca">
                 <option value="">Todas las marcas</option>
                 {% for m in marcas %}
                 <option value="{{ m }}" {% if filtros.marca == m %}selected{% endif %}>{{ m }}</option>
                 {% endfor %}
             </select>
 
-            <select name="sede">
+            <select name="sede" aria-label="Filtrar por sede">
                 <option value="">Todas las sedes</option>
                 {% for s in sedes %}
                 <option value="{{ s.id }}" {% if filtros.sede_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
@@ -164,30 +249,27 @@
 
         <div class="filtros-fila">
             <input type="number" name="precio_min" placeholder="Precio desde"
-                   value="{{ filtros.precio_min if filtros.precio_min is not none else '' }}" min="0">
+                   value="{{ filtros.precio_min if filtros.precio_min is not none else '' }}" min="0" aria-label="Precio desde">
             <input type="number" name="precio_max" placeholder="Precio hasta"
-                   value="{{ filtros.precio_max if filtros.precio_max is not none else '' }}" min="0">
+                   value="{{ filtros.precio_max if filtros.precio_max is not none else '' }}" min="0" aria-label="Precio hasta">
 
-            <button type="submit" class="btn-filtrar">Filtrar</button>
+            <button type="submit" class="btn-filtrar">
+                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg> Filtrar
+            </button>
             <a href="/catalogo" class="btn-limpiar">Limpiar</a>
         </div>
     </form>
 
     <div class="container">
         {% if motos %}
-        <div class="grid" id="grid-motos">
+        <div class="grid">
             {% for moto in motos %}
-            <div class="card"
-                 data-marca="{{ moto.marca|lower }}"
-                 data-modelo="{{ moto.modelo|lower }}"
-                 data-color="{{ moto.color|lower }}"
-                 data-precio="{{ moto.precio }}">
-
+            <div class="card">
                 <a href="/moto/{{ moto.id }}">
                     {% if moto.foto_url %}
-                        <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}">
+                        <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
                     {% else %}
-                        <div class="card-no-img">🏍️</div>
+                        <div class="card-no-img"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
                     {% endif %}
                 </a>
 
@@ -197,27 +279,30 @@
                     </a>
                     {% if moto.precio %}
                     <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
-                        {% else %}
-                            <div class="card-price" style="font-size:18px">Consultar precio</div>
-                                {% endif %}
+                    {% else %}
+                    <div class="card-price consultar">Consultar precio</div>
+                    {% endif %}
 
                     <div class="card-tags">
-                        {% if moto.anio %}<span class="tag">📅 {{ moto.anio }}</span>{% endif %}
-                        {% if moto.kilometraje %}<span class="tag">📍 {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
-                        {% if moto.color %}<span class="tag">🎨 {{ moto.color }}</span>{% endif %}
-                        {% if moto.cilindraje %}<span class="tag">⚙️ {{ moto.cilindraje }}cc</span>{% endif %}
-                        {% if moto.sedes %}<span class="tag">🏢 {{ moto.sedes.nombre }}</span>{% endif %}
+                        {% if moto.anio %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-calendario"/></svg> {{ moto.anio }}</span>{% endif %}
+                        {% if moto.kilometraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-km"/></svg> {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
+                        {% if moto.color %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-color"/></svg> {{ moto.color }}</span>{% endif %}
+                        {% if moto.cilindraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-motor"/></svg> {{ moto.cilindraje }}cc</span>{% endif %}
+                        {% if moto.sedes %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-edificio"/></svg> {{ moto.sedes.nombre }}</span>{% endif %}
                     </div>
-                    
+
                     {% if moto.descripcion %}
-                    <div class="card-desc">📝 {{ moto.descripcion }}</div>
+                    <div class="card-desc"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-nota"/></svg> {{ moto.descripcion }}</div>
                     {% endif %}
 
                     <div class="card-btns">
-                        <a href="/moto/{{ moto.id }}" class="btn-detalle">🔍 Ver detalle y fotos</a>
-                        <a href="/consultar/{{ moto.id }}"
-                           class="btn-whatsapp" target="_blank">
-                            💬 Preguntar por esta moto
+                        <a href="/moto/{{ moto.id }}" class="btn-detalle">
+                            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg> Ver detalle y fotos
+                        </a>
+                        <!-- IMPORTANTE: va a /consultar/{id}, que registra el interés
+                             antes de redirigir a WhatsApp. NUNCA a wa.me directo. -->
+                        <a href="/consultar/{{ moto.id }}" class="btn-whatsapp" target="_blank" rel="noopener">
+                            <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Preguntar por esta moto
                         </a>
                     </div>
                 </div>
@@ -226,7 +311,7 @@
         </div>
         {% else %}
         <div class="empty">
-            <p>🏍️</p>
+            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg>
             <p>No hay motos disponibles en este momento</p>
         </div>
         {% endif %}
@@ -248,16 +333,26 @@
             </div>
             <div>
                 <h4>Contacto</h4>
-                <p>📍 Av. 1 de Mayo #29c-35, Bogotá<br>
-                🕐 Lunes a sábado 9:30am - 6:30pm<br>
-                💬 WhatsApp: +57 320 495 1482</p>
+                <ul class="contacto-lista">
+                    <li>
+                        <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-pin"/></svg>
+                        <span>Av. 1 de Mayo #29c-35, Bogotá<br>Av. Boyacá #75-12, Bogotá</span>
+                    </li>
+                    <li>
+                        <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-reloj"/></svg>
+                        <span>Lunes a sábado, 9:30am – 6:30pm</span>
+                    </li>
+                    <li>
+                        <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+                        <a href="https://wa.me/573042827795" target="_blank" rel="noopener">+57 304 282 7795</a>
+                    </li>
+                </ul>
             </div>
         </div>
         <div class="footer-bottom">
             © 2026 Universal Motors. Todos los derechos reservados.
         </div>
     </footer>
-
 
 </body>
 </html>
