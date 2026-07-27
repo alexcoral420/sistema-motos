@@ -3,53 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario de Motos</title>
+    <title>Inventario de Motos — Universal Motors</title>
+
+    <!-- Tipografías de marca (mismas que el sitio público) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #050505;
+            --negro-800: #0d0d0d;
+            --negro-700: #141414;
+            --negro-600: #1c1c1c;
+            --borde: #2e2e2e;
+            --blanco: #f5f5f5;
+            --texto: #ededed;
+            --texto-suave: #b0b0b0;
+            --texto-tenue: #8c8c8c;
+            /* Colores semánticos de estado (se conservan: comunican información) */
+            --verde: #27ae60;
+            --amber: #f5a623;
+            --rojo: #e74c3c;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f5f5; }
-        .header { background: #1a1a2e; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 22px; }
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
-        .btn-primary { background: #e94560; color: white; }
-        .btn-warning { background: #f5a623; color: white; }
-        .btn-success { background: #27ae60; color: white; }
-        .btn-danger { background: #e74c3c; color: white; }
-        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
-        .stats { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-        .stat-card { background: white; padding: 16px 24px; border-radius: 12px; flex: 1; min-width: 140px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .stat-card h3 { font-size: 28px; color: #1a1a2e; }
-        .stat-card p { color: #888; font-size: 13px; margin-top: 4px; }
+        body { font-family: 'Barlow', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3, .btn, .stat-card h3, .card-title { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
+
+        a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+        /* ===== Header ===== */
+        .header { background: var(--negro-900); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid var(--naranja); position: sticky; top: 0; z-index: 50; }
+        .header h1 { font-size: 24px; text-transform: uppercase; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+        .header h1 .ico { width: 26px; height: 26px; color: var(--naranja); }
+        .header-acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* ===== Botones ===== */
+        .btn { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 15px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-transform: uppercase; letter-spacing: 0.3px; transition: transform 0.15s, filter 0.15s, background 0.15s; }
+        .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+        .btn .ico { width: 16px; height: 16px; }
+        .btn-primary { background: var(--naranja); color: #000; }
+        .btn-warning { background: var(--amber); color: #000; }
+        .btn-success { background: var(--verde); color: #fff; }
+        .btn-danger { background: var(--rojo); color: #fff; }
+
+        .container { padding: 28px 24px; max-width: 1200px; margin: 0 auto; }
+
+        /* ===== Estadísticas ===== */
+        .stats { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+        .stat-card { background: var(--negro-600); border: 1px solid var(--borde); padding: 20px 24px; border-radius: 14px; flex: 1; min-width: 150px; text-align: center; }
+        .stat-card h3 { font-size: 34px; color: var(--naranja); font-weight: 800; }
+        .stat-card p { color: var(--texto-tenue); font-size: 12px; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ===== Buscador del panel ===== */
+        /* GET a propósito (filtrado en servidor, resultado compartible). Sin CSRF. */
+        .busqueda-admin {
+            display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch;
+            background: var(--negro-700); border: 1px solid var(--borde);
+            padding: 16px; border-radius: 14px; margin-bottom: 28px;
+        }
+        .busqueda-admin input {
+            height: 46px; padding: 0 16px; box-sizing: border-box;
+            flex: 1 1 200px; min-width: 160px;
+            background: var(--negro-800); color: var(--texto);
+            border: 1px solid var(--borde); border-radius: 10px;
+            font-family: 'Barlow', sans-serif; font-size: 15px;
+            transition: border-color 0.2s;
+        }
+        .busqueda-admin input::placeholder { color: var(--texto-tenue); }
+        .busqueda-admin input:hover, .busqueda-admin input:focus { border-color: var(--naranja); outline: none; }
+        /* Selector específico para no tocar los .btn de las tarjetas */
+        .busqueda-admin .btn { height: 46px; padding: 0 24px; box-sizing: border-box; }
+        .busqueda-admin .btn-secundario {
+            background: transparent; color: var(--texto-suave);
+            border: 1px solid var(--borde);
+        }
+        .busqueda-admin .btn-secundario:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        /* ===== Grid de motos ===== */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .card img { width: 100%; height: 200px; object-fit: cover; background: #eee; }
-        .card-no-img { width: 100%; height: 200px; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 48px; }
-        .card-body { padding: 16px; }
-        .card-title { font-size: 16px; font-weight: bold; color: #1a1a2e; margin-bottom: 8px; }
-        .card-price { font-size: 20px; color: #e94560; font-weight: bold; margin-bottom: 8px; }
-        .card-info { font-size: 13px; color: #666; margin-bottom: 4px; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 12px; }
-        .badge-disponible { background: #d4edda; color: #155724; }
-        .badge-vendido { background: #f8d7da; color: #721c24; }
-        .badge-reservado { background: #fff3cd; color: #856404; }
-        .card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-        .card-actions a { flex: 1; text-align: center; padding: 8px; font-size: 13px; }
-        .empty { text-align: center; padding: 60px; color: #888; }
+        .card { background: var(--negro-600); border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; transition: transform 0.2s, border-color 0.2s; }
+        .card:hover { transform: translateY(-4px); border-color: var(--naranja); }
+        .card img { width: 100%; height: 200px; object-fit: cover; background: var(--negro-700); display: block; }
+        .card-no-img { width: 100%; height: 200px; background: var(--negro-700); display: flex; align-items: center; justify-content: center; color: var(--texto-tenue); }
+        .card-no-img .ico { width: 56px; height: 56px; }
+        .card-body { padding: 18px; }
+        .card-title { font-size: 18px; font-weight: 700; color: var(--blanco); margin-bottom: 8px; text-transform: uppercase; }
+        .card-price { font-size: 22px; color: var(--naranja); font-weight: 800; margin-bottom: 10px; font-family: 'Barlow Condensed', sans-serif; }
+        .card-info { font-size: 13px; color: var(--texto-suave); margin-bottom: 5px; display: flex; align-items: center; gap: 7px; }
+        .card-info .ico { width: 14px; height: 14px; color: var(--texto-tenue); flex-shrink: 0; }
+        .card-info.placa { color: var(--blanco); font-weight: 700; }
+        .card-info.placa .ico { color: var(--naranja); }
+
+        /* Badges de estado (colores semánticos conservados) */
+        .badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-disponible { background: rgba(39,174,96,0.18); color: #4ade80; border: 1px solid rgba(39,174,96,0.4); }
+        .badge-vendido { background: rgba(231,76,60,0.18); color: #f87171; border: 1px solid rgba(231,76,60,0.4); }
+        .badge-reservado { background: rgba(245,166,35,0.18); color: #fbbf24; border: 1px solid rgba(245,166,35,0.4); }
+
+        .card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .card-actions a, .card-actions form { flex: 1; }
+        .card-actions .btn { width: 100%; padding: 9px; font-size: 13px; }
+        .card-actions form { display: flex; }
+
+        .empty { text-align: center; padding: 60px 20px; color: var(--texto-tenue); }
+        .empty .ico { width: 64px; height: 64px; color: var(--borde); }
+        .empty p { margin-top: 12px; }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 20px; }
+            .btn { font-size: 13px; padding: 9px 14px; }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Sprite de iconos SVG (reutilizables con <use>) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="ico-moto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="5.5" cy="16" r="3.2"/><circle cx="18.5" cy="16" r="3.2"/>
+            <path d="M8.7 16h4.1l2.7-4.8h-4l-1-1.7H7.8"/><path d="M15.5 11.2 17 8.4h2.3"/><path d="M4 11h3.5"/>
+        </symbol>
+        <symbol id="ico-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/>
+        </symbol>
+        <symbol id="ico-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="ico-grafico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+        <symbol id="ico-usuarios" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6M17.5 20a5.5 5.5 0 0 0-2.3-4.5"/></symbol>
+        <symbol id="ico-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m3 17 5-4 4 3 3-2 6 5"/></symbol>
+        <symbol id="ico-editar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3.5 20.5 8 8 20.5H3.5V16z"/><path d="M13.5 6 18 10.5"/></symbol>
+        <symbol id="ico-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19.5 6.5"/></symbol>
+        <symbol id="ico-basura" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+        <symbol id="ico-color" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="ico-etiqueta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="7.5" r="1.3"/></symbol>
+        <symbol id="ico-km" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13l4-3M12 5V3M4.5 6 6 7.5"/></symbol>
+        <symbol id="ico-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4M9 12h6M9 16h6"/></symbol>
+        <symbol id="ico-llave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5a6 6 0 0 0-4.6 9.9l-7 7a2.1 2.1 0 0 0 3 3l7-7a6 6 0 0 0 7.4-7.7l-3 3a1.5 1.5 0 0 1-2.1-2.1z"/></symbol>
+        <symbol id="ico-nota" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/></symbol>
+    </svg>
+
     <div class="header">
-        <h1>🏍️ Inventario de Motos</h1>
-        <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <h1><svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg> Inventario de Motos</h1>
+        <div class="header-acciones">
             {% if session.rol in ['admin', 'gerencia'] %}
-            <a href="/gerencia" class="btn btn-primary">📊 Gerencia</a>
-            <a href="/usuarios" class="btn btn-primary">👥 Usuarios</a>
+            <a href="/gerencia" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
+            <a href="/usuarios" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
             {% endif %}
             {% if session.rol in ['admin', 'asesor'] %}
-            <a href="/agregar" class="btn btn-primary">+ Agregar moto</a>
+            <a href="/agregar" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar moto</a>
             {% endif %}
         </div>
     </div>
-
 
     <div class="container">
         <!-- Estadísticas -->
@@ -71,17 +178,20 @@
                 <p>Reservadas</p>
             </div>
         </div>
-<!-- Búsqueda del panel. GET a propósito: los filtros quedan en la
-         URL, así el resultado es compartible y recargable. Al ser una
-         lectura, no lleva token CSRF. -->
-        <form method="GET" action="/" class="busqueda-admin">
+
+        <!-- Búsqueda del panel. GET a propósito: los filtros quedan en la
+             URL, así el resultado es compartible y recargable. Al ser una
+             lectura, no lleva token CSRF. Los name (id, placa) son contrato
+             con el servidor: no cambiar. -->
+        <form method="GET" action="/" class="busqueda-admin" role="search">
             <input type="number" name="id" placeholder="Buscar por ID"
-                     value="{{ filtros.id if filtros.id else '' }}" min="1">
-             <input type="text" name="placa" placeholder="Buscar por placa"
-                    value="{{ filtros.placa or '' }}" maxlength="10">
-            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+                   value="{{ filtros.id if filtros.id else '' }}" min="1" aria-label="Buscar por ID">
+            <input type="text" name="placa" placeholder="Buscar por placa"
+                   value="{{ filtros.placa or '' }}" maxlength="10" aria-label="Buscar por placa">
+            <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Buscar</button>
             <a href="/" class="btn btn-secundario">Limpiar</a>
         </form>
+
         <!-- Grid de motos -->
         {% if motos %}
         <div class="grid">
@@ -90,44 +200,44 @@
                 {% if moto.foto_url %}
                     <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}">
                 {% else %}
-                    <div class="card-no-img">🏍️</div>
+                    <div class="card-no-img"><svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg></div>
                 {% endif %}
                 <div class="card-body">
                     <div class="card-title">{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }}</div>
                     {% if moto.precio %}<div class="card-price">${{ "{:,}".format(moto.precio) }}</div>{% else %}<div class="card-price">Sin precio</div>{% endif %}
                     <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
-                    <div class="card-info">🎨 {{ moto.color }}</div>
+                    <div class="card-info"><svg class="ico" aria-hidden="true"><use href="#ico-color"/></svg> {{ moto.color }}</div>
                     {% if moto.placa %}
-                    <div class="card-info" style="font-weight:bold; color:#1a1a2e;">🔖 Placa: {{ moto.placa }}</div>
+                    <div class="card-info placa"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Placa: {{ moto.placa }}</div>
                     {% endif %}
-                    {% if moto.kilometraje %}<div class="card-info">📍 {{ "{:,}".format(moto.kilometraje) }} km</div>{% endif %}
+                    {% if moto.kilometraje %}<div class="card-info"><svg class="ico" aria-hidden="true"><use href="#ico-km"/></svg> {{ "{:,}".format(moto.kilometraje) }} km</div>{% endif %}
                     {% if moto.soat %}
-                    <div class="card-info">📋 SOAT: {{ moto.soat }}</div>
+                    <div class="card-info"><svg class="ico" aria-hidden="true"><use href="#ico-doc"/></svg> SOAT: {{ moto.soat }}</div>
                     {% endif %}
                     {% if moto.tecno %}
-                    <div class="card-info">🔧 Tecno: {{ moto.tecno }}</div>
+                    <div class="card-info"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Tecno: {{ moto.tecno }}</div>
                     {% endif %}
                     {% if moto.descripcion %}
-                    <div class="card-info">📝 {{ moto.descripcion }}</div>
+                    <div class="card-info"><svg class="ico" aria-hidden="true"><use href="#ico-nota"/></svg> {{ moto.descripcion }}</div>
                     {% endif %}
                     <div class="card-actions">
-                        <a href="/admin/moto/{{ moto.id }}" class="btn btn-primary">🖼️ Fotos</a>
+                        <a href="/admin/moto/{{ moto.id }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-foto"/></svg> Fotos</a>
 
                         {% if session.rol == 'admin' %}
-                        <a href="/editar/{{ moto.id }}" class="btn btn-warning">✏️ Editar</a>
+                        <a href="/editar/{{ moto.id }}" class="btn btn-warning"><svg class="ico" aria-hidden="true"><use href="#ico-editar"/></svg> Editar</a>
                         {% endif %}
 
                         {% if moto.estado == 'disponible' %}
-                        <form method="POST" action="/vender/{{ moto.id }}" onsubmit="return confirm('¿Marcar como vendida?')" style="display:inline">
+                        <form method="POST" action="/vender/{{ moto.id }}" onsubmit="return confirm('¿Marcar como vendida?')">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-success">✅ Vendida</button>
+                            <button type="submit" class="btn btn-success"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Vendida</button>
                         </form>
                         {% endif %}
 
                         {% if session.rol == 'admin' %}
-                        <form method="POST" action="/eliminar/{{ moto.id }}" onsubmit="return confirm('¿Eliminar esta moto?')" style="display:inline">
+                        <form method="POST" action="/eliminar/{{ moto.id }}" onsubmit="return confirm('¿Eliminar esta moto?')">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-danger">🗑️</button>
+                            <button type="submit" class="btn btn-danger"><svg class="ico" aria-hidden="true"><use href="#ico-basura"/></svg></button>
                         </form>
                         {% endif %}
                     </div>
@@ -137,13 +247,12 @@
         </div>
         {% else %}
         <div class="empty">
-            <p style="font-size:48px">🏍️</p>
-            <p style="font-size:18px; margin-top:16px">No hay motos en el inventario</p>
-            <a href="/agregar" class="btn btn-primary" style="margin-top:16px">Agregar primera moto</a>
+            <svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg>
+            <p style="font-size:18px">No hay motos en el inventario</p>
+            <a href="/agregar" class="btn btn-primary" style="margin-top:16px"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar primera moto</a>
         </div>
         {% endif %}
     </div>
-
 
 </body>
 </html>
