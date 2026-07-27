@@ -49,22 +49,24 @@
         .nav-links .btn-nav { background: var(--naranja); color: #000; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 16px; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; }
         .nav-links .btn-nav:hover { background: var(--naranja-claro); color: #000; }
 
-        /* ===== Header del catálogo (mini-hero con fibra de carbono) ===== */
+        /* Menú hamburguesa (solo móvil) */
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ===== Header del catálogo (banda de imagen, sin texto) ===== */
         .catalogo-header {
-            padding: 60px 24px 44px; text-align: center; border-bottom: 1px solid var(--borde);
+            height: 260px;
+            border-bottom: 2px solid var(--naranja);
             position: relative; overflow: hidden;
-            background:
-                radial-gradient(ellipse 90% 70% at 60% 20%, rgba(255,122,0,0.10) 0%, transparent 55%),
-                linear-gradient(27deg, #151515 5px, transparent 5px) 0 5px,
-                linear-gradient(207deg, #151515 5px, transparent 5px) 10px 0,
-                linear-gradient(27deg, #0e0e0e 5px, transparent 5px) 0 10px,
-                linear-gradient(207deg, #0e0e0e 5px, transparent 5px) 10px 5px,
-                var(--negro-900);
-            background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px, 100% 100%;
+            background-image: linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 30%, rgba(13,13,13,0.6) 100%), var(--catalogo-img, none);
+            background-size: cover, cover;
+            background-position: center, center;
+            background-color: var(--negro-900);
         }
-        .catalogo-header h1 { font-size: 40px; color: var(--blanco); margin-bottom: 8px; text-transform: uppercase; font-weight: 800; display: inline-flex; align-items: center; gap: 12px; }
-        .catalogo-header h1 .ico { width: 34px; height: 34px; color: var(--naranja); }
-        .catalogo-header p { color: var(--texto-suave); font-size: 16px; }
+        @media (max-width: 600px) { .catalogo-header { height: 170px; } }
 
         .contador { text-align: center; padding: 24px 16px 4px; color: var(--texto-tenue); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         .contador b { color: var(--naranja); font-weight: 700; }
@@ -169,9 +171,17 @@
         .footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid var(--borde); font-size: 12px; }
 
         @media (max-width: 600px) {
-            .catalogo-header h1 { font-size: 28px; }
-            .nav-links { gap: 12px; }
-            .nav-links a:not(.btn-nav) { display: none; }
+            .menu-toggle { display: block; }
+            .nav-links {
+                display: none;
+                position: absolute; top: 100%; left: 0; right: 0;
+                background: var(--negro-900); border-bottom: 2px solid var(--naranja);
+                flex-direction: column; padding: 20px 24px; gap: 18px;
+            }
+            .nav-links.abierto { display: flex; }
+            /* Dentro del menú desplegable el botón vuelve a mostrar el texto */
+            .nav-links .btn-nav { font-size: 16px; padding: 10px 18px; gap: 8px; justify-content: center; }
+            .nav-links .btn-nav .ico { width: 18px; height: 18px; }
         }
     </style>
 </head>
@@ -198,7 +208,10 @@
             <img src="/static/logo.png" alt="Logo Universal Motors">
             Universal <span>Motors</span>
         </a>
-        <div class="nav-links">
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
             <a href="/inicio">Inicio</a>
             <a href="/catalogo" class="active">Catálogo</a>
             <a href="/privacidad">Privacidad</a>
@@ -210,10 +223,9 @@
     </nav>
 
     <!-- Header del catálogo -->
-    <div class="catalogo-header">
-        <h1><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg> Catálogo de Motos</h1>
-        <p>Encuentra tu moto ideal en Universal Motors</p>
-    </div>
+    <!-- Header del catálogo: solo imagen (misma moto-hero del home).
+         Si el archivo no existe, la banda queda en negro, no rompe. -->
+    <div class="catalogo-header" style="--catalogo-img: url('/static/hero-moto.webp')" role="img" aria-label="Catálogo de motos Universal Motors"></div>
 
     <div class="contador">
         <b>{{ motos|length }}</b> {{ 'moto disponible' if motos|length == 1 else 'motos disponibles' }}
@@ -222,7 +234,7 @@
     <!-- Filtros: formulario real que va al servidor por GET.
          method="GET" hace que los filtros queden en la URL, así el
          resultado es compartible por WhatsApp y se puede guardar.
-         Los name (q, marca, sede, precio_min, precio_max) son contrato
+         Los name (q, marca, precio_min, precio_max) son contrato
          con el servidor: NO renombrar. Sin CSRF (los GET no lo llevan). -->
     <form method="GET" action="/catalogo" class="filtros-form" role="search">
         <div class="filtros-fila">
@@ -236,13 +248,6 @@
                 <option value="">Todas las marcas</option>
                 {% for m in marcas %}
                 <option value="{{ m }}" {% if filtros.marca == m %}selected{% endif %}>{{ m }}</option>
-                {% endfor %}
-            </select>
-
-            <select name="sede" aria-label="Filtrar por sede">
-                <option value="">Todas las sedes</option>
-                {% for s in sedes %}
-                <option value="{{ s.id }}" {% if filtros.sede_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -353,6 +358,26 @@
             © 2026 Universal Motors. Todos los derechos reservados.
         </div>
     </footer>
+
+    <script>
+    // ===== Menú hamburguesa en móvil =====
+    const toggle = document.querySelector('.menu-toggle');
+    const links = document.getElementById('nav-links');
+
+    toggle.addEventListener('click', () => {
+        const abierto = links.classList.toggle('abierto');
+        toggle.classList.toggle('abierto', abierto);
+        toggle.setAttribute('aria-expanded', abierto);
+        toggle.setAttribute('aria-label', abierto ? 'Cerrar menú' : 'Abrir menú');
+    });
+
+    // Cierra el menú al tocar un enlace
+    links.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+        links.classList.remove('abierto');
+        toggle.classList.remove('abierto');
+        toggle.setAttribute('aria-expanded', 'false');
+    }));
+    </script>
 
 </body>
 </html>
