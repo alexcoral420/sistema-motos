@@ -39,7 +39,15 @@
 <body>
     <div class="header">
         <h1>🏍️ Inventario de Motos</h1>
-        <a href="/agregar" class="btn btn-primary">+ Agregar moto</a>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+            {% if session.rol in ['admin', 'gerencia'] %}
+            <a href="/gerencia" class="btn btn-primary">📊 Gerencia</a>
+            <a href="/usuarios" class="btn btn-primary">👥 Usuarios</a>
+            {% endif %}
+            {% if session.rol in ['admin', 'asesor'] %}
+            <a href="/agregar" class="btn btn-primary">+ Agregar moto</a>
+            {% endif %}
+        </div>
     </div>
 
 

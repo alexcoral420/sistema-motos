@@ -23,10 +23,12 @@ def main():
     nombre = input("Nombre completo: ").strip()
 
     print("\nRol:")
-    print("  1) admin  (super usuario: puede todo)")
-    print("  2) asesor (solo agregar y marcar vendida)")
-    opcion = input("Elige 1 o 2: ").strip()
-    rol = "admin" if opcion == "1" else "asesor"
+    print("  1) admin    (super usuario: puede todo)")
+    print("  2) asesor   (solo agregar y marcar vendida)")
+    print("  3) gerencia (métricas y gestión de usuarios)")
+    opcion = input("Elige 1, 2 o 3: ").strip()
+    roles = {"1": "admin", "2": "asesor", "3": "gerencia"}
+    rol = roles.get(opcion, "asesor")
 
     sede_id = input("ID de sede (1 = Principal, 2 = Boyaca): ").strip()
     sede_id = int(sede_id) if sede_id else None

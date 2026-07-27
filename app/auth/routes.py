@@ -41,6 +41,10 @@ def login():
 
             log.info("Login exitoso: '%s' (rol: %s).",
                      usuario["usuario"], usuario["rol"])
+            # Cada rol aterriza donde trabaja: gerencia en sus métricas,
+            # los demás en el inventario.
+            if usuario["rol"] == "gerencia":
+                return redirect(url_for("admin.panel_gerencia"))
             return redirect(url_for("admin.index"))
         else:
             # No revelamos si falló el usuario o la contraseña.

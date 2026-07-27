@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usuarios · Universal Motors</title>
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #050505;
+            --negro-800: #0d0d0d;
+            --negro-700: #141414;
+            --negro-600: #1c1c1c;
+            --borde: #2a2a2a;
+            --blanco: #f5f5f5;
+            --texto: #e8e8e8;
+            --texto-suave: #a8a8a8;
+            --texto-tenue: #777;
+            --rojo: #e5484d;
+            --verde: #34c759;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3 { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: 0.3px; text-transform: uppercase; }
+
+        .barra { background: var(--negro-900); border-bottom: 2px solid var(--naranja); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .barra h1 { color: var(--blanco); font-size: 24px; }
+        .barra h1 span { color: var(--naranja); }
+        .barra .volver { color: var(--texto-suave); text-decoration: none; font-size: 14px; padding: 8px 16px; border: 1px solid var(--borde); border-radius: 8px; }
+        .barra .volver:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        .contenedor { max-width: 1000px; margin: 0 auto; padding: 32px 24px 60px; display: grid; grid-template-columns: 1fr; gap: 32px; }
+        @media (min-width: 860px) { .contenedor { grid-template-columns: 320px 1fr; align-items: start; } }
+
+        /* Avisos */
+        .aviso { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .aviso-error { background: rgba(229,72,77,0.12); border: 1px solid var(--rojo); color: #ff8b8f; }
+        .aviso-exito { background: rgba(52,199,89,0.12); border: 1px solid var(--verde); color: #7ee29a; }
+
+        /* Formulario de creación */
+        .panel { background: var(--negro-600); border: 1px solid var(--borde); border-radius: 14px; padding: 24px; }
+        .panel h2 { color: var(--naranja); font-size: 19px; margin-bottom: 18px; }
+        .campo { margin-bottom: 16px; }
+        .campo label { display: block; font-size: 13px; color: var(--texto-suave); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .campo input, .campo select {
+            width: 100%; padding: 11px 14px;
+            background: var(--negro-800); color: var(--texto);
+            border: 1px solid var(--borde); border-radius: 8px;
+            font-family: 'Barlow', sans-serif; font-size: 15px; outline: none;
+        }
+        .campo input:focus, .campo select:focus { border-color: var(--naranja); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border: none; border-radius: 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; text-decoration: none; }
+        .btn-crear { background: var(--naranja); color: #000; width: 100%; }
+        .btn-crear:hover { background: var(--naranja-claro); }
+        .nota { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+
+        /* Tabla de usuarios */
+        .lista h2 { color: var(--blanco); font-size: 20px; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; background: var(--negro-600); border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; }
+        thead th { background: var(--negro-700); color: var(--naranja); text-align: left; padding: 12px 14px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        tbody td { padding: 12px 14px; border-top: 1px solid var(--borde); font-size: 14px; }
+        tbody tr:hover { background: var(--negro-700); }
+        .inactivo { opacity: 0.45; }
+
+        .rol-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .rol-admin { background: rgba(255,122,0,0.15); color: var(--naranja); border: 1px solid var(--naranja); }
+        .rol-gerencia { background: rgba(52,199,89,0.12); color: var(--verde); border: 1px solid var(--verde); }
+        .rol-asesor { background: var(--negro-800); color: var(--texto-suave); border: 1px solid var(--borde); }
+
+        .estado-activo { color: var(--verde); font-size: 13px; }
+        .estado-inactivo { color: var(--texto-tenue); font-size: 13px; }
+
+        .btn-desactivar { background: transparent; border: 1px solid var(--rojo); color: #ff8b8f; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: 'Barlow', sans-serif; }
+        .btn-desactivar:hover { background: rgba(229,72,77,0.12); }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Gestión de <span>Usuarios</span></h1>
+        <a href="/" class="volver">← Volver al inventario</a>
+    </div>
+
+    <div class="contenedor">
+
+        <!-- ===== Crear usuario ===== -->
+        <div class="panel">
+            <h2>Crear usuario</h2>
+
+            {% if error %}<div class="aviso aviso-error">{{ error }}</div>{% endif %}
+            {% if exito %}<div class="aviso aviso-exito">{{ exito }}</div>{% endif %}
+
+            <form method="POST" action="/usuarios">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="campo">
+                    <label for="usuario">Usuario (para iniciar sesión)</label>
+                    <input type="text" name="usuario" id="usuario" required maxlength="50" autocomplete="off">
+                    <div class="nota">Ej: carlos.perez — sin espacios</div>
+                </div>
+
+                <div class="campo">
+                    <label for="nombre_completo">Nombre completo</label>
+                    <input type="text" name="nombre_completo" id="nombre_completo" required maxlength="80">
+                </div>
+
+                <div class="campo">
+                    <label for="rol">Rol</label>
+                    <select name="rol" id="rol" required>
+                        <option value="asesor">Asesor</option>
+                        {% if session.rol == 'admin' %}
+                        <option value="gerencia">Gerencia</option>
+                        <option value="admin">Administrador</option>
+                        {% endif %}
+                    </select>
+                    {% if session.rol == 'gerencia' %}
+                    <div class="nota">Como gerencia, solo puedes crear asesores.</div>
+                    {% endif %}
+                </div>
+
+                <div class="campo">
+                    <label for="sede_id">Sede</label>
+                    <select name="sede_id" id="sede_id" required>
+                        {% for sede in sedes %}
+                        <option value="{{ sede.id }}">{{ sede.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="password">Contraseña</label>
+                    <input type="password" name="password" id="password" required minlength="8" autocomplete="new-password">
+                    <div class="nota">Mínimo 8 caracteres.</div>
+                </div>
+
+                <button type="submit" class="btn btn-crear">Crear usuario</button>
+            </form>
+        </div>
+
+        <!-- ===== Lista de usuarios ===== -->
+        <div class="lista">
+            <h2>Usuarios del sistema</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in lista_usuarios %}
+                    <tr class="{{ '' if u.activo else 'inactivo' }}">
+                        <td>{{ u.nombre_completo }}</td>
+                        <td class="tenue">{{ u.usuario }}</td>
+                        <td>
+                            <span class="rol-badge rol-{{ u.rol }}">{{ u.rol }}</span>
+                        </td>
+                        <td>
+                            {% if u.activo %}
+                            <span class="estado-activo">● Activo</span>
+                            {% else %}
+                            <span class="estado-inactivo">○ Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {# Solo se ofrece desactivar a usuarios activos que NO son uno mismo.
+                               El servidor revalida todas las salvaguardas; esto es solo UX. #}
+                            {% if u.activo and u.id != session.usuario_id %}
+                            <form method="POST" action="/usuarios/{{ u.id }}/desactivar"
+                                  onsubmit="return confirm('¿Desactivar a {{ u.nombre_completo }}? Podrá reactivarse después desde la base, pero no podrá iniciar sesión.')"
+                                  style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-desactivar">Desactivar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>
