@@ -81,10 +81,10 @@ def consultar_moto(moto_id):
     moto = inventario.obtener_moto(moto_id)
     if not moto:
         # Si no existe, mandamos a WhatsApp sin mensaje específico.
-        return redirect("https://wa.me/573042827795")
+        return redirect("https://wa.me/573204951482")
 
     mensaje = (f"Hola, He Visto su Catalogo y me interesa la {moto['marca']} {moto['modelo']} "
                f"{moto.get('anio', '')} (Ref: {moto_id})")
-    url = f"https://wa.me/573042827795?text={quote(mensaje)}"
+    url = f"https://wa.me/573204951482?text={quote(mensaje)}"
     return redirect(url)
     
