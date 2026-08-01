@@ -64,6 +64,8 @@ def agregar():
                     request.form.get("modelo"), "modelo", min_len=1, max_len=50),
                 "anio": validadores.validar_entero(
                     request.form.get("anio"), "año", minimo=1950, maximo=2100),
+                "cilindraje": validadores.validar_entero(
+                    request.form.get("cilindraje"), "cilindraje", minimo=90, maximo=1200),
                 "color": validadores.validar_texto(
                     request.form.get("color"), "color", min_len=1, max_len=30),
                 "precio": validadores.validar_entero(
@@ -87,7 +89,10 @@ def agregar():
             # base. Si mañana agregas una sede, se acepta sola.
             if str(datos["sede_id"]) not in sedes.ids_validos():
                 raise ErrorValidacion("La sede seleccionada no es válida.", "sede")
-            # La placa, si vino, la normalizamos a mayúsculas.
+            # Normalizamos a mayúsculas para consistencia de datos.
+            datos["marca"] = datos["marca"].upper()
+            datos["modelo"] = datos["modelo"].upper()
+            # La placa, si vino, también.
             if datos["placa"]:
                 datos["placa"] = datos["placa"].upper()
 
@@ -123,7 +128,7 @@ def editar(id):
                 "precio": validadores.validar_entero(
                     request.form.get("precio"), "precio", minimo=0, maximo=999999999),
                 "kilometraje": validadores.validar_entero(
-                    request.form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
+                    request.form.get("kilometraje"), "kilometraje", minimo=90, maximo=1200),
                 "estado": validadores.validar_opcion(
                     request.form.get("estado"), "estado",
                     opciones_validas=["disponible", "reservado", "vendido"]),

@@ -56,6 +56,10 @@
                         <input type="number" name="anio" placeholder="2022" min="1990" max="2026" value="{{ datos.anio if datos else '' }}" required>
                     </div>
                     <div class="form-group">
+                        <label>Cilindraje (cc) *</label>
+                        <input type="number" name="cilindraje" placeholder="150" min="90" max="1200" value="{{ datos.cilindraje if datos else '' }}" required>
+                    </div>
+                    <div class="form-group">
                         <label>Color *</label>
                         <input type="text" name="color" placeholder="Rojo, Negro..." value="{{ datos.color if datos else '' }}" required>
                     </div>
