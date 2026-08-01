@@ -128,7 +128,7 @@ def editar(id):
                 "precio": validadores.validar_entero(
                     request.form.get("precio"), "precio", minimo=0, maximo=999999999),
                 "kilometraje": validadores.validar_entero(
-                    request.form.get("kilometraje"), "kilometraje", minimo=90, maximo=1200),
+                    request.form.get("kilometraje"), "kilometraje", minimo=0, maximo=99999),
                 "estado": validadores.validar_opcion(
                     request.form.get("estado"), "estado",
                     opciones_validas=["disponible", "reservado", "vendido"]),
