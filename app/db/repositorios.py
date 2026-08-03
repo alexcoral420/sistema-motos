@@ -487,3 +487,74 @@ def obtener_usuario_por_id(usuario_id: int):
         .eq("id", usuario_id)\
         .execute()
     return resultado.data[0] if resultado.data else None
+
+    # ---- Métricas del webhook (contactos, conversaciones, mensajes) ----
+
+def buscar_contacto_por_telefono(telefono: str):
+    """Devuelve el contacto con ese teléfono, o None si no existe."""
+    supabase = get_supabase_admin()
+    r = supabase.table("contactos").select("*").eq("telefono", telefono).limit(1).execute()
+    return r.data[0] if r.data else None
+
+
+def crear_contacto(telefono: str, canal: str):
+    """Crea un contacto nuevo y lo devuelve."""
+    supabase = get_supabase_admin()
+    r = supabase.table("contactos").insert({
+        "telefono": telefono,
+        "canal": canal,
+    }).execute()
+    return r.data[0]
+
+
+def buscar_conversacion_activa(contacto_id: int, limite_horas: int = 24):
+    """
+    Devuelve la conversación más reciente del contacto cuyo ultimo_mensaje
+    esté dentro de la ventana (por defecto 24h), o None si no hay ninguna
+    activa (lo que obliga a abrir una conversación nueva).
+    """
+    from datetime import datetime, timedelta, timezone
+    corte = (datetime.now(timezone.utc) - timedelta(hours=limite_horas)).isoformat()
+
+    supabase = get_supabase_admin()
+    r = (supabase.table("conversaciones")
+         .select("*")
+         .eq("contacto_id", contacto_id)
+         .gte("ultimo_mensaje", corte)
+         .order("ultimo_mensaje", desc=True)
+         .limit(1)
+         .execute())
+    return r.data[0] if r.data else None
+
+
+def crear_conversacion(contacto_id: int, canal: str, moto_id: int = None):
+    """Crea una conversación nueva y la devuelve."""
+    supabase = get_supabase_admin()
+    r = supabase.table("conversaciones").insert({
+        "contacto_id": contacto_id,
+        "canal": canal,
+        "moto_id": moto_id,
+    }).execute()
+    return r.data[0]
+
+
+def insertar_mensaje(conversacion_id: int, nivel: int,
+                     tokens_entrada: int, tokens_salida: int, modelo: str = None):
+    """Inserta un mensaje con sus métricas."""
+    supabase = get_supabase_admin()
+    supabase.table("mensajes").insert({
+        "conversacion_id": conversacion_id,
+        "nivel": nivel,
+        "tokens_entrada": tokens_entrada,
+        "tokens_salida": tokens_salida,
+        "modelo": modelo,
+    }).execute()
+
+
+def actualizar_ultimo_mensaje(conversacion_id: int):
+    """Marca la conversación como activa ahora (para la ventana de 24h)."""
+    from datetime import datetime, timezone
+    supabase = get_supabase_admin()
+    supabase.table("conversaciones").update({
+        "ultimo_mensaje": datetime.now(timezone.utc).isoformat()
+    }).eq("id", conversacion_id).execute()
