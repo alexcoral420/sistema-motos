@@ -94,6 +94,10 @@ def create_app(nombre_config=None):
     from app.admin.routes import admin_bp
     app.register_blueprint(admin_bp)
 
+    from app.api.routes import api_bp
+    app.register_blueprint(api_bp)
+    csrf.exempt(api_bp)
+
     from app.webhook.routes import webhook_bp
     app.register_blueprint(webhook_bp)
 
