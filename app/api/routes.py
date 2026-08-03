@@ -15,7 +15,8 @@ from flask import Blueprint, request, jsonify
 from app.servicios import busqueda, inventario
 from app.auth.api_key import requiere_api_key
 from app.seguridad.logging_config import obtener_logger
-
+from app.servicios import busqueda, inventario, metricas
+from app.servicios.metricas import ErrorMetrica
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
@@ -67,3 +68,37 @@ def registrar_intencion():
     obtener_logger().info("API: intención registrada para moto %s.", moto_id)
 
     return jsonify({"ok": True}), 201
+
+@api_bp.route("/mensajes", methods=["POST"])
+@requiere_api_key
+def registrar_mensaje():
+    """
+    Registra un mensaje del webhook con sus métricas.
+    Recibe JSON:
+      {
+        "telefono": "573001112233",   (obligatorio)
+        "canal": "whatsapp",           (opcional, default whatsapp)
+        "nivel": 1,                    (obligatorio: 0, 1 o 2)
+        "tokens_entrada": 120,         (opcional, default 0)
+        "tokens_salida": 45,           (opcional, default 0)
+        "modelo": "modelo-x",          (opcional)
+        "moto_id": 12                  (opcional)
+      }
+    Resuelve contacto y conversación (regla de 24h) y guarda el mensaje.
+    """
+    datos = request.get_json(silent=True) or {}
+
+    try:
+        conversacion_id = metricas.registrar_mensaje(
+            telefono=datos.get("telefono"),
+            canal=datos.get("canal"),
+            nivel=datos.get("nivel"),
+            tokens_entrada=datos.get("tokens_entrada", 0),
+            tokens_salida=datos.get("tokens_salida", 0),
+            modelo=datos.get("modelo"),
+            moto_id=datos.get("moto_id"),
+        )
+    except ErrorMetrica as e:
+        return jsonify({"error": e.mensaje}), 400
+
+    return jsonify({"ok": True, "conversacion_id": conversacion_id}), 201
