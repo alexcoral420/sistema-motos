@@ -182,6 +182,92 @@ def comprar():
     # GET: mostrar el formulario vacío.
     return render_template("comprar.html", sedes=sedes.listar_sedes())  
 
+@admin_bp.route("/permuta", methods=["GET", "POST"])
+@requiere_rol("asesor")
+def permuta():
+    """
+    El asesor cierra una permuta: el cliente entrega una moto (entrante,
+    nueva en el sistema) y se lleva una del inventario (saliente).
+    Todo en una sola pantalla. La identidad del asesor sale de la SESIÓN.
+    """
+    if request.method == "POST":
+        try:
+            # Datos de la moto ENTRANTE (la del cliente): misma validación
+            # que comprar/agregar, cada campo limpio antes de tocar nada.
+            datos = {
+                "marca": validadores.validar_texto(
+                    request.form.get("marca"), "marca", min_len=1, max_len=50),
+                "modelo": validadores.validar_texto(
+                    request.form.get("modelo"), "modelo", min_len=1, max_len=50),
+                "anio": validadores.validar_entero(
+                    request.form.get("anio"), "año", minimo=1950, maximo=2100),
+                "cilindraje": validadores.validar_entero(
+                    request.form.get("cilindraje"), "cilindraje", minimo=90, maximo=1200),
+                "color": validadores.validar_texto(
+                    request.form.get("color"), "color", min_len=1, max_len=30),
+                "precio": validadores.validar_entero(
+                    request.form.get("precio"), "precio", minimo=0, maximo=999999999),
+                "kilometraje": validadores.validar_entero(
+                    request.form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
+                "estado": "disponible",
+                "sede_id": validadores.validar_entero(
+                    request.form.get("sede_id"), "sede", minimo=1),
+                "descripcion": validadores.validar_texto(
+                    request.form.get("descripcion"), "descripción",
+                    max_len=1000, obligatorio=False) or "",
+                "soat": validadores.validar_texto(
+                    request.form.get("soat"), "soat", max_len=20, obligatorio=False),
+                "tecno": validadores.validar_texto(
+                    request.form.get("tecno"), "tecno", max_len=20, obligatorio=False),
+                "placa": validadores.validar_texto(
+                    request.form.get("placa"), "placa", max_len=10, obligatorio=False),
+            }
+            # DIFERENCIA 1: la placa de la moto SALIENTE (la del inventario
+            # que se lleva el cliente). Es obligatoria: sin ella no hay permuta.
+            placa_saliente = validadores.validar_texto(
+                request.form.get("placa_saliente"), "placa de la moto que sale",
+                min_len=1, max_len=10)
+
+            if str(datos["sede_id"]) not in sedes.ids_validos():
+                raise ErrorValidacion("La sede seleccionada no es válida.", "sede")
+            datos["marca"] = datos["marca"].upper()
+            datos["modelo"] = datos["modelo"].upper()
+            if datos["placa"]:
+                datos["placa"] = datos["placa"].upper()
+
+            # DIFERENCIA 2: llamamos a registrar_permuta. Devuelve None si
+            # la placa saliente no corresponde a una moto disponible.
+            resultado = inventario.registrar_permuta(
+                datos,
+                placa_saliente,
+                session.get("usuario_id"),
+                session.get("usuario_nombre"),
+            )
+
+            # DIFERENCIA 3: si el servicio devolvió None, la placa saliente
+            # no era válida. Avisamos al asesor sin registrar nada.
+            if resultado is None:
+                raise ErrorValidacion(
+                    f"No hay una moto disponible con placa {placa_saliente}.",
+                    "placa_saliente")
+
+            obtener_logger().info(
+                "%s cerró una permuta (entra %s %s, sale placa %s).",
+                session.get("usuario_nombre"),
+                datos["marca"], datos["modelo"], placa_saliente)
+            return redirect(url_for("admin.index"))
+
+        except ErrorValidacion as e:
+            return render_template(
+                "permuta.html",
+                error=e.mensaje,
+                datos=request.form,
+                sedes=sedes.listar_sedes(),
+            )
+
+    # GET: mostrar el formulario vacío.
+    return render_template("permuta.html", sedes=sedes.listar_sedes())
+
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])
 @requiere_rol("admin")
 def editar(id):
