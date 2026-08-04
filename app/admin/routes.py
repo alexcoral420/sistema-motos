@@ -49,7 +49,7 @@ def index():
 
 
 @admin_bp.route("/agregar", methods=["GET", "POST"])
-@requiere_rol("admin", "asesor")
+@requiere_rol("admin")
 def agregar():
     """Formulario para agregar una moto nueva, con validación de entrada."""
     if request.method == "POST":
@@ -110,6 +110,78 @@ def agregar():
             )
 
     return render_template("agregar.html", sedes=sedes.listar_sedes())
+
+@admin_bp.route("/comprar", methods=["GET", "POST"])
+@requiere_rol("asesor")   # PROVISIONAL: en el Paso 5 lo dejamos solo "asesor"
+def comprar():
+    """
+    El asesor le compra una moto a un particular.
+    Flujo Opción A: agrega la moto al inventario Y registra la compra
+    en un solo paso. La identidad del asesor sale de la SESIÓN.
+    """
+    if request.method == "POST":
+        try:
+            # Misma validación que 'agregar': cada campo se limpia antes de tocar nada.
+            datos = {
+                "marca": validadores.validar_texto(
+                    request.form.get("marca"), "marca", min_len=1, max_len=50),
+                "modelo": validadores.validar_texto(
+                    request.form.get("modelo"), "modelo", min_len=1, max_len=50),
+                "anio": validadores.validar_entero(
+                    request.form.get("anio"), "año", minimo=1950, maximo=2100),
+                "cilindraje": validadores.validar_entero(
+                    request.form.get("cilindraje"), "cilindraje", minimo=90, maximo=1200),
+                "color": validadores.validar_texto(
+                    request.form.get("color"), "color", min_len=1, max_len=30),
+                "precio": validadores.validar_entero(
+                    request.form.get("precio"), "precio", minimo=0, maximo=999999999),
+                "kilometraje": validadores.validar_entero(
+                    request.form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
+                "estado": "disponible",
+                "sede_id": validadores.validar_entero(
+                    request.form.get("sede_id"), "sede", minimo=1),
+                "descripcion": validadores.validar_texto(
+                    request.form.get("descripcion"), "descripción",
+                    max_len=1000, obligatorio=False) or "",
+                "soat": validadores.validar_texto(
+                    request.form.get("soat"), "soat", max_len=20, obligatorio=False),
+                "tecno": validadores.validar_texto(
+                    request.form.get("tecno"), "tecno", max_len=20, obligatorio=False),
+                "placa": validadores.validar_texto(
+                    request.form.get("placa"), "placa", max_len=10, obligatorio=False),
+            }
+            if str(datos["sede_id"]) not in sedes.ids_validos():
+                raise ErrorValidacion("La sede seleccionada no es válida.", "sede")
+            datos["marca"] = datos["marca"].upper()
+            datos["modelo"] = datos["modelo"].upper()
+            if datos["placa"]:
+                datos["placa"] = datos["placa"].upper()
+
+            # DIFERENCIA CLAVE vs agregar: un solo paso que agrega la moto
+            # Y registra la compra. La identidad sale de la SESIÓN, nunca
+            # del formulario: el asesor no puede falsear quién compró.
+            inventario.comprar_moto(
+                datos,
+                session.get("usuario_id"),
+                session.get("usuario_nombre"),
+            )
+            obtener_logger().info(
+                "%s compró una moto (%s %s).",
+                session.get("usuario_nombre"), datos["marca"], datos["modelo"])
+            return redirect(url_for("admin.index"))
+
+        except ErrorValidacion as e:
+            return render_template(
+                "comprar.html",          # DIFERENCIA: su propio template
+                error=e.mensaje,
+                datos=request.form,
+                sedes=sedes.listar_sedes(),
+            )
+
+    # GET: mostrar el formulario vacío.
+    # GET: mostrar el formulario vacío.
+    return render_template("comprar.html", sedes=sedes.listar_sedes())  
+
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])
 @requiere_rol("admin")
 def editar(id):

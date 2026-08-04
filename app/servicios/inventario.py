@@ -251,6 +251,44 @@ def registrar_venta(moto_id: int, usuario_id: int, usuario_nombre: str):
         "usuario_nombre": usuario_nombre,
         "sede_id": moto.get("sede_id"),
     })
+
+    # ============================================================
+#  COMPRAS (asesor compra una moto a un particular)
+# ============================================================
+
+def comprar_moto(datos: dict, usuario_id: int, usuario_nombre: str):
+    """
+    Flujo de compra (Opción A): agrega la moto al inventario Y
+    registra la compra en un solo paso.
+
+    'datos' viene del formulario (marca, modelo, precio, etc.).
+    'usuario_id' y 'usuario_nombre' vienen SIEMPRE de la sesión,
+    nunca del formulario: la identidad la pone el servidor.
+    """
+    # 1. Agregar la moto al inventario (reutiliza la lógica existente).
+    moto = repositorios.agregar_moto(datos)
+    if not moto:
+        return None
+
+    # agregar_moto devuelve una lista; la moto creada es el primer elemento.
+    moto_creada = moto[0] if isinstance(moto, list) else moto
+    moto_id = moto_creada["id"]
+
+    # 2. Congelar la descripción como TEXTO (mismo patrón que registrar_venta).
+    partes = [moto_creada.get("marca") or "", moto_creada.get("modelo") or ""]
+    if moto_creada.get("anio"):
+        partes.append(str(moto_creada["anio"]))
+    descripcion = " ".join(p for p in partes if p).strip()
+
+    # 3. Registrar la compra con la identidad del asesor (de sesión).
+    repositorios.registrar_compra({
+        "moto_id": moto_id,
+        "descripcion": descripcion,
+        "usuario_id": usuario_id,
+        "usuario_nombre": usuario_nombre,
+    })
+
+    return moto_creada
     
     # ============================================================
 #  INTENCIONES

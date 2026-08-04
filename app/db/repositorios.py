@@ -339,6 +339,16 @@ def registrar_venta(datos: dict):
     return resultado.data
 
     # ============================================================
+#  COMPRAS (registro de operaciones)
+# ============================================================
+
+def registrar_compra(datos: dict):
+    """Guarda el registro histórico de una compra."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("compras").insert(datos).execute()
+    return resultado.data
+
+    # ============================================================
 #  INTENCIONES (registro anónimo de interés)
 # ============================================================
 
