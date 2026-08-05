@@ -432,6 +432,8 @@ def panel_gerencia():
         ventas_semana=reportes.ventas_por_semana(),
         motos_consultadas=reportes.motos_mas_consultadas(),
         consultas_marca=reportes.consultas_por_marca(),
+        permutas_usuario=reportes.permutas_por_usuario(),
+        modelos_permutados=reportes.modelos_permutados(),
     )
 
 @admin_bp.route("/usuarios", methods=["GET", "POST"])

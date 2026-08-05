@@ -31,3 +31,12 @@ def motos_mas_consultadas():
 def consultas_por_marca():
     """Qué marcas generan más interés (guía de compra de inventario)."""
     return repositorios.reporte_consultas_por_marca()
+
+def permutas_por_usuario():
+    """Cuántas permutas ha cerrado cada asesor."""
+    return repositorios.reporte_permutas_por_usuario()
+
+
+def modelos_permutados():
+    """Qué modelos se mueven más en permutas (entrantes + salientes)."""
+    return repositorios.reporte_modelos_permutados()

@@ -457,6 +457,13 @@ def reporte_ventas_por_usuario():
 def reporte_ventas_por_semana():
     return get_supabase_admin().table("reporte_ventas_por_semana").select("*").execute().data
 
+def reporte_permutas_por_usuario():
+    return get_supabase_admin().table("reporte_permutas_por_usuario").select("*").execute().data
+
+
+def reporte_modelos_permutados():
+    return get_supabase_admin().table("reporte_modelos_permutados").select("*").execute().data
+
 def reporte_motos_consultadas():
     return get_supabase_admin().table("reporte_motos_consultadas").select("*").limit(15).execute().data
 
