@@ -339,6 +339,22 @@ def registrar_venta(datos: dict):
     return resultado.data
 
     # ============================================================
+#  COMPRAS (registro de operaciones)
+# ============================================================
+
+def registrar_compra(datos: dict):
+    """Guarda el registro histórico de una compra."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("compras").insert(datos).execute()
+    return resultado.data
+
+def registrar_permuta(datos: dict):
+    """Guarda el registro histórico de una permuta."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("permutas").insert(datos).execute()
+    return resultado.data
+
+    # ============================================================
 #  INTENCIONES (registro anónimo de interés)
 # ============================================================
 
@@ -376,6 +392,23 @@ def buscar_motos_admin(moto_id=None, placa=None):
         consulta = consulta.ilike("placa", f"%{placa}%")
 
     return consulta.order("created_at", desc=True).execute().data
+
+def obtener_disponible_por_placa(placa: str):
+    """
+    Busca UNA moto disponible por placa EXACTA (no parcial).
+
+    A diferencia de buscar_motos_admin (que usa ilike parcial para el
+    buscador del panel), aquí necesitamos identidad exacta: una placa
+    corresponde a una sola moto disponible, o a ninguna. Se usa en la
+    permuta, donde no puede haber ambigüedad sobre qué moto sale.
+    """
+    supabase = get_supabase_publico()
+    resultado = supabase.table("motos")\
+        .select("*")\
+        .eq("placa", placa)\
+        .eq("estado", "disponible")\
+        .execute()
+    return resultado.data[0] if resultado.data else None
 
     # ============================================================
 #  DESTACADAS INTELIGENTES (por intención de compra)
@@ -423,6 +456,13 @@ def reporte_ventas_por_usuario():
 
 def reporte_ventas_por_semana():
     return get_supabase_admin().table("reporte_ventas_por_semana").select("*").execute().data
+
+def reporte_permutas_por_usuario():
+    return get_supabase_admin().table("reporte_permutas_por_usuario").select("*").execute().data
+
+
+def reporte_modelos_permutados():
+    return get_supabase_admin().table("reporte_modelos_permutados").select("*").execute().data
 
 def reporte_motos_consultadas():
     return get_supabase_admin().table("reporte_motos_consultadas").select("*").limit(15).execute().data

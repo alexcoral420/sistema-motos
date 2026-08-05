@@ -251,6 +251,111 @@ def registrar_venta(moto_id: int, usuario_id: int, usuario_nombre: str):
         "usuario_nombre": usuario_nombre,
         "sede_id": moto.get("sede_id"),
     })
+
+    # ============================================================
+#  COMPRAS (asesor compra una moto a un particular)
+# ============================================================
+
+def comprar_moto(datos: dict, usuario_id: int, usuario_nombre: str):
+    """
+    Flujo de compra (Opción A): agrega la moto al inventario Y
+    registra la compra en un solo paso.
+
+    'datos' viene del formulario (marca, modelo, precio, etc.).
+    'usuario_id' y 'usuario_nombre' vienen SIEMPRE de la sesión,
+    nunca del formulario: la identidad la pone el servidor.
+    """
+    # 1. Agregar la moto al inventario (reutiliza la lógica existente).
+    moto = repositorios.agregar_moto(datos)
+    if not moto:
+        return None
+
+    # agregar_moto devuelve una lista; la moto creada es el primer elemento.
+    moto_creada = moto[0] if isinstance(moto, list) else moto
+    moto_id = moto_creada["id"]
+
+    # 2. Congelar la descripción como TEXTO (mismo patrón que registrar_venta).
+    partes = [moto_creada.get("marca") or "", moto_creada.get("modelo") or ""]
+    if moto_creada.get("anio"):
+        partes.append(str(moto_creada["anio"]))
+    descripcion = " ".join(p for p in partes if p).strip()
+
+    # 3. Registrar la compra con la identidad del asesor (de sesión).
+    repositorios.registrar_compra({
+        "moto_id": moto_id,
+        "descripcion": descripcion,
+        "usuario_id": usuario_id,
+        "usuario_nombre": usuario_nombre,
+    })
+
+    return moto_creada
+
+def _describir_moto(moto: dict) -> str:
+    """
+    Arma la descripción congelada de una moto: "YAMAHA FZ 2022".
+    Se guarda como texto en compras/ventas/permutas para que el
+    reporte siga legible aunque después se borre la moto.
+    """
+    partes = [moto.get("marca") or "", moto.get("modelo") or ""]
+    if moto.get("anio"):
+        partes.append(str(moto["anio"]))
+    return " ".join(p for p in partes if p).strip()
+
+    # ============================================================
+#  PERMUTAS (asesor cierra compra + venta en una negociación)
+# ============================================================
+
+def registrar_permuta(datos_entrante: dict, placa_saliente: str,
+                       usuario_id: int, usuario_nombre: str):
+    """
+    Cierra una permuta: el cliente entrega una moto (entrante) y se
+    lleva una del inventario (saliente), en una sola negociación.
+
+    Hace TRES operaciones:
+      1. Crea la moto entrante en el inventario.
+      2. Marca la moto saliente como vendida.
+      3. Registra la permuta (enlaza ambas motos + asesor).
+
+    Estrategia de atomicidad: validamos la placa saliente ANTES de
+    escribir nada. Si la placa no corresponde a una moto disponible,
+    salimos sin haber tocado la base. Así el único error probable
+    (placa mal tecleada) se detecta antes de la primera escritura.
+
+    Devuelve la moto entrante creada, o None si la placa no es válida.
+    La identidad del asesor sale SIEMPRE de la sesión, nunca del form.
+    """
+    # --- VALIDAR PRIMERO (antes de escribir nada) ---
+    # La placa se normaliza a mayúsculas para que el match exacto
+    # funcione aunque el asesor la escriba en minúsculas.
+    placa_saliente = placa_saliente.strip().upper()
+    moto_saliente = repositorios.obtener_disponible_por_placa(placa_saliente)
+    if not moto_saliente:
+        # No existe una moto disponible con esa placa: abortamos limpio.
+        return None
+
+    # --- ESCRIBIR DESPUÉS (la validación ya pasó) ---
+    # 1. Crear la moto entrante (reutiliza la lógica de inventario).
+    moto = repositorios.agregar_moto(datos_entrante)
+    moto_entrante = moto[0] if isinstance(moto, list) else moto
+
+    # 2. Marcar la moto saliente como vendida.
+    repositorios.marcar_como_vendida(moto_saliente["id"])
+
+    # 3. Congelar descripciones de ambas motos (mismo patrón que ventas).
+    descripcion_entrante = _describir_moto(moto_entrante)
+    descripcion_saliente = _describir_moto(moto_saliente)
+
+    # 4. Registrar la permuta con la identidad del asesor (de sesión).
+    repositorios.registrar_permuta({
+        "moto_entrante_id": moto_entrante["id"],
+        "moto_saliente_id": moto_saliente["id"],
+        "descripcion_entrante": descripcion_entrante,
+        "descripcion_saliente": descripcion_saliente,
+        "usuario_id": usuario_id,
+        "usuario_nombre": usuario_nombre,
+    })
+
+    return moto_entrante
     
     # ============================================================
 #  INTENCIONES

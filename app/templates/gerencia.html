@@ -219,7 +219,68 @@
             <div class="vacio">Aún no hay ventas registradas.</div>
             {% endif %}
         </section>
+<!-- ============ PERMUTAS POR ASESOR ============ -->
+        <section class="reporte">
+            <h2>Permutas por asesor</h2>
+            <p class="sub">Cuántas permutas ha cerrado cada asesor</p>
+            {% if permutas_usuario %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Asesor</th>
+                        <th class="num">Permutas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in permutas_usuario %}
+                    <tr>
+                        <td><span class="pos">{{ loop.index }}</span></td>
+                        <td>{{ p.usuario_nombre }}</td>
+                        <td class="num">{{ p.total_permutas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay permutas registradas.</div>
+            {% endif %}
+        </section>
 
+        <!-- ============ MODELOS MÁS PERMUTADOS ============ -->
+        <section class="reporte">
+            <h2>Modelos más permutados</h2>
+            <p class="sub">Qué modelos se mueven más en permutas — entrantes y salientes juntos</p>
+            {% if modelos_permutados %}
+            {% set max_modelo = modelos_permutados[0].veces %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Modelo</th>
+                        <th style="width:45%">Proporción</th>
+                        <th class="num">Veces</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in modelos_permutados %}
+                    <tr>
+                        <td>{{ m.descripcion }}</td>
+                        <td>
+                            <div class="barra-dato">
+                                <div class="track">
+                                    <div class="fill" style="width: {{ (m.veces / max_modelo * 100) | round }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="num">{{ m.veces }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay permutas registradas.</div>
+            {% endif %}
+        </section>
     </div>
 </body>
 </html>

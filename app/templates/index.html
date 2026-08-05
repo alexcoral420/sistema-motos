@@ -152,8 +152,12 @@
             <a href="/gerencia" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
             <a href="/usuarios" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
             {% endif %}
-            {% if session.rol in ['admin', 'asesor'] %}
+            {% if session.rol == 'admin' %}
             <a href="/agregar" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar moto</a>
+            {% endif %}
+            {% if session.rol == 'asesor' %}
+            <a href="/comprar" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Comprar moto</a>
+            <a href="/permuta" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Permuta</a>
             {% endif %}
         </div>
     </div>
@@ -249,7 +253,9 @@
         <div class="empty">
             <svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg>
             <p style="font-size:18px">No hay motos en el inventario</p>
+            {% if session.rol == 'admin' %}
             <a href="/agregar" class="btn btn-primary" style="margin-top:16px"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar primera moto</a>
+            {% endif %}
         </div>
         {% endif %}
     </div>
