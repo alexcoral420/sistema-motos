@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 from app.servicios import catalogo
 from app.servicios import inventario
+from app.servicios import seo
 from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
@@ -88,3 +89,82 @@ def consultar_moto(moto_id):
     url = f"https://wa.me/573204951482?text={quote(mensaje)}"
     return redirect(url)
     
+@publico_bp.route("/sitemap.xml")
+def sitemap():
+    """
+    Sitemap XML para los buscadores.
+
+    Lista las URLs públicas del sitio (home, catálogo, páginas legales
+    y cada moto disponible) para que Google las descubra e indexe.
+
+    La ruta solo ORQUESTA, fiel a la arquitectura: pide la lista al
+    servicio 'seo', calcula el dominio base y entrega el XML renderizado
+    por la plantilla. La lógica de QUÉ URLs entran vive en el servicio;
+    el FORMATO XML, en la plantilla. La ruta no decide ni formatea.
+    """
+    urls = seo.construir_sitemap()
+
+    # request.url_root es la raíz absoluta con la que llegó la petición,
+    # p.ej. 'https://universalmotors.online/'. Le quitamos la barra final
+    # para que al unir con rutas como '/inicio' no queden dos barras
+    # ('...online//inicio').
+    dominio = request.url_root.rstrip("/")
+
+    xml = render_template("sitemap.xml", urls=urls, dominio=dominio)
+
+    # Sin este encabezado, el navegador y Google lo interpretarían como
+    # HTML. Hay que anunciarlo explícitamente como XML.
+    return xml, 200, {"Content-Type": "application/xml"}
+
+@publico_bp.route("/robots.txt")
+def robots():
+    """
+    robots.txt: instrucciones para los buscadores.
+
+    Le dice a Google (y otros buscadores) qué puede rastrear y qué no,
+    y dónde está el sitemap. Permite todo lo público y bloquea las
+    zonas privadas (panel admin, login, API interna) para que no
+    aparezcan en resultados de búsqueda.
+
+    NOTA: esto NO es seguridad — un bot malicioso puede ignorarlo. El
+    panel está protegido de verdad por el login. Esto solo evita que
+    las rutas privadas se indexen. La seguridad real vive en el login.
+
+    Se sirve desde una ruta (no como archivo estático) para poder
+    incluir la URL absoluta del sitemap armada con el dominio real,
+    igual que hace la ruta del sitemap.
+    """
+    dominio = request.url_root.rstrip("/")
+
+    # 'User-agent: *' -> estas reglas aplican a TODOS los buscadores.
+    # 'Allow: /'      -> por defecto, pueden rastrear todo el sitio.
+    # 'Disallow: ...' -> excepto estas rutas privadas.
+    # 'Sitemap: ...'  -> aquí está el mapa del sitio (URL absoluta).
+    lineas = [
+        "User-agent: *",
+        "Allow: /",
+        # Acciones privadas del panel (todas cuelgan de la raíz, por eso
+        # se listan una a una). NO se incluye '/moto' porque el detalle
+        # público '/moto/<id>' SÍ debe indexarse; las acciones de fotos
+        # bajo /moto/<id>/... son POST y Google no las rastrea.
+        "Disallow: /agregar",
+        "Disallow: /comprar",
+        "Disallow: /permuta",
+        "Disallow: /editar/",
+        "Disallow: /vender/",
+        "Disallow: /eliminar/",
+        "Disallow: /gerencia",
+        "Disallow: /usuarios",
+        "Disallow: /admin",
+        "Disallow: /login",
+        "Disallow: /logout",
+        "Disallow: /api",
+        "Disallow: /consultar",
+        "",
+        f"Sitemap: {dominio}/sitemap.xml",
+    ]
+    texto = "\n".join(lineas)
+
+    # Content-Type de texto plano: robots.txt debe servirse como texto,
+    # no como HTML.
+    return texto, 200, {"Content-Type": "text/plain"}

@@ -1,0 +1,30 @@
+{#-
+  Plantilla del sitemap XML.
+
+  Recibe del servicio dos cosas:
+    - 'urls': la lista de dicts que arma seo.construir_sitemap().
+    - 'dominio': la raíz absoluta del sitio (ej. 'https://universalmotors.online'),
+      que la ruta calcula y pasa aquí.
+
+  Convierte esa lista al formato XML estándar de sitemaps. Cada <url>:
+    - <loc>: la dirección COMPLETA y absoluta (dominio + ruta).
+    - <lastmod>: fecha de última modificación (solo si la moto la tiene).
+    - <changefreq> y <priority>: pistas opcionales para Google.
+
+  El guion '-' en las etiquetas Jinja ({%- -%}) recorta los espacios y
+  saltos de línea sobrantes, para que el XML salga limpio y sin líneas
+  en blanco de más.
+-#}
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{%- for u in urls %}
+  <url>
+    <loc>{{ dominio }}{{ u.ruta }}</loc>
+    {%- if u.lastmod %}
+    <lastmod>{{ u.lastmod }}</lastmod>
+    {%- endif %}
+    <changefreq>{{ u.frecuencia }}</changefreq>
+    <priority>{{ u.prioridad }}</priority>
+  </url>
+{%- endfor %}
+</urlset>
