@@ -16,7 +16,7 @@ from app.servicios import seo
 from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
-
+@publico_bp.route("/")
 @publico_bp.route("/inicio")
 def inicio():
     """Página de inicio con cifras reales del inventario."""
