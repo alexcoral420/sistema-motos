@@ -40,7 +40,7 @@ def proteger_todo_el_panel():
         return redirect(url_for("auth.login"))
 
 
-@admin_bp.route("/")
+@admin_bp.route("/panel")
 @requiere_rol("admin", "asesor", "gerencia")
 def index():
     """Panel principal: lista las motos, con filtros opcionales."""
