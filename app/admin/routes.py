@@ -22,7 +22,7 @@ from app.servicios import sedes
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
-admin_bp = Blueprint("admin", __name__)
+admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 from app.auth.decorators import requiere_rol
 from app.servicios import busqueda
 from app.servicios import reportes
@@ -40,7 +40,7 @@ def proteger_todo_el_panel():
         return redirect(url_for("auth.login"))
 
 
-@admin_bp.route("/panel")
+@admin_bp.route("/")
 @requiere_rol("admin", "asesor", "gerencia")
 def index():
     """Panel principal: lista las motos, con filtros opcionales."""
@@ -354,7 +354,7 @@ def eliminar(id):
 
 
 
-@admin_bp.route("/admin/moto/<int:id>")
+@admin_bp.route("/moto/<int:id>")
 @requiere_rol("admin", "asesor", "gerencia")
 def detalle_moto_admin(id):
     """Detalle de una moto en vista admin (es_admin=True)."""

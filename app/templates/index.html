@@ -149,15 +149,15 @@
         <h1><svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg> Inventario de Motos</h1>
         <div class="header-acciones">
             {% if session.rol in ['admin', 'gerencia'] %}
-            <a href="/gerencia" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
-            <a href="/usuarios" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
+            <a href="{{ url_for('admin.panel_gerencia') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
+            <a href="{{ url_for('admin.gestion_usuarios') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
             {% endif %}
             {% if session.rol == 'admin' %}
-            <a href="/agregar" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar moto</a>
+            <a href="{{ url_for('admin.agregar') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar moto</a>
             {% endif %}
             {% if session.rol == 'asesor' %}
-            <a href="/comprar" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Comprar moto</a>
-            <a href="/permuta" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Permuta</a>
+            <a href="{{ url_for('admin.comprar') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Comprar moto</a>
+            <a href="{{ url_for('admin.permuta') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Permuta</a>
             {% endif %}
         </div>
     </div>
@@ -225,21 +225,21 @@
                     <div class="card-info"><svg class="ico" aria-hidden="true"><use href="#ico-nota"/></svg> {{ moto.descripcion }}</div>
                     {% endif %}
                     <div class="card-actions">
-                        <a href="/admin/moto/{{ moto.id }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-foto"/></svg> Fotos</a>
+                        <a href="{{ url_for('admin.detalle_moto_admin', id=moto.id) }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-foto"/></svg> Fotos</a>
 
                         {% if session.rol == 'admin' %}
-                        <a href="/editar/{{ moto.id }}" class="btn btn-warning"><svg class="ico" aria-hidden="true"><use href="#ico-editar"/></svg> Editar</a>
+                        <a href="{{ url_for('admin.editar', id=moto.id) }}" class="btn btn-warning"><svg class="ico" aria-hidden="true"><use href="#ico-editar"/></svg> Editar</a>
                         {% endif %}
 
                         {% if moto.estado == 'disponible' %}
-                        <form method="POST" action="/vender/{{ moto.id }}" onsubmit="return confirm('¿Marcar como vendida?')">
+                        <form method="POST" action="{{ url_for('admin.vender', id=moto.id) }}" onsubmit="return confirm('¿Marcar como vendida?')">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-success"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Vendida</button>
                         </form>
                         {% endif %}
 
                         {% if session.rol == 'admin' %}
-                        <form method="POST" action="/eliminar/{{ moto.id }}" onsubmit="return confirm('¿Eliminar esta moto?')">
+                        <form method="POST" action="{{ url_for('admin.eliminar', id=moto.id) }}" onsubmit="return confirm('¿Eliminar esta moto?')">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger"><svg class="ico" aria-hidden="true"><use href="#ico-basura"/></svg></button>
                         </form>
@@ -254,7 +254,7 @@
             <svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg>
             <p style="font-size:18px">No hay motos en el inventario</p>
             {% if session.rol == 'admin' %}
-            <a href="/agregar" class="btn btn-primary" style="margin-top:16px"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar primera moto</a>
+            <a href="{{ url_for('admin.agregar') }}" class="btn btn-primary" style="margin-top:16px"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar primera moto</a>
             {% endif %}
         </div>
         {% endif %}

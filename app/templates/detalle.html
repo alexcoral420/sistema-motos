@@ -153,7 +153,7 @@
 
         {% if session.rol == 'admin' and moto.foto_url %}
         <div class="portada-acciones">
-            <form method="POST" action="/moto/{{ moto.id }}/portada/eliminar"
+            <form method="POST" action="{{ url_for('admin.eliminar_portada_moto', id=moto.id) }}"
                   onsubmit="return confirm('¿Eliminar la portada? Si hay fotos en galería, la primera la reemplazará.')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-mini btn-mini-rojo">🗑️ Eliminar portada</button>
@@ -177,11 +177,11 @@
                 <img src="{{ foto.foto_url }}" class="thumbnail" onclick="cambiarFoto(this)">
                 {% if session.rol == 'admin' %}
                 <div class="thumb-acciones">
-                    <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/portada">
+                    <form method="POST" action="{{ url_for('admin.hacer_portada_moto', id=moto.id, foto_id=foto.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini" title="Poner como portada">⭐</button>
                     </form>
-                    <form method="POST" action="/moto/{{ moto.id }}/foto/{{ foto.id }}/eliminar"
+                    <form method="POST" action="{{ url_for('admin.eliminar_foto_moto', id=moto.id, foto_id=foto.id) }}"
                           onsubmit="return confirm('¿Eliminar esta foto?')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini btn-mini-rojo" title="Eliminar foto">🗑️</button>
@@ -255,12 +255,7 @@
                     💬 Preguntar por esta moto
                 </a>
                 {% if session.rol == 'admin' %}
-                <a href="/editar/{{ moto.id }}" class="btn btn-primary">✏️ Editar</a>
-                {% endif %}
-            </div>
-            </div>
-                {% if es_admin %}
-                <a href="/editar/{{ moto.id }}" class="btn btn-primary">✏️ Editar</a>
+                <a href="{{ url_for('admin.editar', id=moto.id) }}" class="btn btn-primary">✏️ Editar</a>
                 {% endif %}
             </div>
         </div>
@@ -269,7 +264,7 @@
         {% if session.rol == 'admin' %}
         <div class="upload-card">
             <h3>📷 Agregar fotos a la galería</h3>
-            <form method="POST" action="/moto/{{ moto.id }}/subir-fotos" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('admin.subir_fotos', id=moto.id) }}" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="upload-area" onclick="document.getElementById('fotos-nuevas').click()">
                     <p>📷 Toca aquí para seleccionar fotos</p>
