@@ -9,7 +9,11 @@ servicio y entrega el HTML. Esa es toda su responsabilidad.
 
 from flask import Blueprint, render_template, request, redirect
 from urllib.parse import quote
-
+from app.servicios import simulador
+from app.seguridad import validadores
+from app.seguridad.validadores import ErrorValidacion
+from app.seguridad.logging_config import obtener_logger
+from app.servicios.simulador import ErrorSimulador
 from app.servicios import catalogo
 from app.servicios import inventario
 from app.servicios import seo
@@ -156,3 +160,78 @@ def robots():
     # Content-Type de texto plano: robots.txt debe servirse como texto,
     # no como HTML.
     return texto, 200, {"Content-Type": "text/plain"}
+
+@publico_bp.route("/financiacion", methods=["GET", "POST"])
+def financiacion():
+    """
+    Simulador de financiación.
+
+    GET: muestra el simulador. Si viene ?moto_id=N, precarga esa moto.
+    POST accion=simular: calcula los 4 planes y los muestra.
+    POST accion=registrar: guarda el lead (requiere consentimiento).
+
+    El simulador es orientativo: calcula cuotas estimadas y captura el
+    interés del cliente. No decide aprobación de crédito.
+    """
+    # Datos de la plantilla, se van llenando según la acción.
+    contexto = {
+        "planes": None,       # resultado de la simulación (los 4 planes)
+        "datos": {},          # lo que el usuario ingresó (para recordar)
+        "moto": None,         # moto precargada si vino desde el detalle
+        "error": None,
+        "registrado": False,  # True tras registrar el lead con éxito
+    }
+
+    # Moto precargada (desde el botón "Financiar esta moto" del detalle).
+    # El moto_id puede venir del query param (enlace del detalle, en GET)
+    # o del campo oculto del formulario (en los POST de simular/registrar).
+    # Se busca en ambos para que la moto se mantenga en todo el flujo.
+    moto_id = request.args.get("moto_id") or request.form.get("moto_id")
+    if moto_id and str(moto_id).isdigit():
+        moto = inventario.obtener_moto(int(moto_id))
+        if moto:
+            contexto["moto"] = moto
+            contexto["datos"]["valor"] = moto.get("precio")
+
+    if request.method == "POST":
+        accion = request.form.get("accion")
+
+        try:
+            if accion == "simular":
+                valor = validadores.validar_entero(
+                    request.form.get("valor"), "valor", minimo=1, maximo=999999999)
+                inicial = validadores.validar_entero(
+                    request.form.get("cuota_inicial"), "cuota inicial",
+                    minimo=0, maximo=999999999, obligatorio=False) or 0
+
+                contexto["planes"] = simulador.simular(valor, inicial)
+                contexto["datos"] = {"valor": valor, "cuota_inicial": inicial}
+
+            elif accion == "registrar":
+                # Recalcular para tener el monto y volver a mostrar los planes.
+                valor = validadores.validar_entero(
+                    request.form.get("valor"), "valor", minimo=1, maximo=999999999)
+                inicial = validadores.validar_entero(
+                    request.form.get("cuota_inicial"), "cuota inicial",
+                    minimo=0, maximo=999999999, obligatorio=False) or 0
+                mid = request.form.get("moto_id")
+                mid = int(mid) if mid and mid.isdigit() else None
+
+                simulador.registrar_lead(
+                    nombre=request.form.get("nombre"),
+                    telefono=request.form.get("telefono"),
+                    correo=request.form.get("correo"),
+                    valor_financiar=valor - inicial,
+                    cuota_inicial=inicial,
+                    moto_id=mid,
+                    autorizo=request.form.get("autorizo") == "on",
+                )
+                obtener_logger().info("Lead de financiación registrado.")
+                contexto["registrado"] = True
+                contexto["planes"] = simulador.simular(valor, inicial)
+                contexto["datos"] = {"valor": valor, "cuota_inicial": inicial}
+
+        except (ErrorSimulador, ErrorValidacion) as e:
+            contexto["error"] = e.mensaje
+
+    return render_template("financiacion.html", **contexto)

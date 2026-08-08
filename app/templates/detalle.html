@@ -254,6 +254,9 @@
                 <a href="/consultar/{{ moto.id }}" class="btn btn-whatsapp" target="_blank">
                     💬 Preguntar por esta moto
                 </a>
+                <a href="{{ url_for('publico.financiacion', moto_id=moto.id) }}" class="btn btn-primary">
+                    💰 Financiar esta moto
+                </a>
                 {% if session.rol == 'admin' %}
                 <a href="{{ url_for('admin.editar', id=moto.id) }}" class="btn btn-primary">✏️ Editar</a>
                 {% endif %}
