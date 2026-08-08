@@ -143,19 +143,7 @@ def robots():
     lineas = [
         "User-agent: *",
         "Allow: /",
-        # Acciones privadas del panel (todas cuelgan de la raíz, por eso
-        # se listan una a una). NO se incluye '/moto' porque el detalle
-        # público '/moto/<id>' SÍ debe indexarse; las acciones de fotos
-        # bajo /moto/<id>/... son POST y Google no las rastrea.
-        "Disallow: /agregar",
-        "Disallow: /comprar",
-        "Disallow: /permuta",
-        "Disallow: /editar/",
-        "Disallow: /vender/",
-        "Disallow: /eliminar/",
-        "Disallow: /gerencia",
-        "Disallow: /usuarios",
-        "Disallow: /admin",
+        "Disallow: /admin",     # todo el panel cuelga de aqui
         "Disallow: /login",
         "Disallow: /logout",
         "Disallow: /api",
