@@ -75,7 +75,7 @@
         <h1>Panel de <span>Gerencia</span></h1>
         <div style="display:flex; gap:10px">
             <a href="/usuarios" class="volver">👥 Usuarios</a>
-            <a href="/" class="volver">← Volver al inventario</a>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-back">← Volver</a>
         </div>
     </div>
 

@@ -187,13 +187,13 @@
              URL, así el resultado es compartible y recargable. Al ser una
              lectura, no lleva token CSRF. Los name (id, placa) son contrato
              con el servidor: no cambiar. -->
-        <form method="GET" action="/" class="busqueda-admin" role="search">
+        <form method="GET" action="{{ url_for('admin.index') }}" class="busqueda-admin" role="search">
             <input type="number" name="id" placeholder="Buscar por ID"
                    value="{{ filtros.id if filtros.id else '' }}" min="1" aria-label="Buscar por ID">
             <input type="text" name="placa" placeholder="Buscar por placa"
                    value="{{ filtros.placa or '' }}" maxlength="10" aria-label="Buscar por placa">
             <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Buscar</button>
-            <a href="/" class="btn btn-secundario">Limpiar</a>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-back">← Volver</a>
         </form>
 
         <!-- Grid de motos -->

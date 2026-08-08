@@ -134,7 +134,7 @@
 
         <!-- Volver -->
         {% if es_admin %}
-            <a href="/" class="volver">← Volver al panel</a>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-back">← Volver</a>
         {% else %}
             <a href="/catalogo" class="volver">← Volver al catálogo</a>
         {% endif %}
