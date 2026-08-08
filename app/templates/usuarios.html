@@ -90,7 +90,7 @@
             {% if error %}<div class="aviso aviso-error">{{ error }}</div>{% endif %}
             {% if exito %}<div class="aviso aviso-exito">{{ exito }}</div>{% endif %}
 
-            <form method="POST" action="/usuarios">
+            <form method="POST" action="{{ url_for('admin.gestion_usuarios') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="campo">
@@ -169,7 +169,7 @@
                             {# Solo se ofrece desactivar a usuarios activos que NO son uno mismo.
                                El servidor revalida todas las salvaguardas; esto es solo UX. #}
                             {% if u.activo and u.id != session.usuario_id %}
-                            <form method="POST" action="/usuarios/{{ u.id }}/desactivar"
+                            <form method="POST" action="{{ url_for('admin.desactivar_usuario', usuario_id=u.id) }}"
                                   onsubmit="return confirm('¿Desactivar a {{ u.nombre_completo }}? Podrá reactivarse después desde la base, pero no podrá iniciar sesión.')"
                                   style="display:inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
