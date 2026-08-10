@@ -60,11 +60,19 @@ def create_app(nombre_config=None):
     clase_config = config_por_nombre[nombre_config]
     app.config.from_object(clase_config)
     # Filtro de plantilla: formatea números como pesos ($1.234.567).
+# Filtro de plantilla: formatea números como pesos ($1.234.567).
     @app.template_filter('pesos')
     def pesos(v):
         if v is None:
             return ''
         return f"{v:,.0f}".replace(",", ".")
+
+    # Inyecta el número de WhatsApp en TODOS los templates como {{ whatsapp }}.
+    # Así el número vive en un solo lugar (config) y no hardcodeado en cada HTML.
+    @app.context_processor
+    def inyectar_whatsapp():
+        return {"whatsapp": app.config["WHATSAPP_CONTACTO"]}
+
 
     # Protección CSRF: a partir de aquí, TODOS los formularios POST del
     # sistema exigen un token válido. Un POST sin token (o de otro origen)

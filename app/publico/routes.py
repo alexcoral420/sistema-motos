@@ -6,8 +6,8 @@ Cada una llama a la capa de SERVICIOS (inventario), nunca a la base
 de datos directo. La ruta solo: recibe la petición, pide datos al
 servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
-
-from flask import Blueprint, render_template, request, redirect
+from flask import current_app
+from flask import Blueprint, render_template, request, redirect, current_app
 from urllib.parse import quote
 from app.servicios import simulador
 from app.seguridad import validadores
@@ -86,11 +86,13 @@ def consultar_moto(moto_id):
     moto = inventario.obtener_moto(moto_id)
     if not moto:
         # Si no existe, mandamos a WhatsApp sin mensaje específico.
-        return redirect("https://wa.me/573204951482")
+        return redirect(f"https://wa.me/{current_app.config['WHATSAPP_CONTACTO']}")
 
     mensaje = (f"Hola, He Visto su Catalogo y me interesa la {moto['marca']} {moto['modelo']} "
-               f"{moto.get('anio', '')} (Ref: {moto_id})")
-    url = f"https://wa.me/573204951482?text={quote(mensaje)}"
+               # ... el resto del mensaje ...
+               )
+
+    url = f"https://wa.me/{current_app.config['WHATSAPP_CONTACTO']}?text={quote(mensaje)}"
     return redirect(url)
     
 @publico_bp.route("/sitemap.xml")

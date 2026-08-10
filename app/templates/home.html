@@ -456,7 +456,7 @@
             <a href="/inicio">Inicio</a>
             <a href="/catalogo">Catálogo</a>
             <a href="/privacidad">Privacidad</a>
-            <a href="https://wa.me/573042827795" class="btn-nav" target="_blank" rel="noopener">
+            <a href="https://wa.me/{{ whatsapp }}" class="btn-nav" target="_blank" rel="noopener">
                 <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
                 Escríbenos
             </a>
@@ -629,6 +629,11 @@
                     <p>Firmas, recibes tu moto con papeles al día y sales rodando desde el concesionario.</p>
                 </div>
             </div>
+            <div style="text-align:center; margin-top:40px;">
+                <a href="{{ url_for('publico.financiacion') }}" class="btn btn-primary">
+                    💰 Simular mi financiación
+                </a>
+            </div>
         </div>
     </section>
 
@@ -636,7 +641,7 @@
     <section class="cta">
         <h2>¿Tienes dudas con alguna moto?</h2>
         <p>Escríbenos por WhatsApp y te decimos precio, cuota mensual y disponibilidad. Te respondemos lo antes posible.</p>
-        <a href="https://wa.me/573042827795" class="btn" target="_blank" rel="noopener">
+        <a href="https://wa.me/{{ whatsapp }}" class="btn" target="_blank" rel="noopener">
             <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
             Chatear ahora
         </a>
@@ -671,7 +676,7 @@
                     </li>
                     <li>
                         <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
-                        <a href="https://wa.me/573042827795" target="_blank" rel="noopener">+57 304 282 7795</a>
+                        <a href="https://wa.me/{{ whatsapp }}" target="_blank" rel="noopener">+57 304 282 7795</a>
                     </li>
                 </ul>
             </div>
@@ -682,7 +687,7 @@
     </footer>
 
     <!-- Botón flotante de WhatsApp -->
-    <a href="https://wa.me/573042827795" class="wa-flotante" target="_blank" rel="noopener" aria-label="Chatear por WhatsApp">
+    <a href="https://wa.me/{{ whatsapp }}" class="wa-flotante" target="_blank" rel="noopener" aria-label="Chatear por WhatsApp">
         <svg aria-hidden="true"><use href="#ico-whatsapp"/></svg>
     </a>
 

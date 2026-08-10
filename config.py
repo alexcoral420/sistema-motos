@@ -39,6 +39,9 @@ class Config:
     TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
     TWILIO_WHATSAPP_NUMBER = os.environ.get("TWILIO_WHATSAPP_NUMBER")
+    # --- Número de WhatsApp de contacto público (botones "Escríbenos") ---
+    # UNA sola fuente de verdad, para no repetirlo en cada template.
+    WHATSAPP_CONTACTO = os.environ.get("WHATSAPP_CONTACTO", "3042827795")
 
     # --- Admin del panel ---
     ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO")
