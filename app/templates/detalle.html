@@ -21,6 +21,12 @@
         .nav-links .btn-nav { background: #ff7a00; color: #000; padding: 8px 18px; border-radius: 8px; font-weight: bold; }
         .nav-links .btn-nav:hover { background: #ff9633; color: #000; }
 
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: #ff7a00; margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
         .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; }
 
         /* Botón volver */
@@ -109,8 +115,17 @@
             .moto-titulo { font-size: 22px; }
             .moto-precio { font-size: 26px; }
             .info-grid { grid-template-columns: 1fr; }
-            .nav-links { gap: 12px; }
-            .nav-links a:not(.btn-nav) { display: none; }
+            .menu-toggle { display: block; }
+            .nav-links {
+                display: none;
+                position: absolute; top: 100%; left: 0; right: 0;
+                flex-direction: column;
+                background: #0d0d0d;
+                padding: 16px 24px;
+                gap: 16px;
+                border-bottom: 2px solid #ff7a00;
+            }
+            .nav-links.abierto { display: flex; }
         }
     </style>
 </head>
@@ -122,11 +137,24 @@
             <img src="/static/logo.png" alt="Universal Motors">
             Universal <span>Motors</span>
         </a>
-        <div class="nav-links">
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
             <a href="/inicio">Inicio</a>
             <a href="/catalogo" class="active">Catálogo</a>
             <a href="/privacidad">Privacidad</a>
+            {% if not session.rol %}
             <a href="https://wa.me/{{ whatsapp }}" class="btn-nav" target="_blank">💬 Escríbenos</a>
+            {% endif %}
+            {% if session.rol %}
+            <a href="{{ url_for('admin.index') }}">← Volver al panel</a>
+            {% endif %}
+            {% if session.rol == 'asesor' and session.whatsapp %}
+            <button type="button" onclick="copiarLinkCliente()" class="btn-nav" id="btn-copiar-link">
+                📋 Copiar link para cliente
+            </button>
+            {% endif %}
         </div>
     </nav>
 
@@ -251,9 +279,11 @@
             {% endif %}
 
             <div class="acciones">
+                {% if not session.rol %}
                 <a href="/consultar/{{ moto.id }}" class="btn btn-whatsapp" target="_blank">
                     💬 Preguntar por esta moto
                 </a>
+                {% endif %}
                 <a href="{{ url_for('publico.financiacion', moto_id=moto.id) }}" class="btn btn-primary">
                     💰 Financiar esta moto
                 </a>
@@ -344,6 +374,34 @@
                 texto.textContent = '✓ ' + n + ' fotos seleccionadas';
             }
         }
+        function copiarLinkCliente() {
+            const url = new URL(window.location.href);
+            url.searchParams.set('a', '{{ session.usuario_id }}');
+            const link = url.toString();
+            navigator.clipboard.writeText(link).then(function() {
+            const btn = document.getElementById('btn-copiar-link');
+            const original = btn.innerText;
+            btn.innerText = '✅ ¡Copiado!';
+            setTimeout(function() { btn.innerText = original; }, 2000);
+            }).catch(function() {
+            prompt('Copia este link para el cliente:', link);
+            });
+        }
+
+        // ===== Menú hamburguesa en móvil =====
+    const toggle = document.querySelector('.menu-toggle');
+    const links = document.getElementById('nav-links');
+    if (toggle && links) {
+        toggle.addEventListener('click', () => {
+            const abierto = links.classList.toggle('abierto');
+            toggle.classList.toggle('abierto', abierto);
+            toggle.setAttribute('aria-expanded', abierto);
+        });
+        links.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+            links.classList.remove('abierto');
+            toggle.classList.remove('abierto');
+        }));
+    }
     </script>
 
 </body>
