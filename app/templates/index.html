@@ -145,9 +145,8 @@
         <symbol id="ico-nota" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/></symbol>
     </svg>
 
-    <div class="header">
-        <h1><svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg> Inventario de Motos</h1>
-        <div class="header-acciones">
+    <div class="header-acciones">
+            <a href="{{ url_for('publico.catalogo_publico') }}" class="btn btn-primary" target="_blank">🌐 Ver sitio público</a>
             {% if session.rol in ['admin', 'gerencia'] %}
             <a href="{{ url_for('admin.panel_gerencia') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
             <a href="{{ url_for('admin.gestion_usuarios') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>

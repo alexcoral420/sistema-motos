@@ -203,22 +203,32 @@
     </svg>
 
     <!-- Navegación -->
-    <nav class="navbar">
+        <nav class="navbar">
         <a href="/inicio" class="logo">
             <img src="/static/logo.png" alt="Logo Universal Motors">
             Universal <span>Motors</span>
-        </a>
-        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            </a>
+            <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
             <span></span><span></span><span></span>
-        </button>
-        <div class="nav-links" id="nav-links">
+            </button>
+            <div class="nav-links" id="nav-links">
             <a href="/inicio">Inicio</a>
             <a href="/catalogo" class="active">Catálogo</a>
+            {% if session.rol %}
+            <a href="{{ url_for('admin.index') }}">← Volver al panel</a>
+            {% endif %}
             <a href="/privacidad">Privacidad</a>
             <!-- Contacto general: sí puede ir directo a wa.me (no es por una moto) -->
+            {% if not session.rol %}
             <a href="https://wa.me/{{ whatsapp }}" class="btn-nav" target="_blank" rel="noopener">
-                <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Escríbenos
+             <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Escríbenos
             </a>
+            {% endif %}
+            {% if session.rol == 'asesor' and session.whatsapp %}
+            <button type="button" onclick="copiarLinkCliente()" class="btn-nav" id="btn-copiar-link">
+                📋 Copiar link para cliente
+            </button>
+            {% endif %}
         </div>
     </nav>
 
@@ -306,9 +316,11 @@
                         </a>
                         <!-- IMPORTANTE: va a /consultar/{id}, que registra el interés
                              antes de redirigir a WhatsApp. NUNCA a wa.me directo. -->
+                             {% if not session.rol %}
                         <a href="/consultar/{{ moto.id }}" class="btn-whatsapp" target="_blank" rel="noopener">
                             <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Preguntar por esta moto
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -377,6 +389,21 @@
         toggle.classList.remove('abierto');
         toggle.setAttribute('aria-expanded', 'false');
     }));
+
+    // ===== Copiar link para cliente (solo asesores) =====
+    function copiarLinkCliente() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('a', '{{ session.usuario_id }}');   // el id del asesor, no el número
+        const link = url.toString();
+        navigator.clipboard.writeText(link).then(function() {
+            const btn = document.getElementById('btn-copiar-link');
+            const original = btn.innerText;
+            btn.innerText = '✅ ¡Copiado!';
+            setTimeout(function() { btn.innerText = original; }, 2000);
+        }).catch(function() {
+            prompt('Copia este link para el cliente:', link);
+        });
+    }
     </script>
 
 </body>

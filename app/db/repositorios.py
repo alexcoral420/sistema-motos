@@ -528,6 +528,23 @@ def obtener_usuario_por_id(usuario_id: int):
         .execute()
     return resultado.data[0] if resultado.data else None
 
+def obtener_whatsapp_por_id(usuario_id):
+    """
+    Devuelve el número de WhatsApp de un asesor por su id, o None.
+    Se usa en la atribución de línea: el link lleva el id del asesor,
+    y acá lo traducimos a su número real (nunca exponemos el número
+    en la URL).
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("usuarios")
+                 .select("whatsapp")
+                 .eq("id", usuario_id)
+                 .eq("activo", True)
+                 .execute())
+    if resultado.data and resultado.data[0].get("whatsapp"):
+        return resultado.data[0]["whatsapp"]
+    return None
+
     # ---- Métricas del webhook (contactos, conversaciones, mensajes) ----
 
 def buscar_contacto_por_telefono(telefono: str):

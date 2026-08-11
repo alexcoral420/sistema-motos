@@ -38,6 +38,7 @@ def login():
             session["usuario_nombre"] = usuario["nombre_completo"]
             session["rol"] = usuario["rol"]
             session["sede_id"] = usuario["sede_id"]
+            session["whatsapp"] = usuario.get("whatsapp")
 
             log.info("Login exitoso: '%s' (rol: %s).",
                      usuario["usuario"], usuario["rol"])

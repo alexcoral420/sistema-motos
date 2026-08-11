@@ -6,8 +6,7 @@ Cada una llama a la capa de SERVICIOS (inventario), nunca a la base
 de datos directo. La ruta solo: recibe la petición, pide datos al
 servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
-from flask import current_app
-from flask import Blueprint, render_template, request, redirect, current_app
+from flask import Blueprint, render_template, request, redirect, current_app, session
 from urllib.parse import quote
 from app.servicios import simulador
 from app.seguridad import validadores
@@ -20,6 +19,22 @@ from app.servicios import seo
 from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
+
+
+@publico_bp.before_request
+def capturar_linea_origen():
+    """
+    Si el cliente llega por un link con ?linea=X (que un asesor le envió),
+    guardamos esa línea en su sesión. Así, cuando el cliente presione
+    'Preguntar por esta moto', lo devolvemos al WhatsApp del asesor que
+    lo atendió, no al número general.
+
+    La línea persiste en la sesión durante toda la navegación del cliente
+    (aunque cambie de filtros o de página), gracias a la cookie de sesión.
+    """
+    asesor_id = request.args.get("a")
+    if asesor_id:
+        session["asesor_origen"] = asesor_id
 @publico_bp.route("/")
 @publico_bp.route("/inicio")
 def inicio():
@@ -81,18 +96,24 @@ def consultar_moto(moto_id):
     efecto es incrementar un contador anónimo de interés.
     """
     inventario.registrar_intencion(moto_id)
-
+    # El id del asesor de origen (si el cliente vino por un link de asesor).
+    asesor_id = session.get("asesor_origen")
+    numero = None
+    if asesor_id:
+        numero = repositorios.obtener_whatsapp_por_id(asesor_id)
+    # Si no hay asesor de origen (o no tiene número), usamos el general.
+    numero = numero or current_app.config["WHATSAPP_CONTACTO"]
     # Traemos la moto para armar el mensaje de WhatsApp.
     moto = inventario.obtener_moto(moto_id)
     if not moto:
         # Si no existe, mandamos a WhatsApp sin mensaje específico.
-        return redirect(f"https://wa.me/{current_app.config['WHATSAPP_CONTACTO']}")
+        return redirect(f"https://wa.me/{numero}")
 
     mensaje = (f"Hola, He Visto su Catalogo y me interesa la {moto['marca']} {moto['modelo']} "
                # ... el resto del mensaje ...
                )
 
-    url = f"https://wa.me/{current_app.config['WHATSAPP_CONTACTO']}?text={quote(mensaje)}"
+    url = f"https://wa.me/{numero}?text={quote(mensaje)}"
     return redirect(url)
     
 @publico_bp.route("/sitemap.xml")
