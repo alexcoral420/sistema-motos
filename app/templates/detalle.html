@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ moto.marca }} {{ moto.modelo }} — Universal Motors</title>
-    <meta name="description" content="{{ moto.marca }} {{ moto.modelo }} {{ moto.anio }} en venta en Universal Motors, Bogotá. Consulta precio, kilometraje, fotos y disponibilidad.">
+    <title>{{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %} Usada en Bogotá | Universal Motors</title>
+    <meta name="description" content="{{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %} usada en venta en Bogotá. Papeles al día, financiación con tu cédula. Consulta precio y fotos en Universal Motors.">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }
