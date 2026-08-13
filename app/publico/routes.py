@@ -6,6 +6,8 @@ Cada una llama a la capa de SERVICIOS (inventario), nunca a la base
 de datos directo. La ruta solo: recibe la petición, pide datos al
 servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
+from app import csrf
+from app.seguridad.limites import limiter
 from flask import Blueprint, render_template, request, redirect, current_app, session
 from urllib.parse import quote
 from app.servicios import simulador
@@ -47,7 +49,28 @@ def inicio():
         marcas=repositorios.obtener_marcas_disponibles(),
     )
     
+@publico_bp.route("/chat", methods=["POST"])
+@csrf.exempt
+@limiter.limit("15 per minute")
+def chat():
+    """
+    Recibe un mensaje del cliente desde el chat web y devuelve la
+    respuesta del asistente de IA. Ruta pública (la usa el navegador
+    del cliente, sin API key), protegida con rate limiting contra
+    abuso y gasto de tokens, y con validación de longitud.
+    """
+    from flask import jsonify
+    datos = request.get_json(silent=True) or {}
+    mensaje = (datos.get("mensaje") or "").strip()
 
+    if not mensaje:
+        return jsonify({"error": "Mensaje vacío"}), 400
+    if len(mensaje) > 500:
+        return jsonify({"error": "El mensaje es demasiado largo"}), 400
+
+    from app.servicios import asistente
+    respuesta = asistente.responder(mensaje)
+    return jsonify({"respuesta": respuesta})
 
 @publico_bp.route("/catalogo")
 def catalogo_publico():

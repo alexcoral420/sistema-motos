@@ -1,0 +1,213 @@
+{# ============================================================
+   Chat asistente de Universal Motors (Fase 1: interfaz + saludo).
+   Incluye un globo de saludo animado que aparece a los 2.5s para
+   invitar al cliente, y se oculta solo a los 6s.
+   El chat aun NO habla con una IA (eso es la Fase 2).
+   Se incluye con {% include 'chat.html' %} en paginas publicas.
+   ============================================================ #}
+<style>
+    #chat-burbuja {
+        position: fixed; bottom: 24px; right: 24px;
+        width: 60px; height: 60px; border-radius: 50%;
+        background: #ff7a00; color: #000; border: none; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        z-index: 9998; transition: transform 0.2s, background 0.2s;
+    }
+    #chat-burbuja:hover { background: #ff9633; transform: scale(1.05); }
+
+    #chat-saludo {
+        position: fixed; bottom: 34px; right: 96px; max-width: 240px;
+        background: #14140f; color: #f0f0f0; border: 2px solid #ff7a00;
+        border-radius: 14px; padding: 12px 16px; font-size: 14px; line-height: 1.4;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9997;
+        display: none; align-items: flex-start; gap: 8px;
+    }
+    #chat-saludo.mostrar { display: flex; animation: entrar-saludo 0.4s ease-out; }
+    @keyframes entrar-saludo {
+        from { opacity: 0; transform: translateX(20px); }
+        to   { opacity: 1; transform: translateX(0); }
+    }
+    #chat-saludo .mano {
+        font-size: 20px; display: inline-block; transform-origin: 70% 70%;
+        animation: saludar 1.2s ease-in-out 3;
+    }
+    @keyframes saludar {
+        0%, 100% { transform: rotate(0deg); }
+        20% { transform: rotate(18deg); }
+        40% { transform: rotate(-12deg); }
+        60% { transform: rotate(14deg); }
+        80% { transform: rotate(-8deg); }
+    }
+    #chat-saludo .cerrar-saludo {
+        background: none; border: none; color: #888; font-size: 16px;
+        cursor: pointer; line-height: 1; margin-left: auto; flex-shrink: 0;
+    }
+    #chat-saludo .cerrar-saludo:hover { color: #ff7a00; }
+
+    #chat-ventana {
+        position: fixed; bottom: 96px; right: 24px;
+        width: 360px; max-width: calc(100vw - 48px);
+        height: 480px; max-height: calc(100vh - 130px);
+        background: #14140f; border: 2px solid #ff7a00; border-radius: 16px;
+        display: none; flex-direction: column; overflow: hidden;
+        z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #chat-ventana.abierto { display: flex; }
+
+    .chat-header {
+        background: #ff7a00; color: #000; padding: 14px 16px;
+        font-weight: 700; font-size: 16px;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .chat-header .chat-cerrar {
+        background: none; border: none; color: #000;
+        font-size: 22px; cursor: pointer; line-height: 1;
+    }
+
+    .chat-mensajes {
+        flex: 1; padding: 16px; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    .chat-msg {
+        max-width: 80%; padding: 10px 14px; border-radius: 12px;
+        font-size: 14px; line-height: 1.4; word-wrap: break-word;
+    }
+    .chat-msg.bot {
+        background: #2a2a22; color: #f0f0f0; align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+    .chat-msg.usuario {
+        background: #ff7a00; color: #000; align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .chat-input-zona {
+        display: flex; padding: 12px; gap: 8px; border-top: 1px solid #333;
+    }
+    .chat-input-zona input {
+        flex: 1; padding: 10px 14px; border-radius: 20px;
+        border: 1px solid #444; background: #1e1e18; color: #fff;
+        font-size: 14px; outline: none;
+    }
+    .chat-input-zona input:focus { border-color: #ff7a00; }
+    .chat-input-zona button {
+        background: #ff7a00; color: #000; border: none; border-radius: 50%;
+        width: 40px; height: 40px; cursor: pointer; font-size: 18px; flex-shrink: 0;
+    }
+    .chat-input-zona button:hover { background: #ff9633; }
+
+    @media (max-width: 480px) {
+        #chat-ventana {
+            width: calc(100vw - 24px); right: 12px; bottom: 88px;
+            height: calc(100vh - 110px);
+        }
+        #chat-burbuja { bottom: 16px; right: 16px; }
+        #chat-saludo { bottom: 26px; right: 84px; max-width: 180px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #chat-saludo.mostrar { animation: none; }
+        #chat-saludo .mano { animation: none; }
+    }
+</style>
+
+<div id="chat-saludo">
+    <span class="mano">&#128075;</span>
+    <span>&iexcl;Hola! Soy tu asistente virtual. Puedo ayudarte con cualquier duda sobre nuestras motos.</span>
+    <button class="cerrar-saludo" onclick="cerrarSaludo()" aria-label="Cerrar saludo">&times;</button>
+</div>
+
+<button id="chat-burbuja" onclick="abrirChat()" aria-label="Abrir chat de ayuda">&#128172;</button>
+
+<div id="chat-ventana" role="dialog" aria-label="Chat de ayuda">
+    <div class="chat-header">
+        <span>&#128172; Asistente Universal Motors</span>
+        <button class="chat-cerrar" onclick="cerrarChat()" aria-label="Cerrar chat">&times;</button>
+    </div>
+    <div class="chat-mensajes" id="chat-mensajes">
+        <div class="chat-msg bot">
+            &iexcl;Hola! &#128075; Soy el asistente de Universal Motors. &iquest;En qu&eacute; puedo ayudarte? Puedo orientarte sobre nuestras motos, la financiaci&oacute;n y c&oacute;mo encontrar lo que buscas.
+        </div>
+    </div>
+    <div class="chat-input-zona">
+        <input type="text" id="chat-input" placeholder="Escribe tu mensaje..."
+               onkeydown="if(event.key==='Enter') enviarMensaje()">
+        <button onclick="enviarMensaje()" aria-label="Enviar">&#10148;</button>
+    </div>
+</div>
+
+<script>
+    let saludoOcultado = false;
+
+    function mostrarSaludo() {
+        if (saludoOcultado) return;
+        const s = document.getElementById('chat-saludo');
+        if (document.getElementById('chat-ventana').classList.contains('abierto')) return;
+        s.classList.add('mostrar');
+        setTimeout(cerrarSaludo, 6000);
+    }
+    function cerrarSaludo() {
+        document.getElementById('chat-saludo').classList.remove('mostrar');
+        saludoOcultado = true;
+    }
+
+    function abrirChat() {
+        document.getElementById('chat-ventana').classList.add('abierto');
+        document.getElementById('chat-input').focus();
+        cerrarSaludo();
+    }
+    function cerrarChat() {
+        document.getElementById('chat-ventana').classList.remove('abierto');
+    }
+
+    function agregarMensaje(texto, quien) {
+        const zona = document.getElementById('chat-mensajes');
+        const div = document.createElement('div');
+        div.className = 'chat-msg ' + quien;
+        div.textContent = texto;
+        zona.appendChild(div);
+        zona.scrollTop = zona.scrollHeight;
+    }
+
+    async function enviarMensaje() {
+        const input = document.getElementById('chat-input');
+        const texto = input.value.trim();
+        if (!texto) return;
+
+        agregarMensaje(texto, 'usuario');
+        input.value = '';
+
+        // Mostramos "escribiendo..." mientras esperamos.
+        const zona = document.getElementById('chat-mensajes');
+        const cargando = document.createElement('div');
+        cargando.className = 'chat-msg bot';
+        cargando.textContent = 'Escribiendo...';
+        cargando.id = 'chat-cargando';
+        zona.appendChild(cargando);
+        zona.scrollTop = zona.scrollHeight;
+
+        try {
+            const resp = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensaje: texto })
+            });
+            document.getElementById('chat-cargando').remove();
+
+            if (resp.ok) {
+                const datos = await resp.json();
+                agregarMensaje(datos.respuesta, 'bot');
+            } else if (resp.status === 429) {
+                agregarMensaje('Estás enviando mensajes muy rápido. Espera un momento por favor. 😊', 'bot');
+            } else {
+                agregarMensaje('Hubo un problema. Intenta de nuevo o escríbenos por WhatsApp.', 'bot');
+            }
+        } catch (e) {
+            const c = document.getElementById('chat-cargando');
+            if (c) c.remove();
+            agregarMensaje('No pude conectar. Revisa tu conexión o escríbenos por WhatsApp.', 'bot');
+        }
+    }
+
+    setTimeout(mostrarSaludo, 2500);
+</script>

@@ -405,6 +405,8 @@
         });
     }
     </script>
-
+    {% if not session.rol %}
+    {% include 'chat.html' %}
+    {% endif %}
 </body>
 </html>
