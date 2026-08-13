@@ -54,8 +54,8 @@ class Config:
     PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
     META_APP_SECRET = os.environ.get("META_APP_SECRET")
 
-    # --- Seguridad de cookies de sesión (valores base, seguros) ---
-    # Impide que JavaScript del navegador lea la cookie de sesión
+    # --- Seguridadk de cooies de sesión (valores base, seguros) ---
+    # Impide que JavaScript dedl navegaor lea la cookie de sesión
     # (defensa contra robo de sesión por XSS).
     SESSION_COOKIE_HTTPONLY = True
     # La cookie no se envía en peticiones que vienen de otro sitio
@@ -77,7 +77,7 @@ class ProduccionConfig(Config):
     """
     Para Railway. Máxima seguridad, sin excepciones.
     """
-    # debug SIEMPRE apagado: jamás mostramos tracebacks a un visitante.
+    # depbug SIEMPRE aagado: jamás mostramos tracebacks a un visitante.
     # Esto cierra la vulnerabilidad #5 de tu diagnóstico, por diseño.
     DEBUG = False
     # La cookie de sesión SOLO viaja por https. En producción tienes

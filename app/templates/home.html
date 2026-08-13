@@ -711,6 +711,8 @@
         toggle.setAttribute('aria-expanded', 'false');
     }));
     </script>
-
+    {% if not session.rol %}
+    {% include 'chat.html' %}
+    {% endif %}
 </body>
 </html>
