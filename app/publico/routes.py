@@ -133,8 +133,7 @@ def consultar_moto(moto_id):
         return redirect(f"https://wa.me/{numero}")
 
     mensaje = (f"Hola, He Visto su Catalogo y me interesa la {moto['marca']} {moto['modelo']} "
-               # ... el resto del mensaje ...
-               )
+           f"(Ref #{moto_id})...")
 
     url = f"https://wa.me/{numero}?text={quote(mensaje)}"
     return redirect(url)
