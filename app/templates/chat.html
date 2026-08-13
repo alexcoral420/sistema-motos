@@ -169,18 +169,44 @@
         zona.scrollTop = zona.scrollHeight;
     }
 
-    function enviarMensaje() {
+    async function enviarMensaje() {
         const input = document.getElementById('chat-input');
         const texto = input.value.trim();
         if (!texto) return;
+
         agregarMensaje(texto, 'usuario');
         input.value = '';
-        setTimeout(function() {
-            agregarMensaje(
-                'Gracias por tu mensaje. Pronto podr\u00e9 ayudarte mejor. \ud83c\udfcd\ufe0f (El asistente inteligente est\u00e1 en construcci\u00f3n.)',
-                'bot'
-            );
-        }, 600);
+
+        // Mostramos "escribiendo..." mientras esperamos.
+        const zona = document.getElementById('chat-mensajes');
+        const cargando = document.createElement('div');
+        cargando.className = 'chat-msg bot';
+        cargando.textContent = 'Escribiendo...';
+        cargando.id = 'chat-cargando';
+        zona.appendChild(cargando);
+        zona.scrollTop = zona.scrollHeight;
+
+        try {
+            const resp = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensaje: texto })
+            });
+            document.getElementById('chat-cargando').remove();
+
+            if (resp.ok) {
+                const datos = await resp.json();
+                agregarMensaje(datos.respuesta, 'bot');
+            } else if (resp.status === 429) {
+                agregarMensaje('Estás enviando mensajes muy rápido. Espera un momento por favor. 😊', 'bot');
+            } else {
+                agregarMensaje('Hubo un problema. Intenta de nuevo o escríbenos por WhatsApp.', 'bot');
+            }
+        } catch (e) {
+            const c = document.getElementById('chat-cargando');
+            if (c) c.remove();
+            agregarMensaje('No pude conectar. Revisa tu conexión o escríbenos por WhatsApp.', 'bot');
+        }
     }
 
     setTimeout(mostrarSaludo, 2500);
