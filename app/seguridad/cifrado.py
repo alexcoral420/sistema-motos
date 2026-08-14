@@ -10,7 +10,7 @@
 
 from cryptography.fernet import Fernet, InvalidToken
 from flask import current_app
-
+import hashlib
 
 def _obtener_fernet():
     """
@@ -58,3 +58,17 @@ def descifrar(texto_cifrado):
         # El dato no se pudo descifrar (clave incorrecta o dato corrupto).
         # No revelamos detalles; devolvemos None.
         return None
+
+def calcular_hash(texto):
+    """
+    Devuelve la huella SHA-256 de un texto.
+
+    A diferencia del cifrado (que es reversible con la clave), el hash
+    es de una sola via: no se puede volver al texto original. Sirve para
+    PROBAR INTEGRIDAD: si el texto cambia aunque sea una coma, el hash
+    cambia por completo. Lo usamos para archivar la politica de privacidad
+    y poder demostrar que la version que acepto el cliente no fue alterada.
+    """
+    if not texto:
+        return None
+    return hashlib.sha256(texto.encode()).hexdigest()

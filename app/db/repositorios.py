@@ -648,3 +648,148 @@ def listar_leads_financiacion():
                  .order("created_at", desc=True)
                  .execute())
     return resultado.data
+
+    # ============================================================
+# Funciones de repositorio para leads_chat (agregar a repositorios.py).
+# Guardan y leen leads del chat, cifrando los campos sensibles.
+#
+# Sigue el mismo patron que registrar_lead_financiacion:
+#   - usa get_supabase_admin() porque leads_chat tiene RLS
+#   - inserta un dict con los campos
+#
+# La diferencia clave: los campos sensibles se CIFRAN antes de guardar
+# (con el modulo cifrado.py) y se DESCIFRAN al leer.
+# ============================================================
+
+
+def guardar_lead_chat(datos):
+    """
+    Guarda un lead capturado por el chat en la tabla leads_chat.
+
+    Los campos basicos (nombre, telefono, moto, cuota) van en texto plano.
+    Los campos SENSIBLES (ingresos, reportado, vida_crediticia) se CIFRAN
+    antes de guardar: en la base queda 'gAAAA...', nunca el valor real.
+
+    'datos' es un dict. Los campos sensibles pueden venir como None
+    (por ahora no los pedimos); cifrar(None) devuelve None, asi que
+    la tabla los guarda vacios sin problema.
+
+    Devuelve el registro insertado.
+    """
+    from app.seguridad import cifrado
+    politica = obtener_politica_vigente()
+
+    registro = {
+        # --- Basicos (texto plano) ---
+        "nombre": datos["nombre"],
+        "telefono": datos["telefono"],
+        "moto_id": datos.get("moto_id"),
+        "valor_financiar": datos.get("valor_financiar"),
+        "cuota_inicial": datos.get("cuota_inicial", 0),
+        "plazo_meses": datos.get("plazo_meses"),
+        "cuota_calculada": datos.get("cuota_calculada"),
+        "origen": "chat",
+
+        # --- Consentimiento (Habeas Data) ---
+        "autorizo_datos_basicos": datos.get("autorizo_basicos", False),
+        "autorizo_datos_financieros": datos.get("autorizo_financieros", False),
+        "fecha_consentimiento": datos.get("fecha_consentimiento"),
+        "politica_id": politica["id"] if politica else None,
+        "version_politica": politica["version"] if politica else None,
+
+        # --- Sensibles (CIFRADOS) ---
+        # Por ahora llegan como None; cuando se active la precalificacion,
+        # llegaran con valores reales y se guardaran cifrados.
+        "ingresos_cifrado": cifrado.cifrar(datos.get("ingresos")),
+        "reportado_cifrado": cifrado.cifrar(datos.get("reportado")),
+        "vida_crediticia_cifrado": cifrado.cifrar(datos.get("vida_crediticia")),
+        "tipo_entidad_sugerida": datos.get("tipo_entidad"),
+    }
+
+    supabase = get_supabase_admin()
+    resultado = supabase.table("leads_chat").insert(registro).execute()
+    return resultado.data
+
+
+def leer_lead_chat(lead_id):
+    """
+    Lee UN lead por su id y DESCIFRA los campos sensibles para mostrarlos.
+    Solo para uso interno (gerencia/admin). Devuelve el lead con los
+    campos sensibles ya descifrados (ingresos, reportado, vida_crediticia),
+    o None si no existe.
+    """
+    from app.seguridad import cifrado
+
+    supabase = get_supabase_admin()
+    resultado = supabase.table("leads_chat").select("*").eq("id", lead_id).execute()
+    if not resultado.data:
+        return None
+
+    lead = resultado.data[0]
+    # Desciframos los campos sensibles y los agregamos en claro (solo en memoria).
+    lead["ingresos"] = cifrado.descifrar(lead.get("ingresos_cifrado"))
+    lead["reportado"] = cifrado.descifrar(lead.get("reportado_cifrado"))
+    lead["vida_crediticia"] = cifrado.descifrar(lead.get("vida_crediticia_cifrado"))
+    return lead
+
+
+def listar_leads_chat():
+    """
+    Lista los leads del chat, mas recientes primero. NO descifra los
+    campos sensibles (para un listado no hace falta ver ingresos, etc.;
+    eso se ve al abrir un lead con leer_lead_chat). Trae los datos de
+    la moto relacionada para dar contexto.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("leads_chat")
+                 .select("*, motos(marca, modelo)")
+                 .order("created_at", desc=True)
+                 .execute())
+    return resultado.data
+
+def obtener_politica_vigente():
+    """
+    Devuelve la version de la politica de privacidad que esta vigente
+    ahora mismo (la que tiene vigente_hasta en null). Es la que se le
+    esta mostrando al cliente y por lo tanto la que acepta al consentir.
+    Devuelve None si no hay ninguna cargada.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("politicas_privacidad")
+                 .select("*")
+                 .is_("vigente_hasta", "null")
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def registrar_politica(version, texto):
+    """
+    Archiva una nueva version de la politica de privacidad y la marca
+    como vigente. Cierra automaticamente la version anterior poniendole
+    fecha de fin, para que quede el historico completo:
+    quien acepto la v1.0 sigue asociado a la v1.0, aunque hoy rija la v1.1.
+    """
+    from datetime import datetime, timezone
+    from app.seguridad import cifrado
+
+    supabase = get_supabase_admin()
+    ahora = datetime.now(timezone.utc).isoformat()
+
+    # 1. Cerrar la version anterior (si existe).
+    anterior = obtener_politica_vigente()
+    if anterior:
+        supabase.table("politicas_privacidad")\
+            .update({"vigente_hasta": ahora})\
+            .eq("id", anterior["id"])\
+            .execute()
+
+    # 2. Insertar la nueva version como vigente.
+    resultado = supabase.table("politicas_privacidad").insert({
+        "version": version,
+        "texto": texto,
+        "hash_texto": cifrado.calcular_hash(texto),
+        "vigente_desde": ahora,
+        "vigente_hasta": None,
+    }).execute()
+    return resultado.data
