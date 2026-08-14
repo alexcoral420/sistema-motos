@@ -99,11 +99,25 @@ REGLAS:
 """
 
 
-def responder(mensaje_cliente):
-    """Genera la respuesta de la IA. (Sin memoria aun; eso es otra fase.)"""
+def responder(historial):
+    """
+    Recibe el historial [{rol, texto}, ...] y devuelve la respuesta de la IA,
+    que ve toda la conversación para responder con contexto.
+    """
     key = current_app.config.get("ANTHROPIC_API_KEY")
     if not key:
         return "Disculpa, el asistente no esta disponible ahora. Escribenos por WhatsApp y con gusto te ayudamos."
+
+    # Convertimos [{rol, texto}] al formato de Anthropic [{role, content}].
+    mensajes = []
+    for m in historial:
+        rol = "user" if m.get("rol") == "usuario" else "assistant"
+        texto = m.get("texto", "")
+        if texto:
+            mensajes.append({"role": rol, "content": texto})
+
+    if not mensajes:
+        return "No recibí tu mensaje. ¿Puedes escribirlo de nuevo?"
 
     try:
         cliente = Anthropic(api_key=key)
@@ -111,7 +125,7 @@ def responder(mensaje_cliente):
             model=MODELO,
             max_tokens=MAX_TOKENS,
             system=construir_contexto(),
-            messages=[{"role": "user", "content": mensaje_cliente}],
+            messages=mensajes,
         )
         return respuesta.content[0].text
     except Exception as e:

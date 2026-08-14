@@ -138,7 +138,7 @@
 
 <script>
     let saludoOcultado = false;
-
+    let historialChat = [];
     function mostrarSaludo() {
         if (saludoOcultado) return;
         const s = document.getElementById('chat-saludo');
@@ -175,6 +175,7 @@
         if (!texto) return;
 
         agregarMensaje(texto, 'usuario');
+        historialChat.push({ rol: 'usuario', texto: texto });
         input.value = '';
 
         // Mostramos "escribiendo..." mientras esperamos.
@@ -190,13 +191,14 @@
             const resp = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mensaje: texto })
+                body: JSON.stringify({ historial: historialChat })
             });
             document.getElementById('chat-cargando').remove();
 
             if (resp.ok) {
                 const datos = await resp.json();
                 agregarMensaje(datos.respuesta, 'bot');
+                historialChat.push({ rol: 'bot', texto: datos.respuesta });
             } else if (resp.status === 429) {
                 agregarMensaje('Estás enviando mensajes muy rápido. Espera un momento por favor. 😊', 'bot');
             } else {
@@ -208,6 +210,5 @@
             agregarMensaje('No pude conectar. Revisa tu conexión o escríbenos por WhatsApp.', 'bot');
         }
     }
-
     setTimeout(mostrarSaludo, 2500);
 </script>
