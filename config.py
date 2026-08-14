@@ -35,7 +35,7 @@ class Config:
     SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
     SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-
+    CLAVE_CIFRADO = os.environ.get("CLAVE_CIFRADO")
     TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
     TWILIO_WHATSAPP_NUMBER = os.environ.get("TWILIO_WHATSAPP_NUMBER")
