@@ -54,22 +54,30 @@ def inicio():
 @limiter.limit("15 per minute")
 def chat():
     """
-    Recibe un mensaje del cliente desde el chat web y devuelve la
+    Recibe la conversación del cliente desde el chat web y devuelve la
     respuesta del asistente de IA. Ruta pública (la usa el navegador
     del cliente, sin API key), protegida con rate limiting contra
-    abuso y gasto de tokens, y con validación de longitud.
+    abuso y gasto de tokens, y con validación.
     """
     from flask import jsonify
     datos = request.get_json(silent=True) or {}
-    mensaje = (datos.get("mensaje") or "").strip()
 
-    if not mensaje:
-        return jsonify({"error": "Mensaje vacío"}), 400
-    if len(mensaje) > 500:
+    # El historial es una lista de mensajes [{rol, texto}, ...].
+    historial = datos.get("historial") or []
+
+    # Validaciones de seguridad.
+    if not isinstance(historial, list) or not historial:
+        return jsonify({"error": "Conversación vacía"}), 400
+    # Límite de mensajes en el historial (evita historiales gigantes = más tokens).
+    if len(historial) > 40:
+        return jsonify({"error": "Conversación demasiado larga"}), 400
+    # El último mensaje (del usuario) no debe ser gigante.
+    ultimo = historial[-1].get("texto", "") if historial else ""
+    if len(ultimo) > 500:
         return jsonify({"error": "El mensaje es demasiado largo"}), 400
 
     from app.servicios import asistente
-    respuesta = asistente.responder(mensaje)
+    respuesta = asistente.responder(historial)
     return jsonify({"respuesta": respuesta})
 
 @publico_bp.route("/catalogo")
