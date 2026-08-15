@@ -71,6 +71,16 @@ def chat():
 
     from app.servicios import asistente
     respuesta = asistente.responder(historial)
+
+    # El SERVIDOR decide si hay lead para guardar. Las firmas evitan
+    # duplicar el mismo lead, pero permiten capturar un interes nuevo
+    # si el cliente cambia de moto o de monto.
+    historial_completo = historial + [{"rol": "bot", "texto": respuesta}]
+    firmas = session.get("leads_chat_firmas", [])
+    nueva_firma = asistente.intentar_guardar_lead(historial_completo, firmas)
+    if nueva_firma:
+        session["leads_chat_firmas"] = firmas + [nueva_firma]
+
     return jsonify({"respuesta": respuesta})
 
 @publico_bp.route("/catalogo")
