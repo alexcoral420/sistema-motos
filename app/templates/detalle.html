@@ -284,10 +284,12 @@
                 <a href="/consultar/{{ moto.id }}" class="btn btn-whatsapp" target="_blank">
                     💬 Preguntar por esta moto
                 </a>
-                {% endif %}
-                <a href="{{ url_for('publico.financiacion', moto_id=moto.id) }}" class="btn btn-primary">
+                <button type="button" class="btn btn-primary"
+                        onclick="abrirChatConMensaje('Quiero financiar la {{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %} que cuesta {{ moto.precio }}')">
                     💰 Financiar esta moto
-                </a>
+                </button>
+                {% endif %}
+
                 {% if session.rol == 'admin' %}
                 <a href="{{ url_for('admin.editar', id=moto.id) }}" class="btn btn-primary">✏️ Editar</a>
                 {% endif %}

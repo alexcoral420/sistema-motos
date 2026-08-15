@@ -291,3 +291,8 @@ def financiacion():
             contexto["error"] = e.mensaje
 
     return render_template("financiacion.html", **contexto)
+
+@publico_bp.route("/credito")
+def credito():
+    """Landing de financiacion: explica el proceso y lleva al asistente."""
+    return render_template("credito.html")

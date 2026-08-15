@@ -156,6 +156,14 @@
         document.getElementById('chat-input').focus();
         cerrarSaludo();
     }
+    function abrirChatConMensaje(texto) {
+        abrirChat();
+        // Si la conversacion ya empezo, solo abrimos: no repetimos el mensaje.
+        if (historialChat.length > 0) return;
+        const input = document.getElementById('chat-input');
+        input.value = texto;
+        enviarMensaje();
+    }
     function cerrarChat() {
         document.getElementById('chat-ventana').classList.remove('abierto');
     }

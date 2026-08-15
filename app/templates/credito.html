@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financia tu Moto en Bogotá con tu Cédula | Universal Motors</title>
+    <meta name="description" content="Estrena tu moto usada en Bogotá financiando con tu cédula. Simula tu cuota en segundos, sin trámites complicados. Aliados financieros y asesoría personalizada.">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --naranja-oscuro: #e05f00;
+            --negro-900: #0d0d0a;
+            --negro-800: #14140f;
+            --negro-700: #1c1c16;
+            --negro-600: #26261e;
+            --borde: #33332a;
+            --texto: #f2f2ee;
+            --texto-suave: #b8b8ad;
+            --texto-tenue: #7a7a70;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3, .btn-nav, .btn-cta { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
+        a:focus-visible, button:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+        /* ===== Navegación ===== */
+        .navbar { background: var(--negro-900); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
+        .navbar .logo img { height: 38px; width: 38px; border-radius: 50%; }
+        .navbar .logo span { color: var(--naranja); }
+        .nav-links { display: flex; gap: 22px; align-items: center; }
+        .nav-links a { color: var(--texto-suave); text-decoration: none; font-size: 15px; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--naranja); }
+
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ===== Botones ===== */
+        .btn-cta {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            background: var(--naranja); color: #000;
+            padding: 15px 30px; border-radius: 40px;
+            font-size: 18px; font-weight: 700; text-transform: uppercase;
+            text-decoration: none; border: none; cursor: pointer;
+            transition: transform 0.15s, background 0.2s;
+        }
+        .btn-cta:hover { background: var(--naranja-claro); transform: translateY(-2px); }
+        .btn-cta.secundario { background: transparent; color: var(--naranja); border: 2px solid var(--naranja); }
+        .btn-cta.secundario:hover { background: rgba(255,122,0,0.12); color: var(--naranja-claro); }
+
+        /* ===== Hero ===== */
+        .hero { padding: 56px 20px 48px; max-width: 900px; margin: 0 auto; }
+        .hero h1 { font-size: 44px; line-height: 1.05; text-transform: uppercase; margin-bottom: 18px; }
+        .hero h1 em { font-style: normal; color: var(--naranja); }
+        .hero p { font-size: 17px; color: var(--texto-suave); line-height: 1.6; margin-bottom: 28px; max-width: 560px; }
+        .hero-acciones { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+
+        /* ===== Imágenes ===== */
+        .hero-imagen {
+            margin-top: 32px;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid var(--borde);
+        }
+        .hero-imagen img {
+            width: 100%;
+            height: auto;
+            display: block;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+        }
+
+        .banda-imagen {
+            position: relative;
+            height: 320px;
+            background-size: cover;
+            background-position: center;
+            border-top: 2px solid var(--naranja);
+            border-bottom: 2px solid var(--naranja);
+            display: flex;
+            align-items: flex-end;
+        }
+        /* Velo oscuro: la foto se ve, pero el texto encima siempre es legible */
+        .banda-imagen::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(13,13,10,0.92), rgba(13,13,10,0.15));
+        }
+        .banda-imagen .texto {
+            position: relative; z-index: 1;
+            padding: 28px 20px;
+            max-width: 900px; margin: 0 auto; width: 100%;
+        }
+        .banda-imagen h2 {
+            font-size: 30px; text-transform: uppercase; line-height: 1.1; margin-bottom: 8px;
+        }
+        .banda-imagen p { color: var(--texto-suave); font-size: 16px; }
+
+        /* ===== Franja de confianza ===== */
+        .confianza { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 20px 48px; max-width: 900px; margin: 0 auto; }
+        .pastilla { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 30px; padding: 9px 16px; font-size: 14px; color: var(--texto-suave); }
+        .pastilla b { color: var(--naranja); font-weight: 600; }
+
+        /* ===== Aliados (marquesina) ===== */
+        .aliados { background: var(--negro-900); padding: 40px 0; border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); }
+        .aliados h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 2px; color: var(--texto-tenue); text-align: center; margin-bottom: 26px; font-weight: 600; }
+        .marquesina { overflow: hidden; position: relative; }
+        /* Degradados en los bordes para que las marcas entren y salgan suave */
+        .marquesina::before, .marquesina::after {
+            content: ''; position: absolute; top: 0; bottom: 0; width: 60px; z-index: 2; pointer-events: none;
+        }
+        .marquesina::before { left: 0; background: linear-gradient(to right, var(--negro-900), transparent); }
+        .marquesina::after { right: 0; background: linear-gradient(to left, var(--negro-900), transparent); }
+
+        .marquesina-pista {
+            display: flex; align-items: center; gap: 52px;
+            width: max-content;
+            animation: desplazar 22s linear infinite;
+        }
+        /* Traslada la mitad exacta: como la lista está duplicada, el salto es invisible */
+        @keyframes desplazar {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+        .marquesina:hover .marquesina-pista { animation-play-state: paused; }
+        .aliado {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 26px; font-weight: 700; text-transform: uppercase;
+            color: var(--texto-suave); white-space: nowrap; letter-spacing: 0.5px;
+        }
+        .aliado img { height: 34px; width: auto; display: block; filter: grayscale(1) brightness(1.6); opacity: 0.85; }
+
+        /* ===== Pasos ===== */
+        .pasos { padding: 56px 20px; max-width: 900px; margin: 0 auto; }
+        .pasos h2 { font-size: 34px; text-transform: uppercase; margin-bottom: 8px; line-height: 1.1; }
+        .pasos h2 em { font-style: normal; color: var(--naranja); }
+        .pasos .intro { color: var(--texto-suave); margin-bottom: 32px; font-size: 16px; }
+        .grid-pasos { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .paso {
+            background: var(--negro-700); border: 1px solid var(--borde);
+            border-radius: 16px; padding: 24px; position: relative;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .paso:hover { border-color: var(--naranja); transform: translateY(-3px); }
+        .paso .numero {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700;
+            color: #000; background: var(--naranja);
+            width: 30px; height: 30px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 14px;
+        }
+        .paso h3 { font-size: 22px; text-transform: uppercase; margin-bottom: 8px; }
+        .paso p { color: var(--texto-suave); font-size: 15px; line-height: 1.55; }
+
+        /* ===== Cierre ===== */
+        .cierre { background: var(--negro-700); border-top: 2px solid var(--naranja); padding: 52px 20px; text-align: center; }
+        .cierre h2 { font-size: 32px; text-transform: uppercase; margin-bottom: 12px; line-height: 1.1; }
+        .cierre p { color: var(--texto-suave); margin-bottom: 26px; font-size: 16px; }
+        .cierre-acciones { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+
+        .aviso { padding: 26px 20px 36px; text-align: center; color: var(--texto-tenue); font-size: 13px; line-height: 1.6; max-width: 640px; margin: 0 auto; }
+        .aviso a { color: var(--texto-suave); }
+
+        /* ===== Móvil ===== */
+        @media (max-width: 640px) {
+            .menu-toggle { display: block; }
+            .navbar { position: relative; }
+            .nav-links {
+                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                flex-direction: column; align-items: flex-start;
+                background: var(--negro-900); padding: 16px 20px; gap: 16px;
+                border-bottom: 2px solid var(--naranja);
+            }
+            .nav-links.abierto { display: flex; }
+
+            .hero { padding: 40px 20px 36px; }
+            .hero h1 { font-size: 36px; }
+            .hero-acciones, .cierre-acciones { align-items: stretch; }
+            .btn-cta { width: 100%; }
+            .pasos h2, .cierre h2 { font-size: 28px; }
+            .aliado { font-size: 22px; }
+            .marquesina-pista { gap: 36px; }
+
+            .banda-imagen { height: 260px; }
+            .banda-imagen h2 { font-size: 24px; }
+            .hero-imagen img { aspect-ratio: 3 / 2; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .marquesina-pista { animation: none; }
+            .paso:hover, .btn-cta:hover { transform: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="{{ url_for('publico.inicio') }}" class="logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
+            <a href="{{ url_for('publico.inicio') }}">Inicio</a>
+            <a href="{{ url_for('publico.catalogo_publico') }}">Catálogo</a>
+            <a href="#" class="active">Financiación</a>
+            {% if session.rol %}
+            <a href="{{ url_for('admin.index') }}">← Volver al panel</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- ===== Hero ===== -->
+    <header class="hero">
+        <h1>Estrena tu moto <em>financiando con tu cédula</em></h1>
+        <p>
+            Sabemos que lo difícil no es escoger la moto, es el trámite. Por eso lo hicimos simple:
+            simulas tu cuota en segundos y un asesor te acompaña hasta que estés rodando.
+        </p>
+        <div class="hero-acciones">
+            <button type="button" class="btn-cta" onclick="abrirChatConMensaje('Quiero financiar una moto')">Simular mi cuota</button>
+            <a href="{{ url_for('publico.catalogo_publico') }}" class="btn-cta secundario">Ver el catálogo</a>
+        </div>
+
+        <div class="hero-imagen">
+            <img src="{{ url_for('static', filename='credito-hero.webp') }}"
+                 alt="Cliente de Universal Motors estrenando su moto financiada en Bogotá"
+                 width="800" height="600" loading="eager">
+        </div>
+    </header>
+
+    <div class="confianza">
+        <span class="pastilla">Motos con <b>papeles al día</b></span>
+        <span class="pastilla"><b>SOAT</b> y tecnomecánica vigentes</span>
+        <span class="pastilla">Recibimos tu moto en <b>parte de pago</b></span>
+        <span class="pastilla"><b>2 sedes</b> en Bogotá</span>
+    </div>
+
+    <!-- ===== Aliados financieros ===== -->
+    <section class="aliados">
+        <h2>Nuestros aliados financieros</h2>
+        <div class="marquesina">
+            <!-- La lista va DUPLICADA a propósito: al desplazar el 50% del ancho,
+                 la segunda copia queda exactamente donde estaba la primera y el
+                 ciclo se reinicia sin que se note el corte.
+                 Si agregas un aliado, agrégalo en LAS DOS listas. -->
+            <div class="marquesina-pista">
+                <span class="aliado">Banco de Bogotá</span>
+                <span class="aliado">Addy</span>
+                <span class="aliado">Vanti</span>
+                <span class="aliado">CrediOrbe</span>
+                <span class="aliado">Sufi</span>
+
+                <span class="aliado" aria-hidden="true">Banco de Bogotá</span>
+                <span class="aliado" aria-hidden="true">Addy</span>
+                <span class="aliado" aria-hidden="true">Vanti</span>
+                <span class="aliado" aria-hidden="true">CrediOrbe</span>
+                <span class="aliado" aria-hidden="true">Sufi</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Cómo financiar ===== -->
+    <section class="pasos">
+        <h2>¿Cómo financias tu moto <em>en Universal Motors</em>?</h2>
+        <p class="intro">Cuatro pasos. Sin vueltas.</p>
+
+        <div class="grid-pasos">
+            <article class="paso">
+                <div class="numero">1</div>
+                <h3>Elige tu moto</h3>
+                <p>Explora el catálogo y filtra por marca, precio o cilindraje hasta encontrar la que te gusta.</p>
+            </article>
+
+            <article class="paso">
+                <div class="numero">2</div>
+                <h3>Simula tu cuota</h3>
+                <p>Cuéntanos el precio y cuánto puedes dar de inicial. Te mostramos la cuota mensual al instante, sin compromiso.</p>
+            </article>
+
+            <article class="paso">
+                <div class="numero">3</div>
+                <h3>Habla con un asesor</h3>
+                <p>Déjanos tu nombre y tu WhatsApp. Un asesor te contacta, revisa tu caso y te dice qué necesitas para el crédito.</p>
+            </article>
+
+            <article class="paso">
+                <div class="numero">4</div>
+                <h3>Estrena</h3>
+                <p>Aprobado el crédito, firmas y te llevas tu moto con los papeles en regla desde cualquiera de nuestras sedes.</p>
+            </article>
+        </div>
+    </section>
+
+    <!-- ===== Banda de imagen ===== -->
+    <div class="banda-imagen" style="background-image: url('{{ url_for('static', filename='credito-banda.webp') }}')"
+         role="img" aria-label="Motos disponibles en Universal Motors Bogotá">
+        <div class="texto">
+            <h2>Hoy la ves, hoy te la llevas</h2>
+            <p>Más de 90 motos disponibles con papeles al día en nuestras dos sedes.</p>
+        </div>
+    </div>
+
+    <!-- ===== Cierre ===== -->
+    <section class="cierre">
+        <h2>¿Cuánto te quedaría la cuota?</h2>
+        <p>Averígualo en menos de un minuto, aquí mismo.</p>
+        <div class="cierre-acciones">
+            <button type="button" class="btn-cta" onclick="abrirChatConMensaje('Quiero simular la cuota de una moto')">Simular mi cuota ahora</button>
+            {% if not session.rol %}
+            <a href="https://wa.me/{{ whatsapp }}" class="btn-cta secundario" target="_blank" rel="noopener">Escribir por WhatsApp</a>
+            {% endif %}
+        </div>
+    </section>
+
+    <p class="aviso">
+        La simulación es orientativa y no constituye una aprobación de crédito. La aprobación
+        final depende del estudio que realice la entidad financiera aliada.
+        Consulta nuestra <a href="{{ url_for('publico.privacidad') }}">política de tratamiento de datos</a>.
+    </p>
+
+    {% include 'chat.html' %}
+
+    <script>
+        const toggle = document.querySelector('.menu-toggle');
+        const links = document.getElementById('nav-links');
+        if (toggle && links) {
+            toggle.addEventListener('click', () => {
+                const abierto = links.classList.toggle('abierto');
+                toggle.classList.toggle('abierto', abierto);
+                toggle.setAttribute('aria-expanded', abierto);
+            });
+            links.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+                links.classList.remove('abierto');
+                toggle.classList.remove('abierto');
+            }));
+        }
+        
+    </script>
+</body>
+</html>
