@@ -18,6 +18,7 @@ from flask import current_app
 from app.db import repositorios
 from app.servicios import simulador
 from app.seguridad.logging_config import obtener_logger
+from app.servicios import campos_credito
 
 
 MODELO = "claude-haiku-4-5-20251001"
@@ -30,31 +31,7 @@ MAX_VUELTAS_TOOLS = 5
 # Solo calcular_cuota. El guardado ya NO es una herramienta:
 # lo decide el servidor (ver intentar_guardar_lead).
 # ============================================================
-
-HERRAMIENTAS = [
-    {
-        "name": "calcular_cuota",
-        "description": (
-            "Calcula la cuota mensual real de financiacion. Usala SIEMPRE que "
-            "vayas a mencionar cualquier cifra de cuota mensual. Nunca calcules "
-            "cuotas por tu cuenta: los numeros deben salir de esta herramienta."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "valor_moto": {
-                    "type": "integer",
-                    "description": "Precio total de la moto en pesos colombianos.",
-                },
-                "cuota_inicial": {
-                    "type": "integer",
-                    "description": "Cuota inicial en pesos. Si no da nada, 0.",
-                },
-            },
-            "required": ["valor_moto"],
-        },
-    },
-]
+HERRAMIENTAS = []
 
 
 # ============================================================
@@ -83,65 +60,6 @@ def _ejecutar_calcular_cuota(params):
     }
 
 
-def _telefono_valido(telefono):
-    """Valida celular colombiano: 10 digitos empezando por 3."""
-    if not telefono:
-        return None
-    limpio = re.sub(r"[^0-9]", "", str(telefono))
-    if limpio.startswith("57") and len(limpio) == 12:
-        limpio = limpio[2:]
-    if len(limpio) == 10 and limpio.startswith("3"):
-        return limpio
-    return None
-
-
-def _entero_o_none(valor, maximo=100_000_000):
-    if isinstance(valor, int) and 0 <= valor <= maximo:
-        return valor
-    return None
-
-
-def _ejecutar_guardar_lead(params):
-    """
-    Guarda el lead solo si pasa TODAS las validaciones.
-    Unico punto donde se decide si un lead es valido.
-    """
-    from datetime import datetime, timezone
-
-    nombre = (params.get("nombre") or "").strip()
-    telefono = _telefono_valido(params.get("telefono"))
-    autorizo = params.get("autorizo_datos") is True
-
-    if not autorizo:
-        return {"guardado": False, "motivo": "Sin autorizacion del cliente."}
-    if len(nombre) < 2 or len(nombre) > 80:
-        return {"guardado": False, "motivo": "Nombre invalido."}
-    if not telefono:
-        return {"guardado": False, "motivo": "Telefono invalido."}
-
-    datos = {
-        "nombre": nombre,
-        "telefono": telefono,
-        "valor_financiar": _entero_o_none(params.get("valor_financiar")),
-        "cuota_inicial": _entero_o_none(params.get("cuota_inicial")) or 0,
-        "plazo_meses": _entero_o_none(params.get("plazo_meses"), 120),
-        "cuota_calculada": _entero_o_none(params.get("cuota_calculada")),
-        "autorizo_basicos": True,
-        "autorizo_financieros": False,
-        "fecha_consentimiento": datetime.now(timezone.utc).isoformat(),
-    }
-
-    try:
-        repositorios.guardar_lead_chat(datos)
-        obtener_logger().info(f"Lead de chat guardado: {nombre} / {telefono}")
-        return {"guardado": True, "telefono": telefono,
-                "valor_financiar": datos["valor_financiar"]}
-    except Exception as e:
-        try:
-            obtener_logger().error(f"Error guardando lead de chat: {e}")
-        except Exception:
-            pass
-        return {"guardado": False, "motivo": "Error tecnico al guardar."}
 
 
 def _ejecutar_herramienta(nombre, params):
@@ -224,12 +142,17 @@ SOBRE MOTOS:
 - NO listes las motos una por una.
 
 FINANCIACION (tu fuerte):
-- Guia al cliente paso a paso, una pregunta a la vez, como una charla de WhatsApp.
-- REGLA ABSOLUTA: cada vez que vayas a mencionar una cuota mensual, DEBES usar la herramienta calcular_cuota. Jamas calcules ni estimes cuotas por tu cuenta, ni siquiera aproximadas. Si no tienes el valor de la moto, pidelo antes de dar cifras.
-- Si el cliente cambia de moto o de monto, vuelve a usar la herramienta con los nuevos valores.
-- Para que un asesor lo contacte necesitas su NOMBRE y su TELEFONO.
-- Antes de tomar sus datos pidele autorizacion de forma clara: "Para que un asesor te contacte necesito guardar tu nombre y telefono. Autorizas el tratamiento de tus datos personales?"
-- Cuando el cliente autorice, confirmale con naturalidad que un asesor lo contactara. El sistema se encarga del registro.
+- Tu trabajo es conectar al cliente con un asesor, no cotizar el credito.
+- NUNCA des cifras de cuotas mensuales, tasas de interes ni plazos con valores. Si el cliente pregunta cuanto pagaria al mes, explicale con amabilidad que la cuota depende del estudio que hace la entidad financiera segun su perfil, y que el asesor se la confirma exacta. Nunca inventes ni estimes un numero.
+- Si insiste en saber la cuota, mantente firme y amable: prefieres darle el dato exacto por medio del asesor antes que un numero que pueda cambiar.
+- Si te da el valor de la moto o cual le interesa, tomalo: le sirve al asesor para preparar la propuesta.
+- Guia la charla paso a paso, una pregunta a la vez, como en WhatsApp.
+
+{campos_credito.instruccion_para_prompt()}
+
+- ORDEN OBLIGATORIO: pide los datos uno por uno. Cuando los tengas TODOS, y solo entonces, haz la pregunta de autorizacion SOLA, en un mensaje aparte: "Listo. Para que un asesor te contacte necesito guardar estos datos. Autorizas el tratamiento de tus datos personales?"
+- Que el cliente te de sus datos NO significa que autorizo. La autorizacion es una respuesta afirmativa explicita a esa pregunta.
+- Nunca digas que un asesor lo contactara si el cliente todavia no autorizo.
 - Si el cliente no autoriza, respeta su decision e invitalo al WhatsApp: +57 {whatsapp}
 - NO pidas cedula, ingresos, ni si esta reportado en centrales.
 
@@ -326,17 +249,14 @@ def responder(historial):
 
         # GARANTIA: si va a dar cuotas sin haberlas calculado, rehacemos
         # la respuesta obligando a usar la herramienta.
-        if texto and _menciona_cuotas(texto) and not uso_calculadora:
-            obtener_logger().warning("El asistente iba a dar cuotas sin calcular. Reintentando forzado.")
-            texto_forzado, uso_forzado = _conversar(
-                cliente, contexto, mensajes, forzar_calculadora=True
-            )
-            if texto_forzado and uso_forzado:
-                return texto_forzado
-            # Si ni forzando se pudo, preferimos no dar ninguna cifra.
-            return ("Para darte la cuota exacta necesito el precio de la moto "
-                    "y cuanto darias de cuota inicial. Me los confirmas? 🏍️")
-
+                # El asistente no debe dar cifras de cuotas: la entidad financiera
+        # las define segun el perfil del cliente, y un numero que despues
+        # cambia genera friccion. Si se le escapa una, no sale al cliente.
+        if texto and _menciona_cuotas(texto):
+            obtener_logger().warning("El asistente iba a dar una cuota. Respuesta reemplazada.")
+            return ("La cuota exacta depende del estudio que hace la entidad financiera "
+                    "segun tu perfil, asi que prefiero no darte un numero que despues cambie. "
+                    "Un asesor te la confirma con precision. ¿Seguimos con tus datos? 🏍️")
         if not texto:
             return "Dame un momento... mejor escribenos por WhatsApp y te ayudamos de una. 🏍️"
 
@@ -358,57 +278,99 @@ def intentar_guardar_lead(historial, firmas_previas=None):
     """
     Decide si guardar un lead. La IA no participa de esta decision.
 
-    'firmas_previas' es la lista de leads ya guardados en esta sesion,
-    identificados por telefono + monto. Si el cliente cambia de moto o
-    de monto, es un interes NUEVO y se guarda otra vez. Si los datos son
-    los mismos, se ignora.
-
-    Devuelve la firma nueva si guardo, o None si no guardo.
+    Devuelve un diagnostico:
+      firma          la firma nueva si guardo, None si no
+      faltantes      etiquetas de datos obligatorios que no llegaron
+      consentimiento True si el cliente autorizo de forma verificable
     """
-    from app.servicios import extractor
+    from app.servicios import extractor, campos_credito
+    from app.seguridad import cifrado
+    from datetime import datetime, timezone
 
     firmas_previas = firmas_previas or []
+    diagnostico = {"firma": None, "faltantes": [], "consentimiento": False}
 
     try:
-        datos = extractor.extraer_datos(historial)
-        if not datos:
-            return None
+        crudos = extractor.extraer_datos(historial)
+        if not crudos:
+            return diagnostico
 
-        # Segunda llave: el consentimiento se verifica contra los mensajes
-        # reales del cliente, no contra lo que reporte el extractor.
-        if not extractor.verificar_consentimiento(historial):
-            return None
+        limpios, faltantes = campos_credito.validar(crudos)
+        diagnostico["faltantes"] = faltantes
+        diagnostico["consentimiento"] = extractor.verificar_consentimiento(historial)
 
-        telefono = _telefono_valido(datos.get("telefono"))
-        if not telefono:
-            return None
+        if faltantes or not diagnostico["consentimiento"]:
+            return diagnostico
 
-        valor = _entero_o_none(datos.get("valor_financiar"))
+        telefono = limpios.get("telefono")
+        valor = limpios.get("valor_financiar")
         firma = f"{telefono}|{valor if valor is not None else ''}"
 
         if firma in firmas_previas:
-            return None
-
-        # Si ya guardamos a este telefono sin monto y ahora llega el monto,
-        # es el mismo lead completandose: no lo duplicamos.
+            return diagnostico
         if valor is not None and f"{telefono}|" in firmas_previas:
-            return None
+            return diagnostico
 
-        resultado = _ejecutar_guardar_lead({
-            "nombre": datos.get("nombre"),
-            "telefono": telefono,
-            "valor_financiar": valor,
-            "cuota_inicial": datos.get("cuota_inicial"),
-            "plazo_meses": datos.get("plazo_meses"),
-            "cuota_calculada": datos.get("cuota_calculada"),
-            "autorizo_datos": True,
-        })
+        registro = campos_credito.a_columnas(limpios, cifrado.cifrar)
+        registro["autorizo_datos_basicos"] = True
+        registro["autorizo_datos_financieros"] = False
+        registro["fecha_consentimiento"] = datetime.now(timezone.utc).isoformat()
 
-        return firma if resultado.get("guardado") else None
+        repositorios.guardar_lead_chat_directo(registro)
+        obtener_logger().info(f"Lead de chat guardado: {limpios.get('nombre')} / {telefono}")
+        diagnostico["firma"] = firma
+        return diagnostico
 
     except Exception as e:
         try:
             obtener_logger().error(f"Error al intentar guardar lead: {e}")
         except Exception:
             pass
-        return None
+        return diagnostico
+
+        # Promesas de contacto proactivo. Sin acentos porque comparamos normalizado.
+_FRASES_PROMESA = [
+    "te contactara", "te contactaremos", "te contactamos",
+    "lo contactara", "se pondra en contacto",
+    "te llamara", "te llamaremos", "te escribira",
+]
+
+
+def _sin_acentos(texto):
+    reemplazos = str.maketrans("áéíóúÁÉÍÓÚñÑ", "aeiouAEIOUnN")
+    return (texto or "").lower().translate(reemplazos)
+
+
+def corregir_promesa(respuesta, diagnostico, firmas_previas=None):
+    """
+    Impide que el asistente prometa contacto si el lead no quedo guardado.
+
+    Si la respuesta anuncia que un asesor va a contactar al cliente pero
+    no hay ningun lead registrado, esa respuesta NO sale: se reemplaza por
+    una que pide lo que falta. Misma logica que la garantia de las cuotas:
+    el servidor verifica antes de hablar.
+    """
+    if not respuesta:
+        return respuesta
+
+    ya_guardado = bool(diagnostico.get("firma")) or bool(firmas_previas)
+    if ya_guardado:
+        return respuesta
+
+    texto = _sin_acentos(respuesta)
+    if not any(f in texto for f in _FRASES_PROMESA):
+        return respuesta
+
+    obtener_logger().warning("El asistente prometio contacto sin lead guardado. Respuesta corregida.")
+
+    faltantes = diagnostico.get("faltantes") or []
+    if faltantes:
+        return ("Antes de que un asesor te contacte necesito un dato mas: "
+                f"{', '.join(faltantes)}. Me lo compartes? 🏍️")
+
+    if not diagnostico.get("consentimiento"):
+        return ("Ya casi. Para que un asesor te contacte necesito guardar tus datos. "
+                "¿Autorizas el tratamiento de tus datos personales?")
+
+    return ("Dejame confirmar algo antes de seguir. ¿Me repites tus datos "
+            "para que un asesor te contacte?")

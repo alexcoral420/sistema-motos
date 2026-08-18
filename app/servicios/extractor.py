@@ -29,21 +29,20 @@ MODELO_EXTRACTOR = "claude-haiku-4-5-20251001"
 MAX_TOKENS_EXTRACTOR = 400
 
 
-PROMPT_EXTRACTOR = """Eres un extractor de datos. Tu unica tarea es leer una conversacion entre un cliente y el asistente de una compraventa de motos, y reportar los datos que el CLIENTE haya dado.
+def _prompt_extractor():
+    """
+    Arma el prompt del extractor desde la definicion central de campos.
+    Asi el esquema JSON nunca se desincroniza con lo que el asistente
+    pide ni con lo que la validacion espera.
+    """
+    from app.servicios import campos_credito
+
+    return f"""Eres un extractor de datos. Tu unica tarea es leer una conversacion entre un cliente y el asistente de una compraventa de motos, y reportar los datos que el CLIENTE haya dado.
 
 Responde UNICAMENTE con un objeto JSON valido. Sin explicaciones, sin texto antes o despues, sin bloques de codigo.
 
 El JSON debe tener exactamente estas claves:
-{
-  "nombre": string o null,
-  "telefono": string o null,
-  "moto_interes": string o null,
-  "valor_financiar": numero entero o null,
-  "cuota_inicial": numero entero o null,
-  "plazo_meses": numero entero o null,
-  "cuota_calculada": numero entero o null,
-  "autorizo": true o false
-}
+{campos_credito.esquema_para_extractor()}
 
 REGLAS:
 - Solo reporta datos que el CLIENTE dio explicitamente. Si un dato no aparece, pon null.
@@ -97,7 +96,7 @@ def extraer_datos(historial):
         respuesta = cliente.messages.create(
             model=MODELO_EXTRACTOR,
             max_tokens=MAX_TOKENS_EXTRACTOR,
-            system=PROMPT_EXTRACTOR,
+            system=_prompt_extractor(),
             messages=[{
                 "role": "user",
                 "content": f"Conversacion a analizar:\n\n{conversacion}",
