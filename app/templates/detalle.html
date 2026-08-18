@@ -144,6 +144,7 @@
         <div class="nav-links" id="nav-links">
             <a href="/inicio">Inicio</a>
             <a href="/catalogo" class="active">Catálogo</a>
+            <a href="{{ url_for('publico.credito') }}">Financiación</a>
             <a href="/privacidad">Privacidad</a>
             {% if not session.rol %}
             <a href="https://wa.me/{{ whatsapp }}" class="btn-nav" target="_blank">💬 Escríbenos</a>
