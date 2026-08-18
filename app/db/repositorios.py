@@ -793,3 +793,23 @@ def registrar_politica(version, texto):
         "vigente_hasta": None,
     }).execute()
     return resultado.data
+
+def guardar_lead_chat_directo(registro):
+    """
+    Inserta un lead ya armado y cifrado por campos_credito.
+
+    A diferencia de guardar_lead_chat, esta funcion NO decide que cifrar
+    ni que columnas usar: recibe el registro listo. La decision de que es
+    sensible vive en campos_credito, no aqui.
+    """
+    registro = dict(registro)
+    registro["origen"] = "chat"
+
+    politica = obtener_politica_vigente()
+    if politica:
+        registro["politica_id"] = politica["id"]
+        registro["version_politica"] = politica["version"]
+
+    supabase = get_supabase_admin()
+    resultado = supabase.table("leads_chat").insert(registro).execute()
+    return resultado.data
