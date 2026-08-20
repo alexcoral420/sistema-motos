@@ -430,11 +430,42 @@ def panel_gerencia():
         "gerencia.html",
         ventas_usuario=reportes.ventas_por_usuario(),
         ventas_semana=reportes.ventas_por_semana(),
+        ventas_detalle=reportes.ventas_detalle(),
+        compras_detalle=reportes.compras_detalle(),
         motos_consultadas=reportes.motos_mas_consultadas(),
         consultas_marca=reportes.consultas_por_marca(),
         permutas_usuario=reportes.permutas_por_usuario(),
         modelos_permutados=reportes.modelos_permutados(),
     )
+
+@admin_bp.route("/gerencia/verificar-venta/<int:venta_id>", methods=["POST"])
+@requiere_rol("admin", "gerencia")
+def verificar_venta(venta_id):
+    """
+    Marca una venta como verificada. Solo gerencia y admin.
+
+    Quien verifica sale de la SESION, no del formulario: nadie puede
+    firmar la verificacion a nombre de otro.
+    """
+    reportes.verificar_venta(venta_id, session.get("usuario_nombre"))
+
+    obtener_logger().info("%s verifico la venta id=%s.",
+                          session.get("usuario_nombre"), venta_id)
+    return redirect(url_for("admin.panel_gerencia"))
+
+@admin_bp.route("/gerencia/verificar-compra/<int:compra_id>", methods=["POST"])
+@requiere_rol("admin", "gerencia")
+def verificar_compra(compra_id):
+    """
+    Marca una compra como verificada. Solo gerencia y admin.
+    Quien verifica sale de la SESION, no del formulario.
+    """
+    reportes.verificar_compra(compra_id, session.get("usuario_nombre"))
+
+    obtener_logger().info("%s verifico la compra id=%s.",
+                          session.get("usuario_nombre"), compra_id)
+    return redirect(url_for("admin.panel_gerencia"))
+
 
 @admin_bp.route("/usuarios", methods=["GET", "POST"])
 @requiere_rol("admin", "gerencia")

@@ -40,3 +40,19 @@ def permutas_por_usuario():
 def modelos_permutados():
     """Qué modelos se mueven más en permutas (entrantes + salientes)."""
     return repositorios.reporte_modelos_permutados()
+
+def ventas_detalle(limite=100):
+    """Cada venta individual: asesor, moto, placa y fecha."""
+    return repositorios.reporte_ventas_detalle(limite)
+
+def verificar_venta(venta_id, usuario_nombre):
+    """Marca una venta como verificada por gerencia."""
+    return repositorios.marcar_venta_verificada(venta_id, usuario_nombre)
+
+def compras_detalle(limite=100):
+    """Cada compra individual: asesor, moto, placa y fecha."""
+    return repositorios.reporte_compras_detalle(limite)
+
+def verificar_compra(compra_id, usuario_nombre):
+    """Marca una compra como verificada por gerencia."""
+    return repositorios.marcar_compra_verificada(compra_id, usuario_nombre)

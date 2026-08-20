@@ -338,9 +338,6 @@ def registrar_venta(datos: dict):
     resultado = supabase.table("ventas").insert(datos).execute()
     return resultado.data
 
-    # ============================================================
-#  COMPRAS (registro de operaciones)
-# ============================================================
 
 def registrar_compra(datos: dict):
     """Guarda el registro histórico de una compra."""
@@ -812,4 +809,83 @@ def guardar_lead_chat_directo(registro):
 
     supabase = get_supabase_admin()
     resultado = supabase.table("leads_chat").insert(registro).execute()
+    return resultado.data
+
+def reporte_ventas_detalle(limite=100):
+    """
+    Detalle de ventas: quien vendio que moto, con placa y fecha.
+    A diferencia de reporte_ventas_por_usuario, que devuelve totales
+    agregados, esta lista cada venta individual.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("ventas")
+                 .select("*")
+                 .order("created_at", desc=True)
+                 .limit(limite)
+                 .execute())
+    return resultado.data
+
+def reporte_ventas_detalle(limite=100):
+    """
+    Detalle de ventas: quien vendio que moto, con placa y fecha.
+    A diferencia de reporte_ventas_por_usuario, que devuelve totales,
+    esta lista cada venta individual.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("ventas")
+                 .select("*")
+                 .order("created_at", desc=True)
+                 .limit(limite)
+                 .execute())
+    return resultado.data
+
+def marcar_venta_verificada(venta_id, usuario_nombre):
+    """
+    Marca una venta como verificada por gerencia.
+
+    Guarda quien la verifico y cuando: la casilla sola no sirve si
+    despues nadie sabe a quien preguntarle.
+    """
+    from datetime import datetime, timezone
+
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("ventas")
+                 .update({
+                     "verificada": True,
+                     "verificada_por": usuario_nombre,
+                     "verificada_en": datetime.now(timezone.utc).isoformat(),
+                 })
+                 .eq("id", venta_id)
+                 .execute())
+    return resultado.data
+
+def reporte_compras_detalle(limite=100):
+    """
+    Detalle de compras: quien compro que moto, con placa y fecha.
+    Mismo patron que reporte_ventas_detalle.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("compras")
+                 .select("*")
+                 .order("created_at", desc=True)
+                 .limit(limite)
+                 .execute())
+    return resultado.data
+
+def marcar_compra_verificada(compra_id, usuario_nombre):
+    """
+    Marca una compra como verificada por gerencia.
+    Mismo patron que marcar_venta_verificada.
+    """
+    from datetime import datetime, timezone
+
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("compras")
+                 .update({
+                     "verificada": True,
+                     "verificada_por": usuario_nombre,
+                     "verificada_en": datetime.now(timezone.utc).isoformat(),
+                 })
+                 .eq("id", compra_id)
+                 .execute())
     return resultado.data

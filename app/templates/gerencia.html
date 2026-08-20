@@ -125,6 +125,92 @@
             {% endif %}
         </section>
 
+                <!-- Detalle de cada venta -->
+        <section class="reporte">
+            <h2>Detalle de ventas</h2>
+            <p class="sub">Qué moto vendió cada asesor y cuándo</p>
+            {% if ventas_detalle %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Asesor</th>
+                        <th>Moto</th>
+                        <th>Placa</th>
+                        <th>Verificada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in ventas_detalle %}
+                    <tr>
+                        <td class="tenue">{{ v.created_at[:10] if v.created_at else '—' }}</td>
+                        <td>{{ v.usuario_nombre or '—' }}</td>
+                        <td>{{ v.descripcion or '—' }}</td>
+                        <td class="tenue">{{ v.placa or '—' }}</td>
+                        <td>
+                            {% if v.verificada %}
+                            <span class="vendido">✓ {{ v.verificada_por or 'sí' }}</span>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('admin.verificar_venta', venta_id=v.id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-success">Verificar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay ventas registradas.</div>
+            {% endif %}
+        </section>
+
+
+                <!-- Detalle de cada compra -->
+        <section class="reporte">
+            <h2>Detalle de compras</h2>
+            <p class="sub">Qué moto compró cada asesor y cuándo</p>
+            {% if compras_detalle %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Asesor</th>
+                        <th>Moto</th>
+                        <th>Placa</th>
+                        <th>Verificada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in compras_detalle %}
+                    <tr>
+                        <td class="tenue">{{ c.created_at[:10] if c.created_at else '—' }}</td>
+                        <td>{{ c.usuario_nombre or '—' }}</td>
+                        <td>{{ c.descripcion or '—' }}</td>
+                        <td class="tenue">{{ c.placa or '—' }}</td>
+                                                <td class="tenue">{{ c.placa or '—' }}</td>
+                        <td>
+                            {% if c.verificada %}
+                            <span class="vendido">✓ {{ c.verificada_por or 'sí' }}</span>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('admin.verificar_compra', compra_id=c.id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-success">Verificar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">Aún no hay compras registradas.</div>
+            {% endif %}
+        </section>
+
         <!-- ============ MOTOS MÁS CONSULTADAS ============ -->
         <section class="reporte">
             <h2>Motos más consultadas</h2>
