@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %} Usada en Bogotá | Universal Motors</title>
     <meta name="description" content="{{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %} usada en venta en Bogotá. Papeles al día, financiación con tu cédula. Consulta precio y fotos en Universal Motors.">
+
+        <!-- Open Graph: así WhatsApp, Facebook e Instagram muestran una tarjeta
+         con foto en vez de un enlace pelado. La URL y la imagen deben ser
+         ABSOLUTAS: quien lee estas etiquetas está fuera de nuestro dominio. -->
+    <meta property="og:type" content="product">
+    <meta property="og:site_name" content="Universal Motors">
+    <meta property="og:title" content="{{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %}">
+    <meta property="og:description" content="{{ moto.precio | pesos }} · Usada en Bogotá con papeles al día. Financiación con tu cédula en Universal Motors.">
+    <meta property="og:url" content="{{ url_for('publico.detalle_moto', id=moto.id, _external=True) }}">
+    {% if moto.foto_url %}
+    <meta property="og:image" content="{{ moto.foto_url }}">
+    <meta property="og:image:alt" content="{{ moto.marca }} {{ moto.modelo }} usada en venta en Bogotá">
+    {% endif %}
+    
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }

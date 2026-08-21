@@ -8,7 +8,7 @@ servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 from app import csrf
 from app.seguridad.limites import limiter
-from flask import Blueprint, render_template, request, redirect, current_app, session
+from flask import Blueprint, render_template, request, redirect, current_app, session, url_for, jsonify
 from urllib.parse import quote
 from app.servicios import simulador
 from app.seguridad import validadores
@@ -144,8 +144,13 @@ def consultar_moto(moto_id):
         # Si no existe, mandamos a WhatsApp sin mensaje específico.
         return redirect(f"https://wa.me/{numero}")
 
-    mensaje = (f"Hola, He Visto su Catalogo y me interesa la {moto['marca']} {moto['modelo']} "
-           f"(Ref #{moto_id})...")
+        # La URL absoluta permite que el asesor abra la moto directo desde
+    # WhatsApp y vea fotos y detalles sin tener que buscarla.
+    url_moto = url_for("publico.detalle_moto", id=moto_id, _external=True)
+
+    mensaje = (f"Hola, he visto su catálogo y me interesa comprar la "
+               f"{moto['marca']} {moto['modelo']} (Ref #{moto_id})\n\n"
+               f"{url_moto}")
 
     url = f"https://wa.me/{numero}?text={quote(mensaje)}"
     return redirect(url)
