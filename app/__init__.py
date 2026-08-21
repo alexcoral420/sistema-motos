@@ -52,6 +52,12 @@ def create_app(nombre_config=None):
         static_url_path="/static",
     )
 
+    # Railway termina el HTTPS en su proxy y nos pasa la peticion por HTTP.
+    # Sin esto, Flask genera URLs con http:// aunque el visitante llego por
+    # https, y eso rompe las vistas previas de WhatsApp. Ademas hace que el
+    # rate limiting vea la IP real del visitante y no la del proxy.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     # 3. Aplicar la clase de configuración correspondiente.
     # config_por_nombre["production"] -> ProduccionConfig, etc.
     # from_object copia todos los atributos en MAYÚSCULAS de la clase
