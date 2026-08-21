@@ -71,6 +71,119 @@
         .contador { text-align: center; padding: 24px 16px 4px; color: var(--texto-tenue); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         .contador b { color: var(--naranja); font-weight: 700; }
 
+        /* ===== Franja de marcas ===== */
+        .franja-marcas {
+            background: var(--negro-900); padding: 22px 0;
+            border-bottom: 1px solid var(--borde); overflow: hidden;
+            position: relative;
+        }
+        .franja-marcas::before, .franja-marcas::after {
+            content: ''; position: absolute; top: 0; bottom: 0; width: 60px;
+            z-index: 2; pointer-events: none;
+        }
+        .franja-marcas::before { left: 0; background: linear-gradient(to right, var(--negro-900), transparent); }
+        .franja-marcas::after { right: 0; background: linear-gradient(to left, var(--negro-900), transparent); }
+
+        .franja-pista {
+            display: flex; align-items: center; gap: 48px;
+            width: max-content;
+            animation: desplazar-marcas 26s linear infinite;
+        }
+        @keyframes desplazar-marcas {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+        .franja-marcas:hover .franja-pista { animation-play-state: paused; }
+        .franja-marcas a {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 24px; font-weight: 700; text-transform: uppercase;
+            color: var(--texto-suave); white-space: nowrap; text-decoration: none;
+            letter-spacing: 0.5px; transition: color 0.2s;
+        }
+        .franja-marcas a:hover { color: var(--naranja); }
+
+        .resultado-cuenta {
+            color: var(--texto-tenue); font-size: 14px;
+            margin-top: 10px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .resultado-cuenta b { color: var(--naranja); }
+
+        @media (max-width: 600px) {
+            .franja-marcas a { font-size: 20px; }
+            .franja-pista { gap: 32px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .franja-pista { animation: none; }
+        }
+    
+                /* ===== Panel de filtros ===== */
+        .barra-filtros { display: flex; gap: 10px; align-items: stretch; }
+        .barra-filtros .campo-icono { position: relative; flex: 1; display: flex; }
+        .barra-filtros input {
+            flex: 1; padding: 12px 16px 12px 40px;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            border-radius: 10px; color: var(--texto); font-size: 16px;
+            outline: none;
+        }
+        .barra-filtros input:hover, .barra-filtros input:focus { border-color: var(--naranja); }
+        .barra-filtros input::placeholder { color: var(--texto-tenue); }
+
+        .btn-panel {
+            display: inline-flex; align-items: center; gap: 8px;
+        
+
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 20px; border-radius: 10px; cursor: pointer;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            color: var(--texto); font-size: 15px; white-space: nowrap;
+            font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase;
+            font-weight: 700;
+        }
+        .btn-panel:hover { border-color: var(--naranja); color: var(--naranja); }
+        .btn-panel .cuenta {
+            background: var(--naranja); color: #000; border-radius: 20px;
+            padding: 1px 9px; font-size: 13px; font-weight: 700;
+        }
+        .btn-panel:has(.cuenta) { border-color: var(--naranja); color: var(--naranja); }
+
+        .panel-filtros {
+            display: none;
+            background: var(--negro-700); border: 1px solid var(--borde);
+            border-radius: 12px; padding: 20px; margin-top: 12px;
+        }
+        .panel-filtros.abierto { display: block; }
+        .grupo-filtro { margin-bottom: 22px; }
+        .grupo-filtro:last-child { margin-bottom: 0; }
+        .grupo-filtro h3 {
+            font-size: 14px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--texto-tenue); margin-bottom: 12px; font-weight: 600;
+        }
+        .opciones { display: flex; flex-wrap: wrap; gap: 10px; }
+        .opcion {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            border-radius: 24px; padding: 9px 16px; cursor: pointer;
+            font-size: 14px; color: var(--texto-suave); user-select: none;
+        }
+        .opcion:hover { border-color: var(--naranja); }
+        .opcion input { accent-color: var(--naranja); width: 16px; height: 16px; cursor: pointer; }
+        /* Cuando la casilla está marcada, resaltamos toda la pastilla */
+        .opcion:has(input:checked) {
+            border-color: var(--naranja); color: var(--naranja);
+            background: rgba(255,122,0,0.10);
+        }
+        .acciones-panel { display: flex; gap: 10px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--borde); }
+        .btn-limpiar-todo {
+            padding: 10px 20px; border-radius: 10px; text-decoration: none;
+            border: 1px solid var(--borde); color: var(--texto-tenue); font-size: 14px;
+        }
+        .btn-limpiar-todo:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        @media (max-width: 600px) {
+            .btn-panel { justify-content: center; }
+            .panel-filtros { padding: 16px; }
+            .opcion { font-size: 13px; padding: 8px 14px; }
+        }
         /* ===== Filtros (GET a servidor) ===== */
         .filtros-form { max-width: 940px; margin: 0 auto; padding: 16px 20px 32px; }
         .filtros-fila { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -105,8 +218,17 @@
         }
         .btn-limpiar:hover { border-color: var(--naranja); color: var(--naranja); }
 
-        .container { padding: 0 24px 60px; max-width: 1200px; margin: 0 auto; }
 
+        .container { padding: 0 24px 60px; max-width: 1200px; margin: 0 auto; }
+        .select-marcas {
+            width: 100%; padding: 10px 14px; border-radius: 10px;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            color: var(--texto); font-size: 15px; font-family: inherit;
+        }
+        .select-marcas:focus { border-color: var(--naranja); outline: none; }
+        .select-marcas option { padding: 8px 10px; }
+        .select-marcas option:checked { background: var(--naranja); color: #000; }
+        .ayuda-select { color: var(--texto-tenue); font-size: 12px; margin-top: 8px; }
         /* ===== Grid ===== */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 28px; }
         @media (min-width: 1000px) { .grid { grid-template-columns: repeat(3, 1fr); } }
@@ -238,41 +360,103 @@
          Si el archivo no existe, la banda queda en negro, no rompe. -->
     <div class="catalogo-header" style="--catalogo-img: url('/static/hero-moto.webp')" role="img" aria-label="Catálogo de motos Universal Motors"></div>
 
-    <div class="contador">
-        <b>{{ motos|length }}</b> {{ 'moto disponible' if motos|length == 1 else 'motos disponibles' }}
+        <!-- Franja de marcas: cada una filtra el catálogo al tocarla.
+         La lista va DUPLICADA a propósito: al desplazar el 50% del ancho,
+         la segunda copia queda donde estaba la primera y el ciclo se
+         reinicia sin corte visible. -->
+    <div class="franja-marcas">
+        <div class="franja-pista">
+            {% for m in marcas %}
+            <a href="{{ url_for('publico.catalogo_publico', marca=m) }}">{{ m }}</a>
+            {% endfor %}
+            {% for m in marcas %}
+            <a href="{{ url_for('publico.catalogo_publico', marca=m) }}" aria-hidden="true" tabindex="-1">{{ m }}</a>
+            {% endfor %}
+        </div>
     </div>
 
-    <!-- Filtros: formulario real que va al servidor por GET.
+        <!-- Filtros: formulario real que va al servidor por GET.
          method="GET" hace que los filtros queden en la URL, así el
          resultado es compartible por WhatsApp y se puede guardar.
-         Los name (q, marca, precio_min, precio_max) son contrato
-         con el servidor: NO renombrar. Sin CSRF (los GET no lo llevan). -->
-    <form method="GET" action="/catalogo" class="filtros-form" role="search">
-        <div class="filtros-fila">
-            <div class="campo-icono">
+         Los name (q, marca, cc, anio, precio_min, precio_max) son
+         contrato con el servidor: NO renombrar.
+         Las casillas envían el formulario al marcarse (onchange), por eso
+         el filtrado es instantáneo sin necesidad de tocar "aplicar". -->
+    <form method="GET" action="/catalogo" class="filtros-form" role="search" id="form-filtros">
+
+        <div class="barra-filtros">
+            <div class="campo-icono" style="flex:1">
                 <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg>
                 <input type="text" name="q" placeholder="Buscar marca o modelo..."
                        value="{{ filtros.texto or '' }}" maxlength="50" aria-label="Buscar marca o modelo">
             </div>
-
-            <select name="marca" aria-label="Filtrar por marca">
-                <option value="">Todas las marcas</option>
-                {% for m in marcas %}
-                <option value="{{ m }}" {% if filtros.marca == m %}selected{% endif %}>{{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="filtros-fila">
-            <input type="number" name="precio_min" placeholder="Precio desde"
-                   value="{{ filtros.precio_min if filtros.precio_min is not none else '' }}" min="0" aria-label="Precio desde">
-            <input type="number" name="precio_max" placeholder="Precio hasta"
-                   value="{{ filtros.precio_max if filtros.precio_max is not none else '' }}" min="0" aria-label="Precio hasta">
-
-            <button type="submit" class="btn-filtrar">
-                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg> Filtrar
+            <button type="button" class="btn-panel" onclick="alternarPanel()"
+                    aria-expanded="{{ 'true' if filtros_activos else 'false' }}" aria-controls="panel-filtros">
+                Filtros
+                {% if filtros_activos %}<span class="cuenta">{{ filtros_activos }}</span>{% endif %}
             </button>
-            <a href="/catalogo" class="btn-limpiar">Limpiar</a>
+        </div>
+        <p class="resultado-cuenta">
+            <b>{{ motos|length }}</b> {{ 'moto encontrada' if motos|length == 1 else 'motos encontradas' }}
+        </p>
+
+        <!-- El panel queda abierto si hay filtros activos: así el cliente
+             no tiene que reabrirlo después de cada selección. -->
+            <div class="panel-filtros" id="panel-filtros">
+
+            <div class="grupo-filtro">
+                <h3>Marca</h3>
+                <select name="marca" multiple size="6" class="select-marcas" aria-label="Filtrar por marca">
+                    {% for m in marcas %}
+                    <option value="{{ m }}" {% if m in filtros.marcas %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+                <p class="ayuda-select">Mantén Ctrl (o Cmd) para elegir varias</p>
+            </div>
+            
+
+            <div class="grupo-filtro">
+                <h3>Cilindraje</h3>
+                <div class="opciones">
+                    {% for clave, rango in rangos_cc.items() %}
+                    <label class="opcion">
+                            <input type="checkbox" name="cc" value="{{ clave }}"
+                               {% if clave in filtros.cc %}checked{% endif %}>  
+                        {{ rango.etiqueta }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="grupo-filtro">
+                <h3>Año</h3>
+                <div class="opciones">
+                    {% for clave, rango in rangos_anio.items() %}
+                    <label class="opcion">
+                            <input type="checkbox" name="anio" value="{{ clave }}"
+                               {% if clave in filtros.anio %}checked{% endif %}>
+                        {{ rango.etiqueta }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="grupo-filtro">
+                <h3>Precio</h3>
+                <div class="opciones">
+                    {% for clave, rango in rangos_precio.items() %}
+                    <label class="opcion">
+                            <input type="checkbox" name="precio" value="{{ clave }}"
+                               {% if clave in filtros.precio %}checked{% endif %}> 
+                        {{ rango.etiqueta }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="acciones-panel">
+                <button type="submit" class="btn-filtrar">Ver resultados</button>
+                <a href="/catalogo" class="btn-limpiar-todo">Limpiar filtros</a>
+            </div>
         </div>
     </form>
 
@@ -403,8 +587,17 @@
             setTimeout(function() { btn.innerText = original; }, 2000);
         }).catch(function() {
             prompt('Copia este link para el cliente:', link);
-        });
+              });
     }
+
+    // ===== Panel de filtros =====
+    function alternarPanel() {
+        const panel = document.getElementById('panel-filtros');
+        const boton = document.querySelector('.btn-panel');
+        const abierto = panel.classList.toggle('abierto');
+        boton.setAttribute('aria-expanded', abierto);
+    }
+    </script>
     </script>
     {% if not session.rol %}
     {% include 'chat.html' %}

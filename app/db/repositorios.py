@@ -233,6 +233,32 @@ def obtener_marcas_disponibles():
     # set() elimina duplicados, sorted() las ordena alfabéticamente.
     return sorted({m["marca"] for m in resultado.data if m.get("marca")})
 
+def _condicion_rangos(columna: str, rangos):
+    """
+    Arma la condición OR para una lista de rangos (min, max).
+
+    Los rangos vienen ya validados desde el servicio: son números, no
+    texto del cliente. Por eso es seguro interpolarlos en la consulta.
+
+    Ejemplo: [(None, 125), (151, 200)] sobre 'cilindraje' produce
+        and(cilindraje.lte.125),and(cilindraje.gte.151,cilindraje.lte.200)
+    que Supabase interpreta como "cumple el primero O el segundo".
+    """
+    if not rangos:
+        return None
+
+    partes = []
+    for minimo, maximo in rangos:
+        condiciones = []
+        if minimo is not None:
+            condiciones.append(f"{columna}.gte.{int(minimo)}")
+        if maximo is not None:
+            condiciones.append(f"{columna}.lte.{int(maximo)}")
+        if condiciones:
+            partes.append("and(" + ",".join(condiciones) + ")")
+
+    return ",".join(partes) if partes else None
+
 
 def obtener_motos_filtradas(filtros: dict):
     """
@@ -242,8 +268,9 @@ def obtener_motos_filtradas(filtros: dict):
     (disponibles) y le vamos encadenando condiciones solo por los
     filtros que llegaron. Un filtro vacío simplemente no se aplica.
 
-    filtros: dict ya VALIDADO (la ruta se encarga de limpiarlo).
-        marca, sede_id, precio_min, precio_max, texto
+    filtros: dict ya VALIDADO (el servicio se encarga de limpiarlo).
+        marcas (lista), sede_id, precio_min, precio_max, texto,
+        cilindraje_rangos y anio_rangos (listas de pares min/max).
     """
     supabase = get_supabase_publico()
 
@@ -252,18 +279,26 @@ def obtener_motos_filtradas(filtros: dict):
         .select("*, sedes(nombre, direccion)")\
         .eq("estado", "disponible")
 
-    # Cada filtro presente añade una condición a la consulta.
-    if filtros.get("marca"):
-        consulta = consulta.eq("marca", filtros["marca"])
+    # Marcas: seleccion multiple. in_ = "que este en esta lista".
+    if filtros.get("marcas"):
+        consulta = consulta.in_("marca", filtros["marcas"])
 
     if filtros.get("sede_id"):
         consulta = consulta.eq("sede_id", filtros["sede_id"])
 
-    if filtros.get("precio_min") is not None:
-        consulta = consulta.gte("precio", filtros["precio_min"])   # gte = mayor o igual
+    condicion_precio = _condicion_rangos("precio", filtros.get("precio_rangos"))
+    if condicion_precio:
+        consulta = consulta.or_(condicion_precio)
 
-    if filtros.get("precio_max") is not None:
-        consulta = consulta.lte("precio", filtros["precio_max"])   # lte = menor o igual
+    # Cilindraje y anio: varios rangos a la vez se combinan con OR.
+    # "hasta 125 O entre 151 y 200" -> or(and(...),and(...))
+    condicion_cc = _condicion_rangos("cilindraje", filtros.get("cilindraje_rangos"))
+    if condicion_cc:
+        consulta = consulta.or_(condicion_cc)
+
+    condicion_anio = _condicion_rangos("anio", filtros.get("anio_rangos"))
+    if condicion_anio:
+        consulta = consulta.or_(condicion_anio)
 
     if filtros.get("texto"):
         # Búsqueda en marca O modelo. 'ilike' = contiene, sin distinguir
@@ -273,10 +308,7 @@ def obtener_motos_filtradas(filtros: dict):
 
     return consulta.order("created_at", desc=True).execute().data
 
-    # ============================================================
-#  GESTIÓN DE FOTOS (borrar, cambiar portada)
-# ============================================================
-
+   
 def obtener_foto_galeria(foto_id: int):
     """Una foto de galería por su id, o None."""
     supabase = get_supabase_publico()
