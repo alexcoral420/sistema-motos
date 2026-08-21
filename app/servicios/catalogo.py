@@ -9,6 +9,10 @@ Riesgo particular del texto de búsqueda: se inserta dentro de la
 sintaxis de consulta de Supabase, donde la coma y el punto tienen
 significado. Un texto sin validar podría inyectar condiciones. Por eso
 usamos lista blanca estricta: solo letras, números y espacios.
+
+Selección múltiple: marca, cilindraje y año aceptan varias opciones
+(?marca=BAJAJ&marca=YAMAHA). Se leen con getlist() y se valida cada
+elemento por separado, con un tope de cuántos se aceptan.
 """
 
 import re
@@ -19,6 +23,42 @@ from app.servicios import sedes
 _TEXTO_PERMITIDO = re.compile(r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-]+$")
 
 _PRECIO_MAX = 999_999_999
+
+# Tope de opciones por criterio: sin esto, alguien podría mandar 500
+# marcas en la URL y hacer pesada la consulta.
+_MAX_OPCIONES = 12
+
+
+# ============================================================
+# RANGOS: definidos UNA vez, aquí.
+#
+# La clave ("hasta-125") es lo que viaja en la URL. Validar es tan
+# simple como comprobar que la clave exista en el diccionario: lista
+# blanca por construcción, no hay forma de inyectar nada.
+#
+# min/max en None significa "sin límite por ese lado".
+# ============================================================
+
+RANGOS_CILINDRAJE = {
+    "hasta-125": {"etiqueta": "Hasta 125cc",  "min": None, "max": 125},
+    "126-150":   {"etiqueta": "126 a 150cc",  "min": 126,  "max": 150},
+    "151-200":   {"etiqueta": "151 a 200cc",  "min": 151,  "max": 200},
+    "mas-200":   {"etiqueta": "Más de 200cc", "min": 201,  "max": None},
+}
+
+RANGOS_ANIO = {
+    "2023-mas":  {"etiqueta": "2023 o más nuevo", "min": 2023, "max": None},
+    "2020-2022": {"etiqueta": "2020 a 2022",      "min": 2020, "max": 2022},
+    "2017-2019": {"etiqueta": "2017 a 2019",      "min": 2017, "max": 2019},
+    "hasta-2016": {"etiqueta": "2016 o anterior", "min": None, "max": 2016},
+}
+
+RANGOS_PRECIO = {
+    "hasta-6m": {"etiqueta": "Hasta $6M",   "min": None,       "max": 5_999_999},
+    "6-8m":     {"etiqueta": "$6M a $8M",   "min": 6_000_000,  "max": 7_999_999},
+    "8-12m":    {"etiqueta": "$8M a $12M",  "min": 8_000_000,  "max": 11_999_999},
+    "mas-12m":  {"etiqueta": "Más de $12M", "min": 12_000_000, "max": None},
+}
 
 
 def _limpiar_texto(valor):
@@ -52,34 +92,85 @@ def _limpiar_entero(valor, minimo=0, maximo=_PRECIO_MAX):
     return numero
 
 
+def _limpiar_claves(valores, rangos):
+    """
+    De una lista de claves recibida por URL, deja solo las que existen
+    en el diccionario de rangos. Todo lo demás se descarta.
+    """
+    if not valores:
+        return []
+    limpias = [v for v in valores[:_MAX_OPCIONES] if v in rangos]
+    # Sin duplicados, conservando el orden de definición.
+    return [c for c in rangos if c in limpias]
+
+
+def _a_intervalos(claves, rangos):
+    """
+    Traduce las claves elegidas a pares (min, max) concretos.
+
+    El repositorio no debe conocer nombres como "hasta-125": eso es
+    vocabulario de negocio. Aquí lo convertimos en números, y la capa
+    de datos solo ve intervalos.
+    """
+    return [(rangos[c]["min"], rangos[c]["max"]) for c in claves]
+
+
 def limpiar_filtros(args) -> dict:
     """
     Toma los parámetros crudos de la URL y devuelve filtros seguros.
     Lo que no supere la validación se descarta en silencio: un filtro
     raro en la URL no debe romper el catálogo público.
     """
-    marca = args.get("marca") or None
-    if marca and marca not in repositorios.obtener_marcas_disponibles():
-        marca = None
+    # --- Marcas (selección múltiple) ---
+    disponibles = repositorios.obtener_marcas_disponibles()
+    marcas = [m for m in args.getlist("marca")[:_MAX_OPCIONES] if m in disponibles]
 
+    # --- Sede ---
     sede_id = _limpiar_entero(args.get("sede"), minimo=1)
     if sede_id and str(sede_id) not in sedes.ids_validos():
         sede_id = None
 
-    precio_min = _limpiar_entero(args.get("precio_min"))
-    precio_max = _limpiar_entero(args.get("precio_max"))
+        # --- Precio (selección múltiple por rangos) ---
+    claves_precio = _limpiar_claves(args.getlist("precio"), RANGOS_PRECIO)
 
-    if precio_min is not None and precio_max is not None and precio_min > precio_max:
-        precio_min = None
-        precio_max = None
+
+
+    # --- Cilindraje y año (selección múltiple por rangos) ---
+    claves_cc = _limpiar_claves(args.getlist("cc"), RANGOS_CILINDRAJE)
+    claves_anio = _limpiar_claves(args.getlist("anio"), RANGOS_ANIO)
 
     return {
-        "marca": marca,
+        "marcas": marcas,
         "sede_id": sede_id,
-        "precio_min": precio_min,
-        "precio_max": precio_max,
+        "precio": claves_precio,
+        "precio_rangos": _a_intervalos(claves_precio, RANGOS_PRECIO),
         "texto": _limpiar_texto(args.get("q")),
+        # Claves: para volver a marcar las casillas en la página.
+        "cc": claves_cc,
+        "anio": claves_anio,
+        # Intervalos: para que el repositorio arme la consulta.
+        "cilindraje_rangos": _a_intervalos(claves_cc, RANGOS_CILINDRAJE),
+        "anio_rangos": _a_intervalos(claves_anio, RANGOS_ANIO),
     }
+
+
+def contar_filtros_activos(filtros) -> int:
+    """
+    Cuántos criterios hay aplicados. Se muestra en el botón del panel
+    para que el cliente sepa por qué está viendo pocos resultados.
+    """
+    activos = 0
+    if filtros.get("marcas"):
+        activos += len(filtros["marcas"])
+    if filtros.get("cc"):
+        activos += len(filtros["cc"])
+    if filtros.get("anio"):
+        activos += len(filtros["anio"])
+    if filtros.get("sede_id"):
+        activos += 1
+    if filtros.get("precio"):
+        activos += len(filtros["precio"])
+    return activos
 
 
 def buscar_motos(args) -> dict:
@@ -94,4 +185,8 @@ def buscar_motos(args) -> dict:
         "marcas": repositorios.obtener_marcas_disponibles(),
         "sedes": sedes.listar_sedes(),
         "filtros": filtros,
+        "rangos_cc": RANGOS_CILINDRAJE,
+        "rangos_anio": RANGOS_ANIO,
+        "rangos_precio": RANGOS_PRECIO,
+        "filtros_activos": contar_filtros_activos(filtros),
     }
