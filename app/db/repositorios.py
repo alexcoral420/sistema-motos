@@ -645,38 +645,9 @@ def actualizar_ultimo_mensaje(conversacion_id: int):
         "ultimo_mensaje": datetime.now(timezone.utc).isoformat()
     }).eq("id", conversacion_id).execute()
 
-    # ---- Financiación (leads del simulador de crédito) ----
-
-def registrar_lead_financiacion(nombre, telefono, correo, valor_financiar,
-                                cuota_inicial=0, moto_id=None, autorizo=False):
-    """
-    Guarda un lead de financiación. Escritura interna con la conexión admin.
-    El campo autorizo_datos deja registro del consentimiento (Habeas Data).
-    """
-    supabase = get_supabase_admin()
-    supabase.table("financiacion").insert({
-        "nombre": nombre,
-        "telefono": telefono,
-        "correo": correo,
-        "valor_financiar": valor_financiar,
-        "cuota_inicial": cuota_inicial,
-        "moto_id": moto_id,
-        "autorizo_datos": autorizo,
-    }).execute()
+   
 
 
-def listar_leads_financiacion():
-    """
-    Lista los leads de financiación para el panel de gerencia.
-    Trae la info de la moto asociada (si la hay) con un join.
-    Lectura interna (solo la ve gerencia/admin), con conexión admin.
-    """
-    supabase = get_supabase_admin()
-    resultado = (supabase.table("financiacion")
-                 .select("*, motos(marca, modelo)")
-                 .order("created_at", desc=True)
-                 .execute())
-    return resultado.data
 
     # ============================================================
 # Funciones de repositorio para leads_chat (agregar a repositorios.py).

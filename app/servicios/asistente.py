@@ -16,7 +16,6 @@ import re
 from anthropic import Anthropic
 from flask import current_app
 from app.db import repositorios
-from app.servicios import simulador
 from app.seguridad.logging_config import obtener_logger
 from app.servicios import campos_credito
 
@@ -28,45 +27,22 @@ MAX_VUELTAS_TOOLS = 5
 
 # ============================================================
 # 1. HERRAMIENTAS
-# Solo calcular_cuota. El guardado ya NO es una herramienta:
-# lo decide el servidor (ver intentar_guardar_lead).
+# Vacia a proposito: el asistente no calcula cuotas ni guarda leads.
+# El guardado lo decide el servidor (ver intentar_guardar_lead) y las
+# cuotas las define la entidad financiera segun el perfil del cliente.
 # ============================================================
 HERRAMIENTAS = []
 
 
-# ============================================================
-# 2. EJECUCION DE HERRAMIENTAS Y VALIDACIONES
-# ============================================================
-
-def _ejecutar_calcular_cuota(params):
-    """Ejecuta el simulador real: Python calcula, la IA no inventa."""
-    valor = params.get("valor_moto")
-    inicial = params.get("cuota_inicial", 0) or 0
-
-    if not isinstance(valor, int) or valor <= 0:
-        return {"error": "El valor de la moto no es valido."}
-    if valor > 100_000_000:
-        return {"error": "El valor supera el maximo permitido."}
-    if inicial < 0 or inicial >= valor:
-        return {"error": "La cuota inicial no es valida."}
-
-    resultado = simulador.simular(valor, inicial)
-    return {
-        "monto_a_financiar": resultado["monto_financiar"],
-        "planes": [
-            {"meses": p["meses"], "cuota_mensual": int(p["cuota"])}
-            for p in resultado["planes"]
-        ],
-    }
-
-
-
-
 def _ejecutar_herramienta(nombre, params):
-    if nombre == "calcular_cuota":
-        return _ejecutar_calcular_cuota(params)
-    return {"error": "Herramienta desconocida."}
+    """
+    Enruta la peticion de la IA a la funcion correcta.
 
+    Hoy no hay herramientas activas: el asistente solo conversa, y las
+    cifras de cuota las da la entidad financiera, no el sistema. Cuando
+    se agregue una herramienta, se registra aqui y en HERRAMIENTAS.
+    """
+    return {"error": "Herramienta desconocida."}
 
 # ============================================================
 # 3. GARANTIA 1: NINGUNA CUOTA INVENTADA
