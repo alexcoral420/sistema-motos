@@ -40,6 +40,8 @@
 
         /* ===== Navegación (igual al home) ===== */
         .navbar { background: var(--negro-900); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        /* relative para que la busqueda desplegable se posicione encima */
+        .navbar { position: sticky; }
         .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 22px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
         .navbar .logo img { height: 42px; width: 42px; border-radius: 50%; }
         .navbar .logo span { color: var(--naranja); }
@@ -49,6 +51,67 @@
         .nav-links .btn-nav { background: var(--naranja); color: #000; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 16px; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; }
         .nav-links .btn-nav:hover { background: var(--naranja-claro); color: #000; }
 
+
+                /* Búsqueda en la barra: la lupa despliega el campo sobre la navbar */
+        .btn-lupa {
+            background: none; border: none; cursor: pointer;
+            padding: 8px; color: var(--naranja); display: flex; align-items: center;
+        }
+        .btn-lupa svg { width: 22px; height: 22px; }
+        .btn-lupa:hover { color: var(--naranja-claro); }
+
+        /* El buscador se despliega ENCIMA de la barra: no hay espacio para
+           tenerlo siempre visible junto al logo y el menu. */
+        .busqueda-barra {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--negro-900); z-index: 110;
+            align-items: center; gap: 10px; padding: 0 20px;
+        }
+        .busqueda-barra.abierta { display: flex; }
+        .busqueda-barra input {
+            flex: 1; padding: 11px 16px; border-radius: 10px;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            color: var(--texto); font-size: 16px; outline: none;
+        }
+        .busqueda-barra input:focus { border-color: var(--naranja); }
+        .busqueda-barra input::placeholder { color: var(--texto-tenue); }
+        .busqueda-barra .cerrar-busqueda {
+            background: none; border: none; color: var(--texto-suave);
+            font-size: 26px; cursor: pointer; line-height: 1; padding: 4px 10px;
+        }
+        .busqueda-barra .cerrar-busqueda:hover { color: var(--naranja); }
+
+        /* Aviso de busqueda activa: sin esto el cliente no sabe por que ve
+           pocos resultados, porque el campo queda cerrado. */
+        .aviso-busqueda {
+            text-align: center; padding: 18px 20px 0;
+            color: var(--texto-suave); font-size: 15px;
+        }
+        .aviso-busqueda b { color: var(--texto); }
+        .aviso-busqueda a { color: var(--naranja); text-decoration: none; }
+        .aviso-busqueda a:hover { text-decoration: underline; }
+
+        .busqueda-barra {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--negro-900); z-index: 110;
+            align-items: center; gap: 10px; padding: 0 20px;
+        }
+        .busqueda-barra.abierta { display: flex; }
+        .busqueda-barra input {
+            flex: 1; padding: 11px 16px; border-radius: 10px;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            color: var(--texto); font-size: 16px; outline: none;
+        }
+        .busqueda-barra input:focus { border-color: var(--naranja); }
+        .busqueda-barra input::placeholder { color: var(--texto-tenue); }
+        .busqueda-barra .cerrar-busqueda {
+            background: none; border: none; color: var(--texto-suave);
+            font-size: 26px; cursor: pointer; line-height: 1; padding: 4px 8px;
+        }
+        .busqueda-barra .cerrar-busqueda:hover { color: var(--naranja); }
+        
         /* Menú hamburguesa (solo móvil) */
         .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
         .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
@@ -66,41 +129,77 @@
             background-position: center, center;
             background-color: var(--negro-900);
         }
-        @media (max-width: 600px) { .catalogo-header { height: 170px; } }
+        /* En movil ocupa casi la mitad de la pantalla: vh se adapta al alto
+           real del dispositivo, a diferencia de una altura fija en px que
+           se ve distinta en cada telefono. */
+        @media (max-width: 600px) { .catalogo-header { height: 45vh; min-height: 240px; } }
 
         .contador { text-align: center; padding: 24px 16px 4px; color: var(--texto-tenue); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         .contador b { color: var(--naranja); font-weight: 700; }
 
-        /* ===== Franja de marcas ===== */
-        .franja-marcas {
-            background: var(--negro-900); padding: 22px 0;
-            border-bottom: 1px solid var(--borde); overflow: hidden;
-            position: relative;
+        /* ===== Filtros horizontales con desplegable ===== */
+        /* La fila se desliza lateralmente: en un movil angosto los cuatro
+           botones no entran sin achicarse hasta ser ilegibles. */
+        .fila-filtros {
+            display: flex; gap: 10px; overflow-x: auto;
+            padding: 16px 20px 4px; max-width: 940px; margin: 0 auto;
+            scrollbar-width: none;
         }
-        .franja-marcas::before, .franja-marcas::after {
-            content: ''; position: absolute; top: 0; bottom: 0; width: 60px;
-            z-index: 2; pointer-events: none;
-        }
-        .franja-marcas::before { left: 0; background: linear-gradient(to right, var(--negro-900), transparent); }
-        .franja-marcas::after { right: 0; background: linear-gradient(to left, var(--negro-900), transparent); }
+        .fila-filtros::-webkit-scrollbar { display: none; }
 
-        .franja-pista {
-            display: flex; align-items: center; gap: 48px;
-            width: max-content;
-            animation: desplazar-marcas 26s linear infinite;
+        .btn-desplegable {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 11px 18px; border-radius: 24px; cursor: pointer;
+            background: var(--negro-600); border: 1px solid var(--borde);
+            color: var(--texto-suave); font-size: 15px; white-space: nowrap;
+            flex-shrink: 0; font-family: inherit;
         }
-        @keyframes desplazar-marcas {
-            from { transform: translateX(0); }
-            to   { transform: translateX(-50%); }
+        .btn-desplegable:hover { border-color: var(--naranja); color: var(--naranja); }
+        .btn-desplegable.activo,
+        .btn-desplegable.abierto { border-color: var(--naranja); color: var(--naranja); }
+        .btn-desplegable .flecha { font-size: 11px; transition: transform 0.2s; }
+        .btn-desplegable.abierto .flecha { transform: rotate(180deg); }
+        .btn-desplegable .cuenta {
+            background: var(--naranja); color: #000; border-radius: 20px;
+            padding: 1px 8px; font-size: 12px; font-weight: 700;
         }
-        .franja-marcas:hover .franja-pista { animation-play-state: paused; }
-        .franja-marcas a {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 24px; font-weight: 700; text-transform: uppercase;
-            color: var(--texto-suave); white-space: nowrap; text-decoration: none;
-            letter-spacing: 0.5px; transition: color 0.2s;
+
+        .panel-desplegable {
+            display: none;
+            max-width: 940px; margin: 10px auto 0; padding: 18px 20px;
+            background: var(--negro-700); border: 1px solid var(--borde);
+            border-radius: 14px;
         }
-        .franja-marcas a:hover { color: var(--naranja); }
+        .panel-desplegable.abierto { display: block; }
+        .panel-desplegable .opciones { display: flex; flex-wrap: wrap; gap: 10px; }
+        /* Con muchas marcas, la lista se limita en alto y hace scroll
+           interno en vez de empujar las motos fuera de la pantalla. */
+        .panel-desplegable .opciones.compacto { max-height: 180px; overflow-y: auto; padding-right: 6px; }
+
+        .acciones-filtros {
+            display: flex; gap: 10px; justify-content: center;
+            padding: 16px 20px 0; max-width: 940px; margin: 0 auto;
+        }
+
+        @media (max-width: 600px) {
+            .fila-filtros { padding: 14px 16px 4px; }
+            .btn-desplegable { font-size: 14px; padding: 10px 15px; }
+            .panel-desplegable { margin: 10px 16px 0; padding: 16px; }
+        }
+        /* Pastillas de filtros aplicados: hacen visible qué está activo
+           sin abrir ningún panel, y permiten quitar de a uno. */
+        .aplicados {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+            padding: 12px 20px 0; max-width: 940px; margin: 0 auto;
+        }
+        .aplicados a {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,122,0,0.12); border: 1px solid var(--naranja);
+            color: var(--naranja); border-radius: 20px; padding: 7px 14px;
+            font-size: 14px; text-decoration: none;
+        }
+        .aplicados a:hover { background: rgba(255,122,0,0.22); }
+        .aplicados .quitar { font-size: 17px; line-height: 1; opacity: 0.8; }
 
         .resultado-cuenta {
             color: var(--texto-tenue); font-size: 14px;
@@ -109,11 +208,8 @@
         .resultado-cuenta b { color: var(--naranja); }
 
         @media (max-width: 600px) {
-            .franja-marcas a { font-size: 20px; }
-            .franja-pista { gap: 32px; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .franja-pista { animation: none; }
         }
     
                 /* ===== Panel de filtros ===== */
@@ -348,6 +444,9 @@
             <img src="/static/logo.png" alt="Logo Universal Motors">
             Universal <span>Motors</span>
             </a>
+            <button type="button" class="btn-lupa" onclick="abrirBusqueda()" aria-label="Buscar motos">
+                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg>
+            </button>
             <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
             <span></span><span></span><span></span>
             </button>
@@ -371,6 +470,17 @@
             </button>
             {% endif %}
         </div>
+
+        {# Formulario SEPARADO del de filtros: al buscar, la URL queda solo
+           con ?q=..., asi los filtros se limpian solos. Un filtro activo e
+           invisible seria peor que no tenerlo. #}
+        <form method="GET" action="/catalogo" class="busqueda-barra" id="busqueda-barra" role="search">
+            <input type="text" name="q" id="input-busqueda"
+                   placeholder="Buscar marca o modelo..."
+                   value="{{ filtros.texto or '' }}" maxlength="50"
+                   aria-label="Buscar marca o modelo">
+            <button type="button" class="cerrar-busqueda" onclick="cerrarBusqueda()" aria-label="Cerrar búsqueda">&times;</button>
+        </form>
     </nav>
 
     <!-- Header del catálogo -->
@@ -378,104 +488,126 @@
          Si el archivo no existe, la banda queda en negro, no rompe. -->
     <div class="catalogo-header" style="--catalogo-img: url('/static/hero-moto.webp')" role="img" aria-label="Catálogo de motos Universal Motors"></div>
 
-        <!-- Franja de marcas: cada una filtra el catálogo al tocarla.
-         La lista va DUPLICADA a propósito: al desplazar el 50% del ancho,
-         la segunda copia queda donde estaba la primera y el ciclo se
-         reinicia sin corte visible. -->
-    <div class="franja-marcas">
-        <div class="franja-pista">
-            {% for m in marcas %}
-            <a href="{{ url_for('publico.catalogo_publico', marca=m) }}">{{ m }}</a>
-            {% endfor %}
-            {% for m in marcas %}
-            <a href="{{ url_for('publico.catalogo_publico', marca=m) }}" aria-hidden="true" tabindex="-1">{{ m }}</a>
-            {% endfor %}
-        </div>
-    </div>
+    {% if filtros.texto %}
+    <p class="aviso-busqueda">
+        Resultados para "<b>{{ filtros.texto }}</b>" · <a href="/catalogo">ver todo el catálogo</a>
+    </p>
+    {% endif %}
 
         <!-- Filtros: formulario real que va al servidor por GET.
          method="GET" hace que los filtros queden en la URL, así el
          resultado es compartible por WhatsApp y se puede guardar.
-         Los name (q, marca, cc, anio, precio_min, precio_max) son
-         contrato con el servidor: NO renombrar.
-         Las casillas envían el formulario al marcarse (onchange), por eso
-         el filtrado es instantáneo sin necesidad de tocar "aplicar". -->
+         Los name (marca, cc, anio, precio) son contrato con el
+         servidor: NO renombrar. La busqueda por texto vive aparte, en
+         la barra superior, con su propio formulario. -->
+    {# Filtros por GET: quedan en la URL, asi el resultado filtrado es
+       compartible por WhatsApp. Los name (marca, cc, anio, precio) son
+       contrato con el servidor: NO renombrar.
+       La busqueda por texto vive aparte, en la barra superior. #}
     <form method="GET" action="/catalogo" class="filtros-form" role="search" id="form-filtros">
 
-        <div class="barra-filtros">
-            <div class="campo-icono" style="flex:1">
-                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg>
-                <input type="text" name="q" placeholder="Buscar marca o modelo..."
-                       value="{{ filtros.texto or '' }}" maxlength="50" aria-label="Buscar marca o modelo">
-            </div>
-            <button type="button" class="btn-panel" onclick="alternarPanel()"
-                    aria-expanded="{{ 'true' if filtros_activos else 'false' }}" aria-controls="panel-filtros">
-                Filtros
-                {% if filtros_activos %}<span class="cuenta">{{ filtros_activos }}</span>{% endif %}
+        <div class="fila-filtros">
+            <button type="button" class="btn-desplegable {% if filtros.marcas %}activo{% endif %}"
+                    onclick="alternarFiltro('marca')" id="btn-marca"
+                    aria-expanded="false" aria-controls="panel-marca">
+                Marca
+                {% if filtros.marcas %}<span class="cuenta">{{ filtros.marcas|length }}</span>{% endif %}
+                <span class="flecha">&#9660;</span>
+            </button>
+
+            <button type="button" class="btn-desplegable {% if filtros.cc %}activo{% endif %}"
+                    onclick="alternarFiltro('cc')" id="btn-cc"
+                    aria-expanded="false" aria-controls="panel-cc">
+                Cilindraje
+                {% if filtros.cc %}<span class="cuenta">{{ filtros.cc|length }}</span>{% endif %}
+                <span class="flecha">&#9660;</span>
+            </button>
+
+            <button type="button" class="btn-desplegable {% if filtros.anio %}activo{% endif %}"
+                    onclick="alternarFiltro('anio')" id="btn-anio"
+                    aria-expanded="false" aria-controls="panel-anio">
+                Año
+                {% if filtros.anio %}<span class="cuenta">{{ filtros.anio|length }}</span>{% endif %}
+                <span class="flecha">&#9660;</span>
+            </button>
+
+            <button type="button" class="btn-desplegable {% if filtros.precio %}activo{% endif %}"
+                    onclick="alternarFiltro('precio')" id="btn-precio"
+                    aria-expanded="false" aria-controls="panel-precio">
+                Precio
+                {% if filtros.precio %}<span class="cuenta">{{ filtros.precio|length }}</span>{% endif %}
+                <span class="flecha">&#9660;</span>
             </button>
         </div>
-        <p class="resultado-cuenta">
-            <b>{{ total_motos }}</b> {{ 'moto encontrada' if motos|length == 1 else 'motos encontradas' }}
-        </p>
 
-        <!-- El panel queda abierto si hay filtros activos: así el cliente
-             no tiene que reabrirlo después de cada selección. -->
-            <div class="panel-filtros" id="panel-filtros">
-
-            <div class="grupo-filtro">
-                <h3>Marca</h3>
-                <select name="marca" multiple size="6" class="select-marcas" aria-label="Filtrar por marca">
-                    {% for m in marcas %}
-                    <option value="{{ m }}" {% if m in filtros.marcas %}selected{% endif %}>{{ m }}</option>
-                    {% endfor %}
-                </select>
-                <p class="ayuda-select">Mantén Ctrl (o Cmd) para elegir varias</p>
+        <div class="panel-desplegable" id="panel-marca">
+            <div class="opciones compacto">
+                {% for m in marcas %}
+                <label class="opcion">
+                    <input type="checkbox" name="marca" value="{{ m }}"
+                           {% if m in filtros.marcas %}checked{% endif %}>
+                    {{ m }}
+                </label>
+                {% endfor %}
             </div>
-            
-
-            <div class="grupo-filtro">
-                <h3>Cilindraje</h3>
-                <div class="opciones">
-                    {% for clave, rango in rangos_cc.items() %}
-                    <label class="opcion">
-                            <input type="checkbox" name="cc" value="{{ clave }}"
-                               {% if clave in filtros.cc %}checked{% endif %}>  
-                        {{ rango.etiqueta }}
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="grupo-filtro">
-                <h3>Año</h3>
-                <div class="opciones">
-                    {% for clave, rango in rangos_anio.items() %}
-                    <label class="opcion">
-                            <input type="checkbox" name="anio" value="{{ clave }}"
-                               {% if clave in filtros.anio %}checked{% endif %}>
-                        {{ rango.etiqueta }}
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="grupo-filtro">
-                <h3>Precio</h3>
-                <div class="opciones">
-                    {% for clave, rango in rangos_precio.items() %}
-                    <label class="opcion">
-                            <input type="checkbox" name="precio" value="{{ clave }}"
-                               {% if clave in filtros.precio %}checked{% endif %}> 
-                        {{ rango.etiqueta }}
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="acciones-panel">
-                <button type="submit" class="btn-filtrar">Ver resultados</button>
-                <a href="/catalogo" class="btn-limpiar-todo">Limpiar filtros</a>
-            </div>
+            <button type="submit" class="btn-filtrar" style="margin-top:16px; width:100%">Ver resultados</button>
         </div>
+
+        <div class="panel-desplegable" id="panel-cc">
+            <div class="opciones">
+                {% for clave, rango in rangos_cc.items() %}
+                <label class="opcion">
+                    <input type="checkbox" name="cc" value="{{ clave }}"
+                           {% if clave in filtros.cc %}checked{% endif %}>
+                    {{ rango.etiqueta }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn-filtrar" style="margin-top:16px; width:100%">Ver resultados</button>
+        </div>
+
+        <div class="panel-desplegable" id="panel-anio">
+            <div class="opciones">
+                {% for clave, rango in rangos_anio.items() %}
+                <label class="opcion">
+                    <input type="checkbox" name="anio" value="{{ clave }}"
+                           {% if clave in filtros.anio %}checked{% endif %}>
+                    {{ rango.etiqueta }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn-filtrar" style="margin-top:16px; width:100%">Ver resultados</button>
+        </div>
+
+        <div class="panel-desplegable" id="panel-precio">
+            <div class="opciones">
+                {% for clave, rango in rangos_precio.items() %}
+                <label class="opcion">
+                    <input type="checkbox" name="precio" value="{{ clave }}"
+                           {% if clave in filtros.precio %}checked{% endif %}>
+                    {{ rango.etiqueta }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn-filtrar" style="margin-top:16px; width:100%">Ver resultados</button>
+        </div>
+
+    
+       
+
+        <p class="resultado-cuenta">
+            <b>{{ total_motos }}</b> {{ 'moto encontrada' if total_motos == 1 else 'motos encontradas' }}
+        </p>
+        {% if filtros_aplicados %}
+        <div class="aplicados">
+            {% for f in filtros_aplicados %}
+            <a href="{{ f.url_quitar }}" aria-label="Quitar filtro {{ f.etiqueta }}">
+                {{ f.etiqueta }} <span class="quitar">&times;</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
     </form>
 
     <div class="container">
@@ -627,14 +759,35 @@
               });
     }
 
-    // ===== Panel de filtros =====
-    function alternarPanel() {
-        const panel = document.getElementById('panel-filtros');
-        const boton = document.querySelector('.btn-panel');
-        const abierto = panel.classList.toggle('abierto');
-        boton.setAttribute('aria-expanded', abierto);
+    // ===== Busqueda en la barra superior =====
+    function abrirBusqueda() {
+        document.getElementById('busqueda-barra').classList.add('abierta');
+        document.getElementById('input-busqueda').focus();
     }
-    </script>
+    function cerrarBusqueda() {
+        document.getElementById('busqueda-barra').classList.remove('abierta');
+    }
+
+    // ===== Filtros desplegables =====
+    // Solo uno abierto a la vez: si se acumularan, el panel empujaria las
+    // motos fuera de la pantalla, que es justo lo que queremos evitar.
+    function alternarFiltro(nombre) {
+        const panel = document.getElementById('panel-' + nombre);
+        const boton = document.getElementById('btn-' + nombre);
+        const estaAbierto = panel.classList.contains('abierto');
+
+        document.querySelectorAll('.panel-desplegable').forEach(p => p.classList.remove('abierto'));
+        document.querySelectorAll('.btn-desplegable').forEach(b => {
+            b.classList.remove('abierto');
+            b.setAttribute('aria-expanded', 'false');
+        });
+
+        if (!estaAbierto) {
+            panel.classList.add('abierto');
+            boton.classList.add('abierto');
+            boton.setAttribute('aria-expanded', 'true');
+        }
+    }
     </script>
     {% if not session.rol %}
     {% include 'chat.html' %}

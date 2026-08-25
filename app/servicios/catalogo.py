@@ -213,7 +213,53 @@ def buscar_motos(args) -> dict:
         "rangos_anio": RANGOS_ANIO,
         "rangos_precio": RANGOS_PRECIO,
         "filtros_activos": contar_filtros_activos(filtros),
+        "filtros_aplicados": filtros_aplicados(filtros),
         "pagina": pagina,
         "total_paginas": total_paginas,
         "total_motos": total,
     }
+def filtros_aplicados(filtros) -> list:
+    """
+    Arma la lista de filtros activos para mostrarlos como pastillas
+    que el cliente puede quitar de a una.
+
+    Cada elemento trae la etiqueta visible y la URL que resulta de quitar
+    ESE filtro conservando los demas. Se calcula aqui y no en la plantilla
+    porque armar la URL requiere reconstruir listas de parametros
+    repetidos (?marca=BAJAJ&marca=YAMAHA), y eso es logica, no formato.
+    """
+    from urllib.parse import urlencode
+
+    # Los cuatro criterios en el orden en que se muestran los botones.
+    criterios = [
+        ("marca",  filtros.get("marcas", []),  lambda v: v),
+        ("cc",     filtros.get("cc", []),      lambda v: RANGOS_CILINDRAJE[v]["etiqueta"]),
+        ("anio",   filtros.get("anio", []),    lambda v: RANGOS_ANIO[v]["etiqueta"]),
+        ("precio", filtros.get("precio", []),  lambda v: RANGOS_PRECIO[v]["etiqueta"]),
+    ]
+
+    activos = {nombre: list(valores) for nombre, valores, _ in criterios}
+
+    aplicados = []
+    for nombre, valores, etiquetar in criterios:
+        for valor in valores:
+            # Copia de todos los filtros menos el que se esta quitando.
+            restantes = []
+            for otro_nombre, otros_valores in activos.items():
+                for otro_valor in otros_valores:
+                    if otro_nombre == nombre and otro_valor == valor:
+                        continue
+                    restantes.append((otro_nombre, otro_valor))
+
+            # El texto de busqueda sobrevive: vive en su propio formulario
+            # y quitar un filtro no deberia cancelarlo.
+            if filtros.get("texto"):
+                restantes.append(("q", filtros["texto"]))
+
+            consulta = urlencode(restantes)
+            aplicados.append({
+                "etiqueta": etiquetar(valor),
+                "url_quitar": "/catalogo?" + consulta if consulta else "/catalogo",
+            })
+
+    return aplicados
