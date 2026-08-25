@@ -35,6 +35,12 @@ def capturar_linea_origen():
     asesor_id = request.args.get("a")
     if asesor_id:
         session["asesor_origen"] = asesor_id
+    # Identificador anónimo para agrupar los clics de una misma visita.
+    # No dice nada de quién es la persona: es un número al azar.
+    if not session.get("visita_id"):
+        import uuid
+        session["visita_id"] = uuid.uuid4().hex
+
 @publico_bp.route("/")
 @publico_bp.route("/inicio")
 def inicio():
@@ -116,6 +122,7 @@ def terminos():
     return render_template("terminos.html")
 
 @publico_bp.route("/consultar/<int:moto_id>")
+@limiter.limit("30 per hour")
 def consultar_moto(moto_id):
     """
     Registra la intención de compra y redirige a WhatsApp.
@@ -128,7 +135,7 @@ def consultar_moto(moto_id):
     No modifica datos del usuario ni requiere protección CSRF; el único
     efecto es incrementar un contador anónimo de interés.
     """
-    inventario.registrar_intencion(moto_id)
+    inventario.registrar_intencion(moto_id, session.get("visita_id"))
     # El id del asesor de origen (si el cliente vino por un link de asesor).
     asesor_id = session.get("asesor_origen")
     numero = None

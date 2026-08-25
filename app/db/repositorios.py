@@ -392,7 +392,7 @@ def registrar_permuta(datos: dict):
 #  INTENCIONES (registro anónimo de interés)
 # ============================================================
 
-def registrar_intencion(moto_id: int, sede_id: int):
+def registrar_intencion(moto_id: int, sede_id: int, sesion_id: str = None):
     """
     Guarda una intención de compra. Escritura desde el servidor,
     con la conexión admin.
@@ -401,6 +401,7 @@ def registrar_intencion(moto_id: int, sede_id: int):
     supabase.table("intenciones").insert({
         "moto_id": moto_id,
         "sede_id": sede_id,
+        "sesion_id": sesion_id,
     }).execute()
 
     # ============================================================
