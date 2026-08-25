@@ -173,7 +173,7 @@ def contar_filtros_activos(filtros) -> int:
     return activos
 
 
-MOTOS_POR_PAGINA = 1
+MOTOS_POR_PAGINA = 15
 
 
 def buscar_motos(args) -> dict:
