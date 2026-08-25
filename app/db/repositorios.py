@@ -260,26 +260,23 @@ def _condicion_rangos(columna: str, rangos):
     return ",".join(partes) if partes else None
 
 
-def obtener_motos_filtradas(filtros: dict):
+def obtener_motos_filtradas(filtros: dict, limite: int = 15, pagina: int = 1):
     """
-    Motos disponibles que cumplen los filtros indicados.
+    Motos disponibles que cumplen los filtros, ordenadas por popularidad
+    reciente y paginadas.
 
-    La consulta se CONSTRUYE dinámicamente: empezamos con la base
-    (disponibles) y le vamos encadenando condiciones solo por los
-    filtros que llegaron. Un filtro vacío simplemente no se aplica.
+    Consulta la vista catalogo_ordenado en lugar de la tabla motos: la vista
+    ya trae las consultas de los ultimos 15 dias calculadas y los datos de la
+    sede aplanados. Ordenar en la base (y no en Python) permite paginar de
+    verdad: se traen 15 filas, no 130.
 
-    filtros: dict ya VALIDADO (el servicio se encarga de limpiarlo).
-        marcas (lista), sede_id, precio_min, precio_max, texto,
-        cilindraje_rangos y anio_rangos (listas de pares min/max).
+    Devuelve (motos, total) para que el template pueda armar los controles
+    de paginacion.
     """
     supabase = get_supabase_publico()
 
-    # Consulta base: siempre solo las disponibles, con su sede.
-    consulta = supabase.table("motos")\
-        .select("*, sedes(nombre, direccion)")\
-        .eq("estado", "disponible")
+    consulta = supabase.table("catalogo_ordenado").select("*", count="exact")
 
-    # Marcas: seleccion multiple. in_ = "que este en esta lista".
     if filtros.get("marcas"):
         consulta = consulta.in_("marca", filtros["marcas"])
 
@@ -290,8 +287,6 @@ def obtener_motos_filtradas(filtros: dict):
     if condicion_precio:
         consulta = consulta.or_(condicion_precio)
 
-    # Cilindraje y anio: varios rangos a la vez se combinan con OR.
-    # "hasta 125 O entre 151 y 200" -> or(and(...),and(...))
     condicion_cc = _condicion_rangos("cilindraje", filtros.get("cilindraje_rangos"))
     if condicion_cc:
         consulta = consulta.or_(condicion_cc)
@@ -301,12 +296,22 @@ def obtener_motos_filtradas(filtros: dict):
         consulta = consulta.or_(condicion_anio)
 
     if filtros.get("texto"):
-        # Búsqueda en marca O modelo. 'ilike' = contiene, sin distinguir
-        # mayúsculas. El % es comodín: %yamaha% = "contiene yamaha".
         texto = filtros["texto"]
         consulta = consulta.or_(f"marca.ilike.%{texto}%,modelo.ilike.%{texto}%")
 
-    return consulta.order("created_at", desc=True).execute().data
+    # Orden: primero lo mas consultado en 15 dias; entre iguales, lo mas
+    # reciente. Asi una moto nueva sin consultas queda al frente de las
+    # viejas que tampoco tienen.
+    consulta = consulta.order("consultas_recientes", desc=True)\
+                       .order("created_at", desc=True)
+
+    # range() es inclusivo en ambos extremos: para 15 por pagina, la
+    # pagina 1 pide de 0 a 14, la pagina 2 de 15 a 29.
+    desde = (pagina - 1) * limite
+    hasta = desde + limite - 1
+    resultado = consulta.range(desde, hasta).execute()
+
+    return resultado.data, resultado.count
 
    
 def obtener_foto_galeria(foto_id: int):

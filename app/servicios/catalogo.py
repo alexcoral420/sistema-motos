@@ -173,15 +173,39 @@ def contar_filtros_activos(filtros) -> int:
     return activos
 
 
+MOTOS_POR_PAGINA = 1
+
+
 def buscar_motos(args) -> dict:
     """
     Punto de entrada del catálogo filtrado.
-    Devuelve las motos que cumplen los filtros, las opciones de los
-    selectores, y los filtros aplicados (para recordar lo elegido).
+
+    Devuelve las motos de la página pedida, las opciones de los selectores,
+    los filtros aplicados y los datos de paginación.
     """
     filtros = limpiar_filtros(args)
+
+    # La página viene de la URL: entrada externa, se valida como todo lo demás.
+    pagina = _limpiar_entero(args.get("pagina"), minimo=1, maximo=1000) or 1
+
+    motos, total = repositorios.obtener_motos_filtradas(
+        filtros, limite=MOTOS_POR_PAGINA, pagina=pagina
+    )
+
+    # Cuántas páginas hacen falta para mostrar 'total' motos.
+    # El -1 y +1 redondean hacia arriba sin usar decimales: 16 motos en
+    # páginas de 15 son 2 páginas, no 1.
+    total_paginas = max(1, (total + MOTOS_POR_PAGINA - 1) // MOTOS_POR_PAGINA)
+
+    # Si alguien pide una página que no existe, lo llevamos a la última.
+    if pagina > total_paginas:
+        pagina = total_paginas
+        motos, total = repositorios.obtener_motos_filtradas(
+            filtros, limite=MOTOS_POR_PAGINA, pagina=pagina
+        )
+
     return {
-        "motos": repositorios.obtener_motos_filtradas(filtros),
+        "motos": motos,
         "marcas": repositorios.obtener_marcas_disponibles(),
         "sedes": sedes.listar_sedes(),
         "filtros": filtros,
@@ -189,4 +213,7 @@ def buscar_motos(args) -> dict:
         "rangos_anio": RANGOS_ANIO,
         "rangos_precio": RANGOS_PRECIO,
         "filtros_activos": contar_filtros_activos(filtros),
+        "pagina": pagina,
+        "total_paginas": total_paginas,
+        "total_motos": total,
     }
