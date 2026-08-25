@@ -305,6 +305,24 @@
             .nav-links .btn-nav { font-size: 16px; padding: 10px 18px; gap: 8px; justify-content: center; }
             .nav-links .btn-nav .ico { width: 18px; height: 18px; }
         }
+
+                /* ===== Paginación ===== */
+        .paginacion {
+            display: flex; justify-content: center; align-items: center;
+            gap: 10px; padding: 32px 20px 48px; flex-wrap: wrap;
+        }
+        .paginacion a, .paginacion span {
+            padding: 10px 16px; border-radius: 10px;
+            border: 1px solid var(--borde); color: var(--texto-suave);
+            text-decoration: none; font-size: 15px; min-width: 44px;
+            text-align: center;
+        }
+        .paginacion a:hover { border-color: var(--naranja); color: var(--naranja); }
+        .paginacion .actual {
+            background: var(--naranja); color: #000;
+            border-color: var(--naranja); font-weight: 700;
+        }
+        .paginacion .inactivo { opacity: 0.35; }
     </style>
 </head>
 <body>
@@ -397,7 +415,7 @@
             </button>
         </div>
         <p class="resultado-cuenta">
-            <b>{{ motos|length }}</b> {{ 'moto encontrada' if motos|length == 1 else 'motos encontradas' }}
+            <b>{{ total_motos }}</b> {{ 'moto encontrada' if motos|length == 1 else 'motos encontradas' }}
         </p>
 
         <!-- El panel queda abierto si hay filtros activos: así el cliente
@@ -518,6 +536,25 @@
         </div>
         {% endif %}
     </div>
+
+    {% if total_paginas > 1 %}
+    <nav class="paginacion" aria-label="Páginas del catálogo">
+        {% if pagina > 1 %}
+        <a href="{{ url_for('publico.catalogo_publico', **dict(request.args, pagina=pagina-1)) }}">← Anterior</a>
+        {% else %}
+        <span class="inactivo">← Anterior</span>
+        {% endif %}
+
+        <span class="actual">{{ pagina }} de {{ total_paginas }}</span>
+
+        {% if pagina < total_paginas %}
+        <a href="{{ url_for('publico.catalogo_publico', **dict(request.args, pagina=pagina+1)) }}">Siguiente →</a>
+        {% else %}
+        <span class="inactivo">Siguiente →</span>
+        {% endif %}
+    </nav>
+    {% endif %}
+
 
     <!-- Footer -->
     <footer class="footer">
