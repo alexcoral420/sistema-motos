@@ -366,7 +366,7 @@ def registrar_permuta(datos_entrante: dict, placa_saliente: str,
 #  INTENCIONES
 # ============================================================
 
-def registrar_intencion(moto_id: int):
+def registrar_intencion(moto_id: int, sesion_id: str = None):
     """
     Registra el interés en una moto (clic en 'Preguntar por esta moto').
     Si la moto no existe, no registra nada: un id inválido en la URL no
@@ -375,4 +375,7 @@ def registrar_intencion(moto_id: int):
     moto = repositorios.obtener_moto_por_id(moto_id)
     if not moto:
         return
-    repositorios.registrar_intencion(moto_id, moto.get("sede_id"))
+        
+    print(f"DEBUG: llamando al repositorio")
+    repositorios.registrar_intencion(moto_id, moto.get("sede_id"), sesion_id)
+    print(f"DEBUG: insert ejecutado")
