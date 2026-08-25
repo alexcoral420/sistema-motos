@@ -1,7 +1,7 @@
 venv/
 .venv/
 .env
-.env.local
+.env.*
 __pycache__/
 *.py[cod]
 .vscode/
