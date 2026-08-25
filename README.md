@@ -305,9 +305,9 @@ El sistema está en producción y en uso diario. Estos son sus límites conocido
 más significativa: a medida que el sistema crece, la probabilidad de romper
 algo sin notarlo aumenta.
 
-**Sin entornos separados.** Desarrollo y producción comparten la misma
-instancia de base de datos. Cualquier prueba local opera sobre datos reales.
-Es el problema que más urge resolver.
+**desarrollo y producción** usan proyectos distintos de Supabase, con el esquema replicado desde migraciones/001_esquema_inicial.sql.
+Ahora existe el punto de partida documentado; lo que falta es sostener el proceso en cada cambio futuro.
+quien clone el repo puede levantar su propia base ejecutando la migración inicial. Eso convierte el proyecto en algo reproducible por otra persona
 
 **Migraciones sin versionar.** El esquema evolucionó mediante cambios aplicados
 directamente sobre la base, sin quedar registrados en el repositorio. Ya

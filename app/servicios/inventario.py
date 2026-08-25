@@ -285,7 +285,7 @@ def comprar_moto(datos: dict, usuario_id: int, usuario_nombre: str):
     repositorios.registrar_compra({
         "moto_id": moto_id,
         "descripcion": descripcion,
-        "placa": moto.get("placa"),
+        "placa": moto_creada.get("placa"),
         "usuario_id": usuario_id,
         "usuario_nombre": usuario_nombre,
 
