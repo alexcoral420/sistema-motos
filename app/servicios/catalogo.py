@@ -188,20 +188,24 @@ def buscar_motos(args) -> dict:
     # La página viene de la URL: entrada externa, se valida como todo lo demás.
     pagina = _limpiar_entero(args.get("pagina"), minimo=1, maximo=1000) or 1
 
+    # La API puede pedir mas por pagina; el tope evita que una peticion
+    # traiga el inventario entero y sature la respuesta.
+    limite = _limpiar_entero(args.get("limite"), minimo=1, maximo=100) or MOTOS_POR_PAGINA
+
     motos, total = repositorios.obtener_motos_filtradas(
-        filtros, limite=MOTOS_POR_PAGINA, pagina=pagina
+        filtros, limite=limite, pagina=pagina
     )
 
     # Cuántas páginas hacen falta para mostrar 'total' motos.
     # El -1 y +1 redondean hacia arriba sin usar decimales: 16 motos en
     # páginas de 15 son 2 páginas, no 1.
-    total_paginas = max(1, (total + MOTOS_POR_PAGINA - 1) // MOTOS_POR_PAGINA)
+    total_paginas = max(1, (total + limite - 1) // limite)
 
     # Si alguien pide una página que no existe, lo llevamos a la última.
     if pagina > total_paginas:
         pagina = total_paginas
         motos, total = repositorios.obtener_motos_filtradas(
-            filtros, limite=MOTOS_POR_PAGINA, pagina=pagina
+            filtros, limite=limite, pagina=pagina
         )
 
     return {
