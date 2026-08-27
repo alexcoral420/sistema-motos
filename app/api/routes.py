@@ -11,12 +11,13 @@ en formato JSON para el consumo externo.
 """
 
 from flask import Blueprint, request, jsonify
-
-from app.servicios import busqueda, inventario
 from app.auth.api_key import requiere_api_key
 from app.seguridad.logging_config import obtener_logger
-from app.servicios import busqueda, inventario, metricas
+from app.seguridad.limites import limiter
+from app.servicios import inventario, metricas, catalogo
 from app.servicios.metricas import ErrorMetrica
+from app.db import repositorios
+from app.seguridad.limites import limiter
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
@@ -25,15 +26,29 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 def buscar_motos():
     """
     Busca motos disponibles según filtros.
-    Los filtros llegan como query params: ?marca=yamaha&precio_max=8000000
-    Reutiliza el mismo servicio que el catálogo público.
+
+    Filtros por query params (mismo contrato que el catálogo público):
+        ?marca=BAJAJ&marca=YAMAHA   una o varias marcas
+        ?cc=hasta-125               rango de cilindraje
+        ?anio=2023-mas              rango de año
+        ?precio=6-8m                rango de precio
+        ?q=pulsar                   búsqueda por texto
+        ?pagina=2                   página (15 por defecto)
+        ?limite=100                 cuántas por página (máx 100)
+
+    Usa el mismo servicio que el catálogo público: los filtros se validan
+    igual y el orden es el mismo (popularidad reciente). No se duplica
+    lógica, solo se envuelve en JSON.
     """
-    resultado = busqueda.buscar(request.args)
-    # busqueda.buscar devuelve un dict con las motos y metadatos.
-    # Para la API, devolvemos la lista de motos en JSON.
+   
+
+    resultado = catalogo.buscar_motos(request.args)
+
     return jsonify({
-        "motos": resultado.get("motos", []),
-        "total": len(resultado.get("motos", [])),
+        "motos": resultado["motos"],
+        "total": resultado["total_motos"],
+        "pagina": resultado["pagina"],
+        "total_paginas": resultado["total_paginas"],
     })
 
 @api_bp.route("/motos/<int:moto_id>", methods=["GET"])
@@ -45,6 +60,31 @@ def detalle_moto(moto_id):
         return jsonify({"error": "Moto no encontrada"}), 404
     return jsonify({"moto": moto})
 
+@api_bp.route("/motos/todas", methods=["GET"])
+@requiere_api_key
+@limiter.limit("10 per day")
+def todas_las_motos():
+    """
+    Devuelve el inventario disponible COMPLETO, sin paginar.
+
+    Pensado para sincronizacion periodica: un sistema externo que mantiene
+    su propia copia del catalogo. Para consultas puntuales conviene
+    /api/motos/buscar, que filtra y pagina.
+
+    Solo devuelve motos con estado 'disponible'. Una moto vendida deja de
+    aparecer, y el sistema externo la retira de su copia en la siguiente
+    sincronizacion.
+
+    Limitado a 10 por dia: sincronizar es pesado y no tiene sentido
+    repetirlo con frecuencia.
+    """
+    motos = inventario.listar_motos_disponibles()
+    obtener_logger().info("API: sincronizacion completa, %s motos.", len(motos))
+    return jsonify({
+        "motos": motos,
+        "total": len(motos),
+    })
+    
 @api_bp.route("/intenciones", methods=["POST"])
 @requiere_api_key
 def registrar_intencion():

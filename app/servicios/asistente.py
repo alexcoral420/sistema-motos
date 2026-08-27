@@ -151,14 +151,7 @@ REGLAS:
 # ============================================================
 
 def _conversar(cliente, contexto, mensajes_base, forzar_calculadora=False):
-    """
-    Hace el ida y vuelta con la IA y sus herramientas.
-    Devuelve (texto_respuesta, uso_calculadora).
-
-    Si forzar_calculadora es True, la primera llamada OBLIGA a la IA a
-    usar calcular_cuota. Se usa en el reintento cuando detectamos que
-    iba a dar cifras sin calcularlas.
-    """
+   
     mensajes = list(mensajes_base)
     uso_calculadora = False
 
