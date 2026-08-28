@@ -275,43 +275,46 @@ def obtener_motos_filtradas(filtros: dict, limite: int = 15, pagina: int = 1):
     """
     supabase = get_supabase_publico()
 
-    consulta = supabase.table("catalogo_ordenado").select("*", count="exact")
+    def construir_consulta(head=False):
+        c = supabase.table("catalogo_ordenado").select("*", count="exact", head=head)
+        if filtros.get("marcas"):
+            c = c.in_("marca", filtros["marcas"])
+        if filtros.get("sede_id"):
+            c = c.eq("sede_id", filtros["sede_id"])
+        condicion_precio = _condicion_rangos("precio", filtros.get("precio_rangos"))
+        if condicion_precio:
+            c = c.or_(condicion_precio)
+        condicion_cc = _condicion_rangos("cilindraje", filtros.get("cilindraje_rangos"))
+        if condicion_cc:
+            c = c.or_(condicion_cc)
+        condicion_anio = _condicion_rangos("anio", filtros.get("anio_rangos"))
+        if condicion_anio:
+            c = c.or_(condicion_anio)
+        if filtros.get("texto"):
+            texto = filtros["texto"]
+            c = c.or_(f"marca.ilike.%{texto}%,modelo.ilike.%{texto}%")
+        return c
 
-    if filtros.get("marcas"):
-        consulta = consulta.in_("marca", filtros["marcas"])
+    # 1) Total real con el MISMO filtro, sin traer filas (head=True).
+    total = construir_consulta(head=True).execute().count or 0
 
-    if filtros.get("sede_id"):
-        consulta = consulta.eq("sede_id", filtros["sede_id"])
-
-    condicion_precio = _condicion_rangos("precio", filtros.get("precio_rangos"))
-    if condicion_precio:
-        consulta = consulta.or_(condicion_precio)
-
-    condicion_cc = _condicion_rangos("cilindraje", filtros.get("cilindraje_rangos"))
-    if condicion_cc:
-        consulta = consulta.or_(condicion_cc)
-
-    condicion_anio = _condicion_rangos("anio", filtros.get("anio_rangos"))
-    if condicion_anio:
-        consulta = consulta.or_(condicion_anio)
-
-    if filtros.get("texto"):
-        texto = filtros["texto"]
-        consulta = consulta.or_(f"marca.ilike.%{texto}%,modelo.ilike.%{texto}%")
-
-    # Orden: primero lo mas consultado en 15 dias; entre iguales, lo mas
-    # reciente. Asi una moto nueva sin consultas queda al frente de las
-    # viejas que tampoco tienen.
-    consulta = consulta.order("consultas_recientes", desc=True)\
-                       .order("created_at", desc=True)
-
-    # range() es inclusivo en ambos extremos: para 15 por pagina, la
-    # pagina 1 pide de 0 a 14, la pagina 2 de 15 a 29.
+    # 2) Si la pagina pedida se pasa del total, no pidas un range imposible:
+    #    devuelve lista vacia (el route se encarga de redirigir/clamp).
     desde = (pagina - 1) * limite
-    hasta = desde + limite - 1
-    resultado = consulta.range(desde, hasta).execute()
+    if desde >= total:
+        return [], total
 
-    return resultado.data, resultado.count
+    hasta = desde + limite - 1
+
+    # 3) Consulta real de datos, con orden y paginacion.
+    resultado = (
+        construir_consulta()
+        .order("consultas_recientes", desc=True)
+        .order("created_at", desc=True)
+        .range(desde, hasta)
+        .execute()
+    )
+    return resultado.data, total
 
    
 def obtener_foto_galeria(foto_id: int):

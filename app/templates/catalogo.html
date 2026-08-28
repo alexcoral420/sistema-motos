@@ -780,23 +780,23 @@
         {% endif %}
     </div>
 
-    {% if total_paginas > 1 %}
-    <nav class="paginacion" aria-label="Páginas del catálogo">
-        {% if pagina > 1 %}
-        <a href="{{ url_for('publico.catalogo_publico', **dict(request.args, pagina=pagina-1)) }}">← Anterior</a>
-        {% else %}
-        <span class="inactivo">← Anterior</span>
-        {% endif %}
-
-        <span class="actual">{{ pagina }} de {{ total_paginas }}</span>
-
-        {% if pagina < total_paginas %}
-        <a href="{{ url_for('publico.catalogo_publico', **dict(request.args, pagina=pagina+1)) }}">Siguiente →</a>
-        {% else %}
-        <span class="inactivo">Siguiente →</span>
-        {% endif %}
-    </nav>
+{% if total_paginas > 1 %}
+<nav class="paginacion" aria-label="Páginas del catálogo">
+    {% if pagina > 1 %}
+    <a href="{{ url_for('publico.catalogo_publico', **dict(request.args.to_dict(flat=False), pagina=pagina-1)) }}">← Anterior</a>
+    {% else %}
+    <span class="inactivo">← Anterior</span>
     {% endif %}
+
+    <span class="actual">{{ pagina }} de {{ total_paginas }}</span>
+
+    {% if pagina < total_paginas %}
+    <a href="{{ url_for('publico.catalogo_publico', **dict(request.args.to_dict(flat=False), pagina=pagina+1)) }}">Siguiente →</a>
+    {% else %}
+    <span class="inactivo">Siguiente →</span>
+    {% endif %}
+</nav>
+{% endif %}
 
 
     <!-- Footer -->
