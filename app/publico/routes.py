@@ -107,8 +107,11 @@ def detalle_moto(id):
     """Detalle de una moto. es_admin=False -> vista pública."""
     moto = inventario.obtener_moto(id)
     fotos = inventario.obtener_galeria(id)
-    return render_template("detalle.html", moto=moto, fotos=fotos, es_admin=False)
-
+    # El 95% de los visitantes mira una sola moto y se va: las similares
+    # son la mejor oportunidad de que explore alguna mas.
+    similares = inventario.obtener_similares(moto)
+    return render_template("detalle.html", moto=moto, fotos=fotos,
+                           similares=similares, es_admin=False)
 
 @publico_bp.route("/privacidad")
 def privacidad():

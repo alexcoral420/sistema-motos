@@ -898,3 +898,29 @@ def marcar_compra_verificada(compra_id, usuario_nombre):
                  .eq("id", compra_id)
                  .execute())
     return resultado.data
+
+def obtener_motos_similares(moto_id: int, precio: int, limite: int = 8):
+    """
+    Motos disponibles con precio parecido a la dada, excluyendola.
+
+    El criterio es el PRECIO (±30%) porque el presupuesto es lo que mas
+    restringe la decision: a alguien que mira una moto de $8M no le sirve
+    ver una de $20M, aunque sea de la misma marca.
+
+    Se usa en el detalle: el 95% de los visitantes mira una sola moto y se
+    va, asi que darle alternativas relevantes es la mejor oportunidad de
+    que explore mas.
+    """
+    if not precio:
+        return []
+
+    supabase = get_supabase_publico()
+    resultado = (supabase.table("motos")
+                 .select("*, sedes(nombre)")
+                 .eq("estado", "disponible")
+                 .neq("id", moto_id)
+                 .gte("precio", int(precio * 0.7))
+                 .lte("precio", int(precio * 1.3))
+                 .limit(limite)
+                 .execute())
+    return resultado.data

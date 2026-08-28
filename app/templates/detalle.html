@@ -142,6 +142,50 @@
             }
             .nav-links.abierto { display: flex; }
         }
+
+                /* ===== Motos similares ===== */
+        .similares { padding: 40px 0 20px; border-top: 1px solid #333; margin-top: 40px; }
+        .similares h2 {
+            font-size: 22px; text-transform: uppercase; margin: 0 24px 4px;
+            font-family: 'Barlow Condensed', sans-serif;
+        }
+        .similares .sub { color: #888; font-size: 14px; margin: 0 24px 18px; }
+
+        /* Fila deslizable: en movil las tarjetas no entran de otra forma,
+           y deslizar con el pulgar es mas natural que hacer scroll vertical. */
+        .pista-similares {
+            display: flex; gap: 14px; overflow-x: auto;
+            padding: 0 24px 12px; scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+        }
+        .pista-similares::-webkit-scrollbar { display: none; }
+
+        .card-similar {
+            flex: 0 0 200px; scroll-snap-align: start;
+            background: #1c1c16; border: 1px solid #33332a;
+            border-radius: 12px; overflow: hidden;
+            text-decoration: none; color: inherit;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .card-similar:hover { border-color: #ff7a00; transform: translateY(-3px); }
+        .card-similar img {
+            width: 100%; height: 130px; object-fit: cover; display: block;
+            background: #26261e;
+        }
+        .card-similar .datos { padding: 12px 14px; }
+        .card-similar .nombre {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
+            text-transform: uppercase; line-height: 1.15; margin-bottom: 4px;
+        }
+        .card-similar .precio { color: #ff7a00; font-weight: 700; font-size: 18px; }
+        .card-similar .detalle { color: #888; font-size: 13px; margin-top: 3px; }
+
+        @media (max-width: 600px) {
+            .similares h2, .similares .sub { margin-left: 16px; margin-right: 16px; }
+            .pista-similares { padding: 0 16px 12px; }
+            .card-similar { flex: 0 0 165px; }
+            .card-similar img { height: 110px; }
+        }
     </style>
 </head>
 <body>
@@ -332,6 +376,32 @@
         {% endif %}
 
     </div>
+
+        {% if similares %}
+    <section class="similares">
+        <h2>Otras motos en tu presupuesto</h2>
+        <p class="sub">Precios similares, disponibles ahora</p>
+        <div class="pista-similares">
+            {% for s in similares %}
+            <a href="{{ url_for('publico.detalle_moto', id=s.id) }}" class="card-similar">
+                {% if s.foto_url %}
+                <img src="{{ s.foto_url }}" alt="{{ s.marca }} {{ s.modelo }}" loading="lazy">
+                {% else %}
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Sin foto" loading="lazy">
+                {% endif %}
+                <div class="datos">
+                    <div class="nombre">{{ s.marca }} {{ s.modelo }}</div>
+                    <div class="precio">{{ s.precio | pesos }}</div>
+                    <div class="detalle">
+                        {% if s.anio %}{{ s.anio }}{% endif %}
+                        {% if s.cilindraje %} · {{ s.cilindraje }}cc{% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
     <!-- Footer -->
     <footer class="footer">

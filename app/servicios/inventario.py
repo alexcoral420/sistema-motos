@@ -379,3 +379,11 @@ def registrar_intencion(moto_id: int, sesion_id: str = None):
     print(f"DEBUG: llamando al repositorio")
     repositorios.registrar_intencion(moto_id, moto.get("sede_id"), sesion_id)
     print(f"DEBUG: insert ejecutado")
+
+def obtener_similares(moto: dict, limite: int = 8):
+    """Motos con precio parecido, para sugerir en el detalle."""
+    if not moto:
+        return []
+    return repositorios.obtener_motos_similares(
+        moto["id"], moto.get("precio"), limite
+    )
