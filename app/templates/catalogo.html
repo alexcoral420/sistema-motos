@@ -119,20 +119,77 @@
         .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
         .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-        /* ===== Header del catálogo (banda de imagen, sin texto) ===== */
+        /* ===== Hero del catálogo (ilustrado: fondo negro + triángulo + moto) ===== */
+        /* Fondo negro plano, sin foto: la moto y el triángulo son SVG/CSS, así
+           el hero no depende de ningún archivo de imagen y siempre se ve igual.
+           (Si algún día quieres foto de fondo, define --catalogo-img y añádela
+            como capa en background-image.) */
         .catalogo-header {
-            height: 260px;
-            border-bottom: 2px solid var(--naranja);
             position: relative; overflow: hidden;
-            background-image: linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 30%, rgba(13,13,13,0.6) 100%), var(--catalogo-img, none);
-            background-size: cover, cover;
-            background-position: center, center;
+            display: flex; align-items: center;
+            height: 40vh; min-height: 300px; max-height: 460px;
+            border-bottom: 2px solid var(--naranja);
             background-color: var(--negro-900);
         }
-        /* En movil ocupa casi la mitad de la pantalla: vh se adapta al alto
-           real del dispositivo, a diferencia de una altura fija en px que
-           se ve distinta en cada telefono. */
-        @media (max-width: 600px) { .catalogo-header { height: 45vh; min-height: 240px; } }
+        @media (max-width: 600px) { .catalogo-header { height: 42vh; min-height: 260px; max-height: none; } }
+
+        /* Triángulo naranja translúcido (el "café" sobre negro): banda diagonal
+           que sube hacia la derecha en la base del hero. */
+        .hero-triangulo {
+            position: absolute; inset: 0; pointer-events: none;
+            background: var(--naranja); opacity: 0.10;
+            clip-path: polygon(0 80%, 100% 42%, 100% 100%, 0 100%);
+        }
+        /* Moto de líneas naranja, abajo a la derecha. clamp() la escala según el
+           ancho; en móvil baja la opacidad para no competir con el texto. */
+        .hero-moto {
+            position: absolute; right: clamp(-24px, 1vw, 48px); bottom: 6%;
+            width: clamp(230px, 46vw, 480px); height: auto;
+            pointer-events: none;
+        }
+        .hero-moto path, .hero-moto circle { stroke: var(--naranja); }
+        @media (max-width: 600px) { .hero-moto { opacity: 0.35; bottom: 4%; right: -18px; } }
+
+        /* Contenedor interno: alinea el contenido a la izquierda y lo centra
+           en vertical, con el mismo ancho máximo que usan los filtros.
+           z-index lo mantiene sobre la moto y el triángulo. */
+        .hero-inner { position: relative; z-index: 2; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px; }
+        .hero-lema {
+            margin: 0; color: var(--blanco);
+            font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            font-size: clamp(34px, 8vw, 60px); line-height: 0.95;
+            text-shadow: 0 2px 18px rgba(0,0,0,0.55);
+        }
+        .hero-lema span { color: var(--naranja); }
+        .hero-sub {
+            margin: 14px 0 0; color: var(--texto-suave); max-width: 32ch;
+            font-size: clamp(14px, 3.6vw, 18px); line-height: 1.4;
+            text-shadow: 0 1px 10px rgba(0,0,0,0.5);
+        }
+        .hero-cta {
+            display: inline-flex; align-items: center; gap: 8px; margin-top: 20px;
+            padding: 10px 20px; border-radius: 9px;
+            background: var(--naranja); color: #000; text-decoration: none;
+            font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+            font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .hero-cta:hover { background: var(--naranja-claro); transform: translateY(-1px); }
+        .hero-cta .ico { width: 16px; height: 16px; }
+
+        /* Indicador de scroll: le dice al usuario que hay catálogo debajo. */
+        .hero-scroll {
+            position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+            color: var(--naranja); animation: hero-bajar 1.8s ease-in-out infinite;
+        }
+        .hero-scroll .ico { width: 24px; height: 24px; }
+        @keyframes hero-bajar {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(6px); }
+        }
+        @media (prefers-reduced-motion: reduce) { .hero-scroll { animation: none; } }
+        @media (max-width: 600px) { .hero-scroll { display: none; } }
 
         .contador { text-align: center; padding: 24px 16px 4px; color: var(--texto-tenue); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         .contador b { color: var(--naranja); font-weight: 700; }
@@ -315,7 +372,15 @@
         .btn-limpiar:hover { border-color: var(--naranja); color: var(--naranja); }
 
 
-        .container { padding: 0 24px 60px; max-width: 1200px; margin: 0 auto; }
+        /* Panel blanco del catálogo: el espacio ENTRE cards queda blanco.
+           El fondo negro de la página solo asoma como marco a los lados
+           (margen horizontal) y arriba/abajo contra filtros y paginación. */
+        .container {
+            max-width: 1180px; margin: 0 auto; padding: 30px 22px 50px;
+            background: #ffffff; border-radius: 16px;
+        }
+        @media (max-width: 900px) { .container { margin: 0 14px; } }
+        @media (max-width: 600px) { .container { margin: 0 10px; padding: 18px 12px 36px; border-radius: 14px; } }
         .select-marcas {
             width: 100%; padding: 10px 14px; border-radius: 10px;
             background: var(--negro-600); border: 1px solid var(--borde);
@@ -329,50 +394,70 @@
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 28px; }
         @media (min-width: 1000px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
-        /* ===== Tarjeta ===== */
+        /* ===== Tarjeta (estilo claro, como la propuesta) ===== */
+        /* Colores locales de la tarjeta clara: solo viven aquí, no tocan el
+           tema oscuro del resto de la página. La tarjeta blanca resalta sobre
+           el fondo negro como una galería. */
         .card {
-            background: var(--negro-600); border: 1px solid var(--borde); border-radius: 16px;
-            overflow: hidden; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            --card-bg: #ffffff;
+            --card-borde: #e6e4df;
+            --card-img-bg: #ecebe7;
+            --card-titulo: #17140f;
+            --card-meta: #171410;
+            --card-desc: #2b2620;
+            background: var(--card-bg); border: 1.5px solid #141210; border-radius: 14px;
+            overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.10);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        .card:hover { transform: translateY(-6px); border-color: var(--naranja); box-shadow: 0 12px 28px rgba(255,122,0,0.15); }
-        .card img { width: 100%; height: 230px; object-fit: cover; display: block; background: var(--negro-700); }
-        .card-no-img { width: 100%; height: 230px; background: var(--negro-700); display: flex; align-items: center; justify-content: center; color: var(--texto-tenue); }
-        .card-no-img .ico { width: 60px; height: 60px; }
+        .card:hover { transform: translateY(-6px); box-shadow: 0 14px 30px rgba(0,0,0,0.20); }
+        .card img { width: 100%; height: 200px; object-fit: cover; display: block; background: var(--card-img-bg); border-bottom: 1.5px solid #141210; }
+        .card-no-img { width: 100%; height: 200px; background: var(--card-img-bg); display: flex; align-items: center; justify-content: center; color: #b7b4ad; border-bottom: 1.5px solid #141210; }
+        .card-no-img .ico { width: 56px; height: 56px; }
 
-        .card-body { padding: 20px; }
-        .card-title { font-size: 21px; font-weight: 700; color: var(--blanco); margin-bottom: 6px; text-transform: uppercase; }
+        .card-body { padding: 18px 18px 20px; }
+        .card-title { font-size: 21px; font-weight: 700; color: var(--card-titulo); margin-bottom: 4px; text-transform: uppercase; }
         .card-title:hover { color: var(--naranja); }
-        .card-price { font-size: 28px; color: var(--naranja); font-weight: 800; margin-bottom: 14px; }
-        .card-price.consultar { font-size: 20px; color: var(--texto-suave); }
+        .card-price { font-size: 27px; color: var(--naranja); font-weight: 800; margin-bottom: 0; }
+        .card-price.consultar { font-size: 19px; color: var(--card-meta); }
+        /* Separador con degradado oscuro que divide precio y ficha técnica.
+           Se dibuja con ::after, así no hay que tocar el HTML/Jinja de la card. */
+        .card-price::after {
+            content: ""; display: block; height: 3px; border-radius: 2px; margin: 12px 0 14px;
+            background: linear-gradient(to right, #141210 0%, #141210 45%, rgba(20,18,16,0.04) 100%);
+        }
 
+        /* Meta en pastillas sutiles gris claro (antes eran chips oscuros). */
         .card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
         .tag {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: rgba(255,122,0,0.08); border: 1px solid var(--borde); color: var(--texto-suave);
-            padding: 5px 12px; border-radius: 14px; font-size: 12px;
+            display: inline-flex; align-items: center; gap: 7px;
+            background: #f2f1ec; border: 1px solid var(--card-borde); color: var(--card-meta);
+            padding: 6px 13px; border-radius: 14px; font-size: 14px; font-weight: 500;
         }
-        .tag .ico { width: 13px; height: 13px; color: var(--naranja); }
-        .card-desc { font-size: 13px; color: var(--texto-tenue); line-height: 1.5; margin-bottom: 16px; display: flex; gap: 7px; }
-        .card-desc .ico { width: 14px; height: 14px; margin-top: 2px; flex-shrink: 0; }
+        .tag .ico { width: 15px; height: 15px; color: var(--naranja); }
+        .card-desc { font-size: 14px; color: var(--card-desc); line-height: 1.55; margin-bottom: 16px; display: flex; gap: 7px; }
+        .card-desc .ico { width: 15px; height: 15px; margin-top: 2px; flex-shrink: 0; color: var(--card-meta); }
 
         .card-btns { display: flex; flex-direction: column; gap: 10px; }
         .btn-detalle {
             display: flex; align-items: center; justify-content: center; gap: 8px;
             padding: 12px; text-align: center; border-radius: 8px;
             text-decoration: none; font-size: 15px; font-weight: 700; text-transform: uppercase;
-            border: 2px solid var(--texto-suave); color: var(--texto); transition: all 0.2s;
+            border: 2px solid #d9d7d1; color: var(--card-titulo); transition: all 0.2s;
         }
         .btn-detalle:hover { border-color: var(--naranja); color: var(--naranja); }
+        /* Botón "Preguntar por esta moto" OCULTO por ahora (no se borra el
+           Jinja, solo se esconde con CSS: para reactivarlo, quita esta regla). */
+        .card-btns .btn-whatsapp { display: none; }
         .btn-whatsapp {
             display: flex; align-items: center; justify-content: center; gap: 8px;
             padding: 12px; text-align: center; border-radius: 8px;
             text-decoration: none; font-size: 15px; font-weight: 700; text-transform: uppercase;
-            background: #25D366; color: #000; transition: background 0.2s;
+            background: #25D366; color: #06331a; transition: background 0.2s;
         }
         .btn-whatsapp:hover { background: #1ebe57; }
 
-        .empty { text-align: center; padding: 100px 20px; color: var(--texto-tenue); }
-        .empty .ico { width: 64px; height: 64px; color: var(--borde); }
+        .empty { text-align: center; padding: 100px 20px; color: #57534c; }
+        .empty .ico { width: 64px; height: 64px; color: #c9c6bf; }
         .empty p { font-size: 18px; margin-top: 16px; }
 
         /* ===== Footer (igual al home) ===== */
@@ -483,10 +568,36 @@
         </form>
     </nav>
 
-    <!-- Header del catálogo -->
-    <!-- Header del catálogo: solo imagen (misma moto-hero del home).
-         Si el archivo no existe, la banda queda en negro, no rompe. -->
-    <div class="catalogo-header" style="--catalogo-img: url('/static/hero-moto.jpeg')" role="img" aria-label="Catálogo de motos Universal Motors"></div>
+    <!-- Hero del catálogo: ilustrado (fondo negro + triángulo naranja + moto de
+         líneas), con el lema y el CTA superpuestos. No depende de ninguna imagen. -->
+    <header class="catalogo-header">
+        <!-- Capas decorativas (no aportan contenido: aria-hidden) -->
+        <div class="hero-triangulo" aria-hidden="true"></div>
+        <svg class="hero-moto" viewBox="0 0 320 200" fill="none" aria-hidden="true"
+             stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="70" cy="150" r="38"/>
+            <circle cx="250" cy="150" r="38"/>
+            <path d="M72,140 C84,110 106,106 150,106 L190,106 L208,88 L248,88 L260,112"/>
+            <path d="M256,98 L250,150"/>
+            <path d="M70,150 L126,128"/>
+            <path d="M190,128 L248,128"/>
+            <path d="M256,98 L242,78"/>
+            <circle cx="70" cy="150" r="6" stroke-width="4"/>
+            <circle cx="250" cy="150" r="6" stroke-width="4"/>
+        </svg>
+        <div class="hero-inner">
+            <h1 class="hero-lema">Renueva<br>tu <span>camino</span></h1>
+            <p class="hero-sub">Motos usadas revisadas y garantizadas, con papeles al día.</p>
+            <a href="#form-filtros" class="hero-cta">
+                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg>
+                Ver motos
+            </a>
+        </div>
+        <!-- Ancla al bloque de filtros/resultados (scroll suave ya activo en <html>) -->
+        <a href="#form-filtros" class="hero-scroll" aria-label="Bajar al catálogo">
+            <svg class="ico ico-trazo" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </a>
+    </header>
 
     {% if filtros.texto %}
     <p class="aviso-busqueda">
