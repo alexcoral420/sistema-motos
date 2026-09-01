@@ -399,7 +399,7 @@
            tema oscuro del resto de la página. La tarjeta blanca resalta sobre
            el fondo negro como una galería. */
         .card {
-            --card-bg: #ffffff;
+            --card-bg: #e3e0d9;
             --card-borde: #e6e4df;
             --card-img-bg: #ecebe7;
             --card-titulo: #17140f;
@@ -445,9 +445,7 @@
             border: 2px solid #d9d7d1; color: var(--card-titulo); transition: all 0.2s;
         }
         .btn-detalle:hover { border-color: var(--naranja); color: var(--naranja); }
-        /* Botón "Preguntar por esta moto" OCULTO por ahora (no se borra el
-           Jinja, solo se esconde con CSS: para reactivarlo, quita esta regla). */
-        .card-btns .btn-whatsapp { display: none; }
+        
         .btn-whatsapp {
             display: flex; align-items: center; justify-content: center; gap: 8px;
             padding: 12px; text-align: center; border-radius: 8px;
@@ -736,7 +734,7 @@
 
                 <div class="card-body">
                     <a href="/moto/{{ moto.id }}" style="text-decoration:none">
-                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}</div>
+                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %}{% if moto.anio %} {{ moto.anio }}{% endif %}</div>
                     </a>
                     {% if moto.precio %}
                     <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
