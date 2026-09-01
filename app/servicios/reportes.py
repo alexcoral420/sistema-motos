@@ -56,3 +56,7 @@ def compras_detalle(limite=100):
 def verificar_compra(compra_id, usuario_nombre):
     """Marca una compra como verificada por gerencia."""
     return repositorios.marcar_compra_verificada(compra_id, usuario_nombre)
+
+def documentos_por_vencer():
+    """Motos con SOAT o tecno próximos a vencer."""
+    return repositorios.motos_documentos_por_vencer()

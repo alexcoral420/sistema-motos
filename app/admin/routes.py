@@ -432,6 +432,7 @@ def panel_gerencia():
         ventas_semana=reportes.ventas_por_semana(),
         ventas_detalle=reportes.ventas_detalle(),
         compras_detalle=reportes.compras_detalle(),
+        documentos_vencer=reportes.documentos_por_vencer(),
         motos_consultadas=reportes.motos_mas_consultadas(),
         consultas_marca=reportes.consultas_por_marca(),
         permutas_usuario=reportes.permutas_por_usuario(),

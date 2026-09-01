@@ -927,3 +927,29 @@ def obtener_motos_similares(moto_id: int, precio: int, limite: int = 8):
                  .limit(limite)
                  .execute())
     return resultado.data
+
+def motos_documentos_por_vencer(dias=120):
+    """
+    Motos disponibles que tienen AL MENOS un documento (SOAT o tecno)
+    por vencer dentro de la ventana de dias.
+
+    Trae ambos documentos de cada moto: asi el asesor ve, por ejemplo,
+    que el SOAT ya vencio pero la tecno vence en 20 dias. Saber que un
+    papel esta por vencer es palanca para negociar la venta.
+
+    Consulta la vista documentos_por_vencer, que ya calcula los dias
+    restantes (negativo = vencido).
+    """
+    supabase = get_supabase_admin()
+    resultado = supabase.table("documentos_por_vencer").select("*").execute()
+
+    # Una moto entra si SOAT o tecno esta por vencer dentro de la ventana.
+    # Las que solo tienen documentos vencidos o muy lejanos no aparecen.
+    motos = []
+    for m in resultado.data:
+        soat_pronto = m.get("dias_soat") is not None and 0 <= m["dias_soat"] <= dias
+        tecno_pronto = m.get("dias_tecno") is not None and 0 <= m["dias_tecno"] <= dias
+        if soat_pronto or tecno_pronto:
+            motos.append(m)
+
+    return motos
