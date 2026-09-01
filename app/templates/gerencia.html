@@ -1,3 +1,19 @@
+{% macro celda_vencimiento(dias, fecha) %}
+    {% if dias is none %}
+        <span class="venc-normal">—</span>
+    {% elif dias < 0 %}
+        <span class="venc-vencido">Vencido</span>
+    {% elif dias <= 7 %}
+        <span class="venc-urgente">En {{ dias }} {{ 'día' if dias == 1 else 'días' }}</span>
+    {% elif dias <= 45 %}
+        <span class="venc-pronto">En {{ dias }} días</span>
+    {% else %}
+        <span class="venc-normal">{{ fecha }}</span>
+    {% endif %}
+{% endmacro %}
+
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -51,6 +67,11 @@
         .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--naranja); }
         .tenue { color: var(--texto-tenue); font-size: 13px; }
         .vendido { color: var(--texto-tenue); }
+
+        .venc-vencido { color: #e53935; font-weight: 700; }
+        .venc-urgente { color: #e53935; font-weight: 600; }
+        .venc-pronto  { color: #f5a623; font-weight: 600; }
+        .venc-normal  { color: var(--texto-suave); }
 
         /* Barra de proporción dentro de la celda (para marcas) */
         .barra-dato { display: flex; align-items: center; gap: 10px; }
@@ -211,6 +232,37 @@
             {% endif %}
         </section>
 
+
+                <section class="reporte">
+            <h2>Documentos por vencer</h2>
+            <p class="sub">Motos disponibles con SOAT o tecnomecánica próximos a vencer</p>
+            {% if documentos_vencer %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Moto</th>
+                        <th>Placa</th>
+                        <th>SOAT</th>
+                        <th>Tecnomecánica</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in documentos_vencer %}
+                    <tr>
+                        <td>{{ m.marca }} {{ m.modelo }}</td>
+                        <td class="tenue">{{ m.placa or '—' }}</td>
+                        <td>{{ celda_vencimiento(m.dias_soat, m.vence_soat) }}</td>
+                        <td>{{ celda_vencimiento(m.dias_tecno, m.vence_tecno) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vacio">No hay documentos próximos a vencer.</div>
+            {% endif %}
+        </section>
+
+        
         <!-- ============ MOTOS MÁS CONSULTADAS ============ -->
         <section class="reporte">
             <h2>Motos más consultadas</h2>
