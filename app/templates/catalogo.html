@@ -124,29 +124,23 @@
            el hero no depende de ningún archivo de imagen y siempre se ve igual.
            (Si algún día quieres foto de fondo, define --catalogo-img y añádela
             como capa en background-image.) */
-        .catalogo-header {
+                .catalogo-header {
             position: relative; overflow: hidden;
             display: flex; align-items: center;
             height: 40vh; min-height: 300px; max-height: 460px;
-            border-bottom: 2px solid var(--naranja);
+            /* Degradado oscuro a la izquierda (donde va el texto) sobre la foto.
+               Va de casi opaco a casi transparente para que el texto se lea
+               sin importar como salga la imagen, y la moto se vea a la derecha. */
+            background-image:
+                linear-gradient(to right, rgba(13,13,10,0.94) 0%, rgba(13,13,10,0.55) 45%, rgba(13,13,10,0.15) 100%),
+                url('/static/hero-amor.webp');
+            background-size: cover;
+            background-position: center right;
             background-color: var(--negro-900);
         }
         @media (max-width: 600px) { .catalogo-header { height: 42vh; min-height: 260px; max-height: none; } }
 
-        /* Triángulo naranja translúcido (el "café" sobre negro): banda diagonal
-           que sube hacia la derecha en la base del hero. */
-        .hero-triangulo {
-            position: absolute; inset: 0; pointer-events: none;
-            background: var(--naranja); opacity: 0.10;
-            clip-path: polygon(0 80%, 100% 42%, 100% 100%, 0 100%);
-        }
-        /* Moto de líneas naranja, abajo a la derecha. clamp() la escala según el
-           ancho; en móvil baja la opacidad para no competir con el texto. */
-        .hero-moto {
-            position: absolute; right: clamp(-24px, 1vw, 48px); bottom: 6%;
-            width: clamp(230px, 46vw, 480px); height: auto;
-            pointer-events: none;
-        }
+        
         .hero-moto path, .hero-moto circle { stroke: var(--naranja); }
         @media (max-width: 600px) { .hero-moto { opacity: 0.35; bottom: 4%; right: -18px; } }
 
@@ -154,14 +148,17 @@
            en vertical, con el mismo ancho máximo que usan los filtros.
            z-index lo mantiene sobre la moto y el triángulo. */
         .hero-inner { position: relative; z-index: 2; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px; }
-        .hero-lema {
+                .hero-lema {
             margin: 0; color: var(--blanco);
-            font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
-            text-transform: uppercase; letter-spacing: 0.5px;
-            font-size: clamp(34px, 8vw, 60px); line-height: 0.95;
-            text-shadow: 0 2px 18px rgba(0,0,0,0.55);
+            font-family: 'Playfair Display', serif; font-weight: 400;
+            letter-spacing: 0;
+            /* Sin uppercase: Playfair se luce en capitalizacion normal.
+               Algo mas grande y con mas interlineado que Barlow, que era
+               condensada y de trazo grueso. */
+            font-size: clamp(32px, 7.5vw, 58px); line-height: 1.08;
+            text-shadow: 0 2px 18px rgba(0,0,0,0.6);
         }
-        .hero-lema span { color: var(--naranja); }
+        .hero-lema span { color: var(--naranja); font-style: italic; }
         .hero-sub {
             margin: 14px 0 0; color: var(--texto-suave); max-width: 32ch;
             font-size: clamp(14px, 3.6vw, 18px); line-height: 1.4;
@@ -566,32 +563,13 @@
         </form>
     </nav>
 
-    <!-- Hero del catálogo: ilustrado (fondo negro + triángulo naranja + moto de
-         líneas), con el lema y el CTA superpuestos. No depende de ninguna imagen. -->
+    <!-- Hero del catálogo:  -->
     <header class="catalogo-header">
-        <!-- Capas decorativas (no aportan contenido: aria-hidden) -->
-        <div class="hero-triangulo" aria-hidden="true"></div>
-        <svg class="hero-moto" viewBox="0 0 320 200" fill="none" aria-hidden="true"
-             stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="70" cy="150" r="38"/>
-            <circle cx="250" cy="150" r="38"/>
-            <path d="M72,140 C84,110 106,106 150,106 L190,106 L208,88 L248,88 L260,112"/>
-            <path d="M256,98 L250,150"/>
-            <path d="M70,150 L126,128"/>
-            <path d="M190,128 L248,128"/>
-            <path d="M256,98 L242,78"/>
-            <circle cx="70" cy="150" r="6" stroke-width="4"/>
-            <circle cx="250" cy="150" r="6" stroke-width="4"/>
-        </svg>
         <div class="hero-inner">
-            <h1 class="hero-lema">Renueva<br>tu <span>camino</span></h1>
-            <p class="hero-sub">Motos usadas revisadas y garantizadas, con papeles al día.</p>
-            <a href="#form-filtros" class="hero-cta">
-                <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg>
-                Ver motos
-            </a>
+            <h1 class="hero-lema">enamórate de<br>la <span>velocidad</span></h1>
+            <p class="hero-sub">En el mes del amor y la amistad, estrena la moto de tus sueños con nuestras promociones exclusivas.</p>
+            
         </div>
-        <!-- Ancla al bloque de filtros/resultados (scroll suave ya activo en <html>) -->
         <a href="#form-filtros" class="hero-scroll" aria-label="Bajar al catálogo">
             <svg class="ico ico-trazo" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </a>
