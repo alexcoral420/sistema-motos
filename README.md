@@ -28,20 +28,32 @@ sedes, más de 120 motos en inventario y varios asesores usándolo a diario.
 
 ## Qué resuelve
 
-Antes del sistema, el inventario vivía en hojas de cálculo y fotos de WhatsApp.
-No había forma de saber qué motos generaban interés, quién vendía qué, ni de
-darle al cliente una vitrina que se pudiera filtrar.
+Antes del sistema, el inventario vivía en hojas de cálculo y fotos de WhatsApp. No había forma de saber qué motos generaban interés, quién vendía qué, cuánto tiempo permanecía una moto en inventario ni contar con una vitrina digital que pudiera consultarse y filtrarse.
+
+El sistema centraliza la operación y convierte los datos generados diariamente por el negocio en información útil para la operación y la toma de decisiones.
 
 El sistema cubre cuatro frentes:
 
-| Frente | Qué hace |
-|---|---|
-| **Inventario** | Alta, edición, galería de fotos, estados, dos sedes |
-| **Catálogo público** | Vitrina filtrable por marca, cilindraje, año y precio |
-| **Operaciones** | Registro de ventas, compras y permutas con trazabilidad por asesor |
-| **Captación** | Asistente de IA que guía al cliente y registra leads de financiación |
+Frente	Qué hace
+Inventario	Alta, edición, galería de fotos, estados y gestión de inventario por dos sedes.
+Catálogo público	Vitrina filtrable por marca, cilindraje, año y precio.
+Operaciones	Registro de ventas, compras y permutas con trazabilidad por asesor.
+Captación	Asistente de IA que guía al cliente y registra leads interesados en financiación.
+Información para la toma de decisiones
 
----
+A partir de los datos registrados por la operación, el sistema permite generar información para analizar el comportamiento del negocio y apoyar la toma de decisiones de gerencia.
+
+Entre otros datos, permite consultar:
+
+Modelos de motocicletas con mayor volumen de ventas en un período determinado.
+Tiempo que una motocicleta permanece en inventario antes de ser vendida.
+Rendimiento de los asesores comerciales.
+Rendimiento y comportamiento de las diferentes sedes.
+Información histórica de las operaciones comerciales.
+Datos relacionados con la captación y los leads generados.
+Indicadores derivados de la información registrada en el sistema.
+
+Esto permite que la información generada durante la operación diaria no se limite al registro de datos, sino que pueda utilizarse posteriormente para analizar el comportamiento del negocio y apoyar decisiones operativas y comerciales.
 
 ## Arquitectura
 
