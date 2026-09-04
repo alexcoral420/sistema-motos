@@ -12,228 +12,465 @@
     {% endif %}
 {% endmacro %}
 
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerencia · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --naranja: #ff7a00;
-            --naranja-claro: #ff9633;
-            --negro-900: #050505;
-            --negro-800: #0d0d0d;
-            --negro-700: #141414;
-            --negro-600: #1c1c1c;
-            --borde: #2a2a2a;
-            --blanco: #f5f5f5;
-            --texto: #e8e8e8;
-            --texto-suave: #a8a8a8;
-            --texto-tenue: #777;
-            --verde: #34c759;
+            /* Superficies: negro cálido en capas, como el tablero de una moto */
+            --bg:         #0a0a0b;
+            --surface:    #141416;
+            --surface-2:  #1b1b1f;
+            --surface-3:  #212127;
+            --line:       #2b2b31;
+            --line-soft:  #232329;
+
+            /* Acento único: el naranja de la marca. Se gana su lugar, no se regala */
+            --naranja:      #ff7a00;
+            --naranja-dim:  #c95f00;
+            --naranja-wash: rgba(255, 122, 0, 0.08);
+
+            /* Texto */
+            --texto:       #ededf0;
+            --texto-suave: #a3a3ab;
+            --texto-tenue: #6d6d76;
+
+            /* Señales funcionales */
+            --verde:  #35c759;
+            --rojo:   #ff5b52;
+            --ambar:  #f5a623;
+
+            --radio:  10px;
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
-        h1, h2, h3, .stat-num { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: 0.3px; }
 
-        /* Barra superior */
-        .barra { background: var(--negro-900); border-bottom: 2px solid var(--naranja); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-        .barra h1 { color: var(--blanco); font-size: 24px; text-transform: uppercase; }
+        body {
+            font-family: 'Barlow', 'Segoe UI', Arial, sans-serif;
+            background:
+                radial-gradient(1200px 600px at 100% -10%, rgba(255,122,0,0.05), transparent 60%),
+                var(--bg);
+            color: var(--texto);
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.5;
+        }
+
+        h1, h2, .stat-num, .kpi-num {
+            font-family: 'Barlow Condensed', 'Segoe UI', sans-serif;
+            letter-spacing: 0.2px;
+            font-weight: 600;
+        }
+
+        /* ---------- Barra superior ---------- */
+        .barra {
+            position: sticky; top: 0; z-index: 20;
+            background: rgba(10,10,11,0.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--line);
+            padding: 14px 24px;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .barra .marca { display: flex; align-items: baseline; gap: 12px; }
+        .barra h1 {
+            color: var(--texto); font-size: 25px; line-height: 1;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
         .barra h1 span { color: var(--naranja); }
-        .barra .volver { color: var(--texto-suave); text-decoration: none; font-size: 14px; padding: 8px 16px; border: 1px solid var(--borde); border-radius: 8px; transition: border-color 0.2s, color 0.2s; }
-        .barra .volver:hover { border-color: var(--naranja); color: var(--naranja); }
+        .barra .kicker {
+            font-size: 12px; color: var(--texto-tenue);
+            letter-spacing: 1.5px; text-transform: uppercase;
+        }
+        .barra .acciones { display: flex; gap: 10px; }
+        .barra a.nav {
+            color: var(--texto-suave); text-decoration: none; font-size: 14px;
+            padding: 8px 15px; border: 1px solid var(--line); border-radius: 8px;
+            transition: border-color .18s, color .18s, background .18s;
+        }
+        .barra a.nav:hover { border-color: var(--naranja); color: var(--naranja); background: var(--naranja-wash); }
+        .barra a.nav:focus-visible { outline: 2px solid var(--naranja); outline-offset: 2px; }
 
-        .contenedor { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
+        .contenedor { max-width: 1120px; margin: 0 auto; padding: 30px 24px 72px; }
 
-        /* Resumen: tarjetas de cifra */
-        .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 40px; }
-        .cifra { background: var(--negro-600); border: 1px solid var(--borde); border-left: 3px solid var(--naranja); border-radius: 12px; padding: 22px 24px; }
-        .cifra .stat-num { font-size: 40px; font-weight: 800; color: var(--blanco); line-height: 1; }
-        .cifra .stat-label { font-size: 13px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; }
+        /* ---------- Banda de KPIs (ledger, no tarjetas) ---------- */
+        .ledger {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: var(--radio); overflow: hidden; margin-bottom: 14px;
+        }
+        .kpi { padding: 22px 26px; position: relative; }
+        .kpi + .kpi { border-left: 1px solid var(--line-soft); }
+        .kpi-num { font-size: 46px; color: var(--texto); line-height: 0.95; }
+        .kpi.acento .kpi-num { color: var(--naranja); }
+        .kpi-label {
+            font-size: 12px; color: var(--texto-suave); margin-top: 8px;
+            text-transform: uppercase; letter-spacing: 1.2px;
+        }
+        .periodo-nota {
+            font-size: 13px; color: var(--texto-tenue); margin-bottom: 38px;
+        }
+        .periodo-nota b { color: var(--texto-suave); font-weight: 600; }
 
-        /* Secciones de reporte */
+        /* ---------- Bloque Movimiento (lo que el filtro alcanza) ---------- */
+        .bloque-mov {
+            border: 1px solid var(--line); border-radius: 14px;
+            background: linear-gradient(180deg, var(--naranja-wash), transparent 120px);
+            padding: 24px; margin-bottom: 48px;
+        }
+        .bloque-mov > .titulo {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 4px;
+        }
+        .bloque-mov > .titulo h2 {
+            font-size: 24px; text-transform: uppercase; color: var(--texto);
+        }
+        .bloque-mov > .titulo .marca-rule { height: 14px; width: 3px; background: var(--naranja); border-radius: 2px; }
+        .bloque-mov > .sub { color: var(--texto-tenue); font-size: 14px; margin-bottom: 20px; }
+
+        /* ---------- Barra de filtro ---------- */
+        .filtro-mov {
+            display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: var(--radio); padding: 16px 18px; margin-bottom: 26px;
+        }
+        .filtro-mov .campo { display: flex; flex-direction: column; gap: 5px; }
+        .filtro-mov label {
+            font-size: 11px; color: var(--texto-tenue);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .filtro-mov input[type="date"],
+        .filtro-mov select {
+            background: var(--surface-2); border: 1px solid var(--line);
+            color: var(--texto); border-radius: 8px; padding: 9px 12px;
+            font-family: inherit; font-size: 14px; min-width: 150px;
+        }
+        .filtro-mov input[type="date"]:focus,
+        .filtro-mov select:focus { outline: none; border-color: var(--naranja); }
+        .filtro-mov input[type="date"] { color-scheme: dark; }
+        .filtro-mov .btn-filtrar {
+            background: var(--naranja); color: #100a04; border: none;
+            border-radius: 8px; padding: 10px 20px; font-family: inherit;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            transition: background .18s;
+        }
+        .filtro-mov .btn-filtrar:hover { background: var(--naranja-dim); }
+        .filtro-mov .btn-limpiar {
+            color: var(--texto-suave); text-decoration: none; font-size: 14px;
+            padding: 10px 6px; border-bottom: 1px solid transparent;
+        }
+        .filtro-mov .btn-limpiar:hover { color: var(--naranja); border-bottom-color: var(--naranja); }
+        .filtro-mov :focus-visible { outline: 2px solid var(--naranja); outline-offset: 2px; }
+
+        /* Dos reportes por-vendedor lado a lado */
+        .par-reportes { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+        @media (max-width: 760px) { .par-reportes { grid-template-columns: 1fr; } }
+
+        /* ---------- Secciones de reporte ---------- */
         .reporte { margin-bottom: 44px; }
-        .reporte h2 { color: var(--blanco); font-size: 22px; text-transform: uppercase; margin-bottom: 4px; }
-        .reporte .sub { color: var(--texto-tenue); font-size: 14px; margin-bottom: 18px; }
+        .reporte:last-child { margin-bottom: 0; }
+        .reporte h2 { color: var(--texto); font-size: 21px; text-transform: uppercase; margin-bottom: 3px; }
+        .reporte .sub { color: var(--texto-tenue); font-size: 14px; margin-bottom: 16px; }
 
-        /* Tablas */
-        table { width: 100%; border-collapse: collapse; background: var(--negro-600); border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; }
-        thead th { background: var(--negro-700); color: var(--naranja); text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-        tbody td { padding: 12px 16px; border-top: 1px solid var(--borde); font-size: 15px; }
-        tbody tr:hover { background: var(--negro-700); }
+        /* ---------- Tablas ---------- */
+        table {
+            width: 100%; border-collapse: collapse;
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: var(--radio); overflow: hidden;
+        }
+        thead th {
+            background: var(--surface-2); color: var(--texto-suave);
+            text-align: left; padding: 11px 16px; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+            border-bottom: 1px solid var(--line);
+        }
+        tbody td { padding: 13px 16px; border-top: 1px solid var(--line-soft); font-size: 15px; }
+        tbody tr:first-child td { border-top: none; }
+        tbody tr { transition: background .12s; }
+        tbody tr:hover { background: var(--surface-2); }
         .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--naranja); }
         .tenue { color: var(--texto-tenue); font-size: 13px; }
-        .vendido { color: var(--texto-tenue); }
+        .vendido { color: var(--verde); font-weight: 600; }
 
-        .venc-vencido { color: #e53935; font-weight: 700; }
-        .venc-urgente { color: #e53935; font-weight: 600; }
-        .venc-pronto  { color: #f5a623; font-weight: 600; }
+        .venc-vencido { color: var(--rojo); font-weight: 700; }
+        .venc-urgente { color: var(--rojo); font-weight: 600; }
+        .venc-pronto  { color: var(--ambar); font-weight: 600; }
         .venc-normal  { color: var(--texto-suave); }
 
-        /* Barra de proporción dentro de la celda (para marcas) */
+        /* Botón verificar (antes sin estilo) */
+        .btn-verificar {
+            background: transparent; color: var(--verde);
+            border: 1px solid rgba(53,199,89,0.4); border-radius: 7px;
+            padding: 6px 13px; font-family: inherit; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: background .16s, border-color .16s;
+        }
+        .btn-verificar:hover { background: rgba(53,199,89,0.12); border-color: var(--verde); }
+        .btn-verificar:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+
+        /* Barra de proporción (marcas / modelos) */
         .barra-dato { display: flex; align-items: center; gap: 10px; }
-        .barra-dato .track { flex: 1; height: 8px; background: var(--negro-800); border-radius: 4px; overflow: hidden; }
-        .barra-dato .fill { height: 100%; background: var(--naranja); border-radius: 4px; }
+        .barra-dato .track { flex: 1; height: 7px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+        .barra-dato .fill { height: 100%; background: linear-gradient(90deg, var(--naranja-dim), var(--naranja)); border-radius: 4px; }
 
-        /* Estado vacío */
-        .vacio { background: var(--negro-600); border: 1px dashed var(--borde); border-radius: 12px; padding: 32px; text-align: center; color: var(--texto-tenue); font-size: 15px; }
+        /* Estado vacío: invitación a actuar, no lamento */
+        .vacio {
+            background: var(--surface); border: 1px dashed var(--line);
+            border-radius: var(--radio); padding: 30px; text-align: center;
+            color: var(--texto-tenue); font-size: 15px;
+        }
 
-        /* Distintivo: badge de posición en rankings */
-        .pos { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--negro-800); border: 1px solid var(--borde); font-size: 13px; font-weight: 700; color: var(--texto-suave); }
-        tbody tr:first-child .pos { background: var(--naranja); color: #000; border-color: var(--naranja); }
+        /* Ranking: posición */
+        .pos {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 25px; height: 25px; border-radius: 6px;
+            background: var(--surface-3); border: 1px solid var(--line);
+            font-size: 13px; font-weight: 700; color: var(--texto-suave);
+            font-variant-numeric: tabular-nums;
+        }
+        tbody tr:first-child .pos { background: var(--naranja); color: #100a04; border-color: var(--naranja); }
+
+        /* Encabezado de sección de analítica */
+        .seccion-titulo {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+            text-transform: uppercase; letter-spacing: 2px; color: var(--texto-tenue);
+            padding-bottom: 10px; border-bottom: 1px solid var(--line);
+            margin: 4px 0 30px;
+        }
 
         @media (max-width: 600px) {
             thead th, tbody td { padding: 10px 12px; font-size: 14px; }
             .reporte h2 { font-size: 19px; }
+            .kpi-num { font-size: 38px; }
+            .ledger { grid-template-columns: 1fr; }
+            .kpi + .kpi { border-left: none; border-top: 1px solid var(--line-soft); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
         }
     </style>
 </head>
 <body>
     <div class="barra">
-        <h1>Panel de <span>Gerencia</span></h1>
-        <div style="display:flex; gap:10px">
-            <a href="{{ url_for('admin.gestion_usuarios') }}" class="volver">👥 Usuarios</a>
-            <a href="{{ url_for('admin.index') }}" class="btn btn-back">← Volver</a>
+        <div class="marca">
+            <h1>Universal <span>Motors</span></h1>
+            <span class="kicker">Panel de gerencia</span>
+        </div>
+        <div class="acciones">
+            <a href="{{ url_for('admin.gestion_usuarios') }}" class="nav">Usuarios</a>
+            <a href="{{ url_for('admin.index') }}" class="nav">← Volver</a>
         </div>
     </div>
 
     <div class="contenedor">
 
-        <!-- Resumen rápido: cifras derivadas de los reportes -->
-        <div class="resumen">
-            <div class="cifra">
-                <div class="stat-num">{{ ventas_usuario | sum(attribute='total_ventas') }}</div>
-                <div class="stat-label">Ventas registradas</div>
+        <!-- ============ RESUMEN (refleja el periodo filtrado) ============ -->
+        <div class="ledger">
+            <div class="kpi acento">
+                <div class="kpi-num">{{ ventas_usuario | sum(attribute='total_ventas') }}</div>
+                <div class="kpi-label">Ventas en el periodo</div>
             </div>
-            <div class="cifra">
-                <div class="stat-num">{{ ventas_usuario | length }}</div>
-                <div class="stat-label">Vendedores activos</div>
+            <div class="kpi">
+                <div class="kpi-num">{{ compras_usuario | sum(attribute='total_compras') }}</div>
+                <div class="kpi-label">Compras en el periodo</div>
             </div>
-            <div class="cifra">
-                <div class="stat-num">{{ consultas_marca | sum(attribute='consultas') }}</div>
-                <div class="stat-label">Consultas totales</div>
+            <div class="kpi">
+                <div class="kpi-num">{{ ventas_usuario | length }}</div>
+                <div class="kpi-label">Vendedores activos</div>
             </div>
         </div>
-
-        <!-- ============ VENTAS POR VENDEDOR ============ -->
-        <section class="reporte">
-            <h2>Ventas por vendedor</h2>
-            <p class="sub">Cuántas motos ha registrado como vendidas cada persona</p>
-            {% if ventas_usuario %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Vendedor</th>
-                        <th class="num">Ventas</th>
-                        <th>Última venta</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for v in ventas_usuario %}
-                    <tr>
-                        <td>{{ v.usuario_nombre }}</td>
-                        <td class="num">{{ v.total_ventas }}</td>
-                        <td class="tenue">{{ v.ultima_venta[:10] if v.ultima_venta else '—' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <p class="periodo-nota">
+            {% if request.args.get('desde') or request.args.get('hasta') %}
+                Mostrando movimiento
+                {% if request.args.get('desde') %}desde <b>{{ request.args.get('desde') }}</b>{% endif %}
+                {% if request.args.get('hasta') %}hasta <b>{{ request.args.get('hasta') }}</b>{% endif %}.
             {% else %}
-            <div class="vacio">Aún no hay ventas registradas.</div>
+                Mostrando el histórico completo. Filtra un periodo abajo para acotar.
             {% endif %}
-        </section>
+        </p>
 
-                <!-- Detalle de cada venta -->
-        <section class="reporte">
-            <h2>Detalle de ventas</h2>
-            <p class="sub">Qué moto vendió cada asesor y cuándo</p>
-            {% if ventas_detalle %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Asesor</th>
-                        <th>Moto</th>
-                        <th>Placa</th>
-                        <th>Verificada</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for v in ventas_detalle %}
-                    <tr>
-                        <td class="tenue">{{ v.created_at[:10] if v.created_at else '—' }}</td>
-                        <td>{{ v.usuario_nombre or '—' }}</td>
-                        <td>{{ v.descripcion or '—' }}</td>
-                        <td class="tenue">{{ v.placa or '—' }}</td>
-                        <td>
-                            {% if v.verificada %}
-                            <span class="vendido">✓ {{ v.verificada_por or 'sí' }}</span>
-                            {% else %}
-                            <form method="POST" action="{{ url_for('admin.verificar_venta', venta_id=v.id) }}" style="display:inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-success">Verificar</button>
-                            </form>
-                            {% endif %}
-                        </td>
+        <!-- ============ BLOQUE MOVIMIENTO (lo que el filtro alcanza) ============ -->
+        <div class="bloque-mov">
+            <div class="titulo">
+                <span class="marca-rule"></span>
+                <h2>Movimiento</h2>
+            </div>
+            <p class="sub">Ventas y compras registradas. El filtro de fechas aplica a las cuatro tablas de este bloque.</p>
 
-                    </tr>
+            <!-- Barra de filtro: escribe desde/hasta en la URL, la valida el servidor -->
+            <form class="filtro-mov" method="get" action="{{ url_for('admin.panel_gerencia') }}">
+                <div class="campo">
+                    <label for="f-desde">Desde</label>
+                    <input type="date" id="f-desde" name="desde" value="{{ request.args.get('desde', '') }}">
+                </div>
+                <div class="campo">
+                    <label for="f-hasta">Hasta</label>
+                    <input type="date" id="f-hasta" name="hasta" value="{{ request.args.get('hasta', '') }}">
+                </div>
+                <div class="campo">
+                    <label for="f-orden">Orden del detalle</label>
+                    <select id="f-orden" name="orden">
+                        <option value="fecha" {% if request.args.get('orden') != 'asesor' %}selected{% endif %}>Más recientes primero</option>
+                        <option value="asesor" {% if request.args.get('orden') == 'asesor' %}selected{% endif %}>Agrupado por asesor</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-filtrar">Filtrar periodo</button>
+                {% if request.args.get('desde') or request.args.get('hasta') or request.args.get('orden') %}
+                <a class="btn-limpiar" href="{{ url_for('admin.panel_gerencia') }}">Limpiar</a>
+                {% endif %}
+            </form>
 
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="vacio">Aún no hay ventas registradas.</div>
-            {% endif %}
-        </section>
-
-
-                <!-- Detalle de cada compra -->
-        <section class="reporte">
-            <h2>Detalle de compras</h2>
-            <p class="sub">Qué moto compró cada asesor y cuándo</p>
-            {% if compras_detalle %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Asesor</th>
-                        <th>Moto</th>
-                        <th>Placa</th>
-                        <th>Verificada</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in compras_detalle %}
-                    <tr>
-                        <td class="tenue">{{ c.created_at[:10] if c.created_at else '—' }}</td>
-                        <td>{{ c.usuario_nombre or '—' }}</td>
-                        <td>{{ c.descripcion or '—' }}</td>
-                        <td class="tenue">{{ c.placa or '—' }}</td>
-                                                <td class="tenue">{{ c.placa or '—' }}</td>
-                        <td>
-                            {% if c.verificada %}
-                            <span class="vendido">✓ {{ c.verificada_por or 'sí' }}</span>
-                            {% else %}
-                            <form method="POST" action="{{ url_for('admin.verificar_compra', compra_id=c.id) }}" style="display:inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-success">Verificar</button>
-                            </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="vacio">Aún no hay compras registradas.</div>
-            {% endif %}
-        </section>
-
-
+            <!-- Resúmenes por vendedor, lado a lado -->
+            <div class="par-reportes">
+                <!-- VENTAS POR VENDEDOR -->
                 <section class="reporte">
+                    <h2>Ventas por vendedor</h2>
+                    <p class="sub">Motos vendidas por persona</p>
+                    {% if ventas_usuario %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Vendedor</th>
+                                <th class="num">Ventas</th>
+                                <th>Última</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in ventas_usuario %}
+                            <tr>
+                                <td>{{ v.usuario_nombre }}</td>
+                                <td class="num">{{ v.total_ventas }}</td>
+                                <td class="tenue">{{ v.ultima_venta[:10] if v.ultima_venta else '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="vacio">Sin ventas en este periodo.</div>
+                    {% endif %}
+                </section>
+
+                <!-- COMPRAS POR VENDEDOR -->
+                <section class="reporte">
+                    <h2>Compras por vendedor</h2>
+                    <p class="sub">Motos compradas por persona</p>
+                    {% if compras_usuario %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Asesor</th>
+                                <th class="num">Compras</th>
+                                <th>Última</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in compras_usuario %}
+                            <tr>
+                                <td>{{ c.usuario_nombre }}</td>
+                                <td class="num">{{ c.total_compras }}</td>
+                                <td class="tenue">{{ c.ultima_compra[:10] if c.ultima_compra else '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="vacio">Sin compras en este periodo.</div>
+                    {% endif %}
+                </section>
+            </div>
+
+            <!-- DETALLE DE VENTAS -->
+            <section class="reporte">
+                <h2>Detalle de ventas</h2>
+                <p class="sub">Qué moto vendió cada asesor y cuándo</p>
+                {% if ventas_detalle %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Asesor</th>
+                            <th>Moto</th>
+                            <th>Placa</th>
+                            <th>Verificada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in ventas_detalle %}
+                        <tr>
+                            <td class="tenue">{{ v.created_at[:10] if v.created_at else '—' }}</td>
+                            <td>{{ v.usuario_nombre or '—' }}</td>
+                            <td>{{ v.descripcion or '—' }}</td>
+                            <td class="tenue">{{ v.placa or '—' }}</td>
+                            <td>
+                                {% if v.verificada %}
+                                <span class="vendido">✓ {{ v.verificada_por or 'sí' }}</span>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin.verificar_venta', venta_id=v.id) }}" style="display:inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-verificar">Verificar</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="vacio">Sin ventas en este periodo.</div>
+                {% endif %}
+            </section>
+
+            <!-- DETALLE DE COMPRAS -->
+            <section class="reporte">
+                <h2>Detalle de compras</h2>
+                <p class="sub">Qué moto compró cada asesor y cuándo</p>
+                {% if compras_detalle %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Asesor</th>
+                            <th>Moto</th>
+                            <th>Placa</th>
+                            <th>Verificada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in compras_detalle %}
+                        <tr>
+                            <td class="tenue">{{ c.created_at[:10] if c.created_at else '—' }}</td>
+                            <td>{{ c.usuario_nombre or '—' }}</td>
+                            <td>{{ c.descripcion or '—' }}</td>
+                            <td class="tenue">{{ c.placa or '—' }}</td>
+                            <td>
+                                {% if c.verificada %}
+                                <span class="vendido">✓ {{ c.verificada_por or 'sí' }}</span>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin.verificar_compra', compra_id=c.id) }}" style="display:inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-verificar">Verificar</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="vacio">Sin compras en este periodo.</div>
+                {% endif %}
+            </section>
+        </div>
+
+        <!-- ============ ANALÍTICA (no depende del filtro de fechas) ============ -->
+        <div class="seccion-titulo">Analítica del catálogo</div>
+
+        <!-- DOCUMENTOS POR VENCER -->
+        <section class="reporte">
             <h2>Documentos por vencer</h2>
             <p class="sub">Motos disponibles con SOAT o tecnomecánica próximos a vencer</p>
             {% if documentos_vencer %}
@@ -262,8 +499,7 @@
             {% endif %}
         </section>
 
-        
-        <!-- ============ MOTOS MÁS CONSULTADAS ============ -->
+        <!-- MOTOS MÁS CONSULTADAS -->
         <section class="reporte">
             <h2>Motos más consultadas</h2>
             <p class="sub">Las que más interés generan al pulsar "Preguntar por esta moto"</p>
@@ -297,7 +533,7 @@
             {% endif %}
         </section>
 
-        <!-- ============ CONSULTAS POR MARCA ============ -->
+        <!-- CONSULTAS POR MARCA -->
         <section class="reporte">
             <h2>Interés por marca</h2>
             <p class="sub">Qué marcas buscan más tus clientes — guía para decidir qué comprar</p>
@@ -332,7 +568,7 @@
             {% endif %}
         </section>
 
-        <!-- ============ RITMO SEMANAL ============ -->
+        <!-- RITMO SEMANAL -->
         <section class="reporte">
             <h2>Ritmo de ventas</h2>
             <p class="sub">Ventas registradas por semana</p>
@@ -357,7 +593,8 @@
             <div class="vacio">Aún no hay ventas registradas.</div>
             {% endif %}
         </section>
-<!-- ============ PERMUTAS POR ASESOR ============ -->
+
+        <!-- PERMUTAS POR ASESOR -->
         <section class="reporte">
             <h2>Permutas por asesor</h2>
             <p class="sub">Cuántas permutas ha cerrado cada asesor</p>
@@ -385,7 +622,7 @@
             {% endif %}
         </section>
 
-        <!-- ============ MODELOS MÁS PERMUTADOS ============ -->
+        <!-- MODELOS MÁS PERMUTADOS -->
         <section class="reporte">
             <h2>Modelos más permutados</h2>
             <p class="sub">Qué modelos se mueven más en permutas — entrantes y salientes juntos</p>
@@ -419,6 +656,7 @@
             <div class="vacio">Aún no hay permutas registradas.</div>
             {% endif %}
         </section>
+
     </div>
 </body>
 </html>

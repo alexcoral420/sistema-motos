@@ -489,8 +489,20 @@ def obtener_motos_mas_consultadas(limite: int = 6):
 #  REPORTES DE GERENCIA (leen las vistas SQL)
 # ============================================================
 
-def reporte_ventas_por_usuario():
-    return get_supabase_admin().table("reporte_ventas_por_usuario").select("*").execute().data
+def reporte_ventas_por_usuario(desde=None, hasta=None):
+    """
+    Ventas por asesor, contadas en Python para poder filtrar por rango.
+    Antes leia la vista reporte_ventas_por_usuario (pre-agregada, sin
+    poder filtrar por fecha); ahora trae las filas crudas filtradas y
+    el servicio las agrupa. desde/hasta ya saneados; hasta exclusivo.
+    """
+    supabase = get_supabase_admin()
+    consulta = supabase.table("ventas").select("usuario_nombre, created_at")
+    if desde:
+        consulta = consulta.gte("created_at", desde)
+    if hasta:
+        consulta = consulta.lt("created_at", hasta)
+    return consulta.execute().data
 
 def reporte_ventas_por_semana():
     return get_supabase_admin().table("reporte_ventas_por_semana").select("*").execute().data
@@ -823,33 +835,29 @@ def guardar_lead_chat_directo(registro):
     resultado = supabase.table("leads_chat").insert(registro).execute()
     return resultado.data
 
-def reporte_ventas_detalle(limite=100):
+def reporte_ventas_detalle(desde=None, hasta=None, orden="fecha", limite=200):
     """
     Detalle de ventas: quien vendio que moto, con placa y fecha.
-    A diferencia de reporte_ventas_por_usuario, que devuelve totales
-    agregados, esta lista cada venta individual.
-    """
-    supabase = get_supabase_admin()
-    resultado = (supabase.table("ventas")
-                 .select("*")
-                 .order("created_at", desc=True)
-                 .limit(limite)
-                 .execute())
-    return resultado.data
-
-def reporte_ventas_detalle(limite=100):
-    """
-    Detalle de ventas: quien vendio que moto, con placa y fecha.
-    A diferencia de reporte_ventas_por_usuario, que devuelve totales,
+    Parametros (ya saneados por el servicio, nunca crudos del cliente):
+      desde  ISO o None. Filtra created_at >= desde.
+      hasta  ISO o None. Filtra created_at <  hasta (exclusivo: el
+             servicio ya le sumo un dia, asi 'hasta' es inclusivo para
+             el usuario y no se pierden las filas del ultimo dia).
+      orden  'fecha' (mas recientes primero) o 'asesor'.
+    A diferencia de reporte_ventas_por_usuario (totales agregados),
     esta lista cada venta individual.
     """
     supabase = get_supabase_admin()
-    resultado = (supabase.table("ventas")
-                 .select("*")
-                 .order("created_at", desc=True)
-                 .limit(limite)
-                 .execute())
-    return resultado.data
+    consulta = supabase.table("ventas").select("*")
+    if desde:
+        consulta = consulta.gte("created_at", desde)
+    if hasta:
+        consulta = consulta.lt("created_at", hasta)
+    if orden == "asesor":
+        consulta = consulta.order("usuario_nombre").order("created_at", desc=True)
+    else:
+        consulta = consulta.order("created_at", desc=True)
+    return consulta.limit(limite).execute().data
 
 def marcar_venta_verificada(venta_id, usuario_nombre):
     """
@@ -871,18 +879,38 @@ def marcar_venta_verificada(venta_id, usuario_nombre):
                  .execute())
     return resultado.data
 
-def reporte_compras_detalle(limite=100):
+def reporte_compras_por_usuario(desde=None, hasta=None):
     """
-    Detalle de compras: quien compro que moto, con placa y fecha.
-    Mismo patron que reporte_ventas_detalle.
+    Compras por asesor, contadas en Python para filtrar por rango.
+    Mismo enfoque que reporte_ventas_por_usuario: trae filas crudas
+    filtradas y el servicio agrupa. desde/hasta ya saneados; hasta exclusivo.
     """
     supabase = get_supabase_admin()
-    resultado = (supabase.table("compras")
-                 .select("*")
-                 .order("created_at", desc=True)
-                 .limit(limite)
-                 .execute())
-    return resultado.data
+    consulta = supabase.table("compras").select("usuario_nombre, created_at")
+    if desde:
+        consulta = consulta.gte("created_at", desde)
+    if hasta:
+        consulta = consulta.lt("created_at", hasta)
+    return consulta.execute().data
+
+def reporte_compras_detalle(desde=None, hasta=None, orden="fecha", limite=100):
+    """
+    Detalle de compras: quien compro que moto, con placa y fecha.
+    desde/hasta ya saneados por el servicio; hasta es exclusivo
+    (< hasta) porque el helper ya le sumo un dia -> inclusivo para
+    el usuario. Mismo patron que reporte_ventas_detalle.
+    """
+    supabase = get_supabase_admin()
+    consulta = supabase.table("compras").select("*")
+    if desde:
+        consulta = consulta.gte("created_at", desde)
+    if hasta:
+        consulta = consulta.lt("created_at", hasta)
+    if orden == "asesor":
+        consulta = consulta.order("usuario_nombre").order("created_at", desc=True)
+    else:
+        consulta = consulta.order("created_at", desc=True)
+    return consulta.limit(limite).execute().data
 
 def marcar_compra_verificada(compra_id, usuario_nombre):
     """

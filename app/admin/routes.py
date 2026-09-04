@@ -428,10 +428,25 @@ def panel_gerencia():
     """Panel de métricas del negocio. Solo admin y gerencia."""
     return render_template(
         "gerencia.html",
-        ventas_usuario=reportes.ventas_por_usuario(),
+        ventas_usuario=reportes.ventas_por_usuario(
+            desde=request.args.get("desde"),
+            hasta=request.args.get("hasta"),
+        ),
         ventas_semana=reportes.ventas_por_semana(),
-        ventas_detalle=reportes.ventas_detalle(),
-        compras_detalle=reportes.compras_detalle(),
+        ventas_detalle=reportes.ventas_detalle(
+            desde=request.args.get("desde"),
+            hasta=request.args.get("hasta"),
+            orden=request.args.get("orden"),
+        ),
+        compras_usuario=reportes.compras_por_usuario(
+            desde=request.args.get("desde"),
+            hasta=request.args.get("hasta"),
+        ),
+        compras_detalle=reportes.compras_detalle(
+            desde=request.args.get("desde"),
+            hasta=request.args.get("hasta"),
+            orden=request.args.get("orden"),
+        ),
         documentos_vencer=reportes.documentos_por_vencer(),
         motos_consultadas=reportes.motos_mas_consultadas(),
         consultas_marca=reportes.consultas_por_marca(),
