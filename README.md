@@ -318,30 +318,35 @@ intencional: se sacrifica pureza del modelo relacional en favor de preservar
 el contexto histórico de la operación
 
 ---
-
 ## Estado y deuda técnica
 
 El sistema está en producción y en uso diario. Estos son sus límites conocidos:
 
 **Sin pruebas automatizadas.** Cada cambio se verifica manualmente. Es la deuda
-más significativa: a medida que el sistema crece, la probabilidad de romper
-algo sin notarlo aumenta.
+más significativa: a medida que el sistema crece, aumenta la probabilidad de
+introducir regresiones que no sean detectadas durante la verificación manual.
 
-**desarrollo y producción** usan proyectos distintos de Supabase, con el esquema replicado desde migraciones/001_esquema_inicial.sql.
-Ahora existe el punto de partida documentado; lo que falta es sostener el proceso en cada cambio futuro.
-quien clone el repo puede levantar su propia base ejecutando la migración inicial. Eso convierte el proyecto en algo reproducible por otra persona
+**Desarrollo y producción separados.** Desarrollo y producción utilizan
+proyectos distintos de Supabase. El esquema inicial está documentado en
+`migraciones/001_esquema_inicial.sql`, lo que permite que otra persona pueda
+levantar una base de datos inicial a partir del repositorio. Lo que falta es
+mantener este proceso sincronizado mediante migraciones versionadas en cada
+cambio futuro del esquema.
 
-**Migraciones sin versionar.** El esquema evolucionó mediante cambios aplicados
-directamente sobre la base, sin quedar registrados en el repositorio. Ya
-produjo un incidente: código y esquema desincronizados por un nombre de columna
-mal escrito, que falló silenciosamente hasta revisar los logs.
+**Migraciones sin versionar.** Después del esquema inicial, parte de la
+evolución de la base de datos se realizó mediante cambios aplicados
+directamente sobre la base, sin quedar registrados en el repositorio. Esto ya
+produjo un incidente: código y esquema quedaron desincronizados por un nombre
+de columna incorrecto, provocando un fallo que solo fue detectado al revisar
+los logs.
 
-**Backups sin verificar.** Existen los automáticos del proveedor, pero nunca se
-probó una restauración. Un backup que no se restauró es una promesa, no una
-garantía.
+**Backups sin verificar.** Existen los backups automáticos del proveedor,
+pero todavía no se ha realizado una restauración de prueba. Un backup que
+nunca se ha restaurado es una capacidad disponible, no una garantía de
+recuperación.
 
-Estas deudas están documentadas y priorizadas. No se ocultan: reconocerlas es
-parte de entender el sistema.
+Estas deudas están documentadas y priorizadas. No se ocultan: reconocerlas
+forma parte de entender el estado real del sistema y de definir su evolución.
 
 ---
 
