@@ -103,12 +103,10 @@ centraliza en uno solo.
 ---
 
 ## Seguridad
+El proyecto arrancó con una auditoría propia que identificó nueve hallazgos de seguridad, corregidos de forma sistemática antes de continuar con el desarrollo de nuevas funcionalidades.
 
-El proyecto arrancó con una auditoría propia que identificó nueve
-vulnerabilidades, cerradas de forma sistemática antes de agregar
-funcionalidades. Los primeros commits del repositorio documentan ese trabajo.
 
-| Vulnerabilidad | Cierre |
+| Vulnerabilidad | Medida implementada |
 |---|---|
 | Contraseñas en texto plano | Hash con scrypt (Werkzeug) |
 | Sin control de acceso | RBAC con decorador `@requiere_rol` |
@@ -219,8 +217,7 @@ que puede invocar son específicas y estrechas. Nunca genéricas.
 
 ## Datos personales y cumplimiento
 
-El sistema recolecta datos de contacto de personas naturales en Colombia, lo
-que lo somete a la Ley 1581 de 2012 (Habeas Data).
+El sistema recolecta datos de contacto de personas naturales en Colombia y contempla mecanismos para registrar y mantener la trazabilidad del consentimiento asociado al tratamiento de esos datos
 
 ### Consentimiento versionado
 
@@ -232,9 +229,6 @@ La tabla `politicas_privacidad` archiva cada versión con su texto completo, sus
 fechas de vigencia y un **hash SHA-256** que permite probar que no fue alterada
 después. Cada lead guarda a qué versión dio su consentimiento.
 
-Esto responde a la trazabilidad del consentimiento que el marco regulatorio
-colombiano viene exigiendo con creciente rigor (Decreto 0368 de 2026 sobre
-finanzas abiertas).
 
 ### Cifrado de datos sensibles
 
@@ -261,51 +255,67 @@ Construir la capacidad no es lo mismo que usarla.
 
 ## SEO y captación
 
-Para un negocio local, la visibilidad en búsquedas es un canal de ventas
-directo. El sistema lo trata como funcionalidad, no como agregado.
+Para un negocio local, la visibilidad en búsquedas puede convertirse en un
+canal directo de captación. El sistema incorpora estas capacidades como parte
+de la funcionalidad de la plataforma.
 
-- **Títulos y descripciones dinámicos** por moto: marca, modelo, año,
-  cilindraje y ubicación, generados desde el inventario real
-- **Sitemap XML** construido desde las motos disponibles — una moto vendida
-  desaparece del sitemap en la siguiente petición
-- **Open Graph** en el detalle: al compartir un enlace por WhatsApp se muestra
-  una tarjeta con foto y precio
-- **Atribución por asesor**: enlaces con identificador que persisten en la
-  sesión del cliente, para saber qué asesor originó cada consulta
-- **Registro de intenciones**: cada clic en "preguntar por esta moto" queda
-  registrado, alimentando los reportes de gerencia
+- **Títulos y descripciones dinámicos** por motocicleta: marca, modelo, año,
+  cilindraje y ubicación, generados a partir del inventario disponible.
+
+- **Sitemap XML dinámico** construido a partir de las motocicletas disponibles.
+  Cuando una motocicleta deja de estar disponible, deja de aparecer en el
+  sitemap generado.
+
+- **Open Graph** en las páginas de detalle: al compartir una motocicleta por
+  WhatsApp u otras plataformas compatibles, el enlace genera una tarjeta con
+  información e imagen del vehículo.
+
+- **Atribución por asesor**: enlaces con identificadores que persisten en la
+  sesión del cliente, permitiendo relacionar una consulta con el asesor que
+  originó el enlace.
+
+- **Registro de intenciones**: cada interacción con "preguntar por esta moto"
+  queda registrada y puede utilizarse posteriormente en los reportes de
+  operación y análisis comercial.
 
 ---
 
 ## Decisiones deliberadas
 
-Decisiones tomadas con criterio, que explican por qué el sistema es como es.
+Decisiones tomadas con criterio técnico y de negocio que explican por qué el
+sistema está construido de esta manera.
 
-**El simulador orienta pero no decide.** El sistema nunca aprueba ni rechaza un
-crédito, ni consulta centrales de riesgo. Esa es función de las entidades
-financieras aliadas. Asumirla implicaría responsabilidades legales que no
-corresponden a una compraventa.
+**El simulador orienta, pero no decide.** El sistema nunca aprueba ni rechaza
+un crédito ni consulta centrales de riesgo. Esa responsabilidad corresponde a
+las entidades financieras aliadas. Asumirla implicaría atribuir a la
+compraventa responsabilidades que no corresponden a su función.
 
-**Atribución por identificador, no por número.** Los enlaces de asesor llevan
-el id del usuario, no su teléfono. El id se traduce contra la base, así que un
-cliente no puede inyectar un número arbitrario en la URL: solo puede referir a
-asesores que existen.
+**Atribución por identificador, no por número.** Los enlaces de asesor utilizan
+el identificador interno del usuario y no su número de teléfono. El
+identificador se resuelve contra la base de datos, evitando que un cliente
+pueda inyectar arbitrariamente un número de teléfono en la URL y limitando la
+referencia a asesores existentes.
 
 **Un solo camino de financiación.** El simulador con formulario web fue
-eliminado cuando el asistente lo reemplazó. Dos sistemas paralelos guardando
-en tablas distintas era una fuente de datos inconsistentes. La ruta antigua
-quedó como redirección permanente para no romper enlaces publicados.
+eliminado cuando el asistente conversacional lo reemplazó. Mantener dos
+sistemas paralelos que almacenaran información en tablas distintas podía
+generar inconsistencias. La ruta anterior quedó como redirección permanente
+para no romper enlaces publicados.
 
 **Duplicación deliberada donde importa.** Las funciones de verificación de
-ventas y compras son casi idénticas y podrían unificarse pasando el nombre de
-la tabla como parámetro. No se hizo: una función genérica que recibe la tabla
-desde afuera abre la puerta a escribir donde no corresponde. Veinte líneas
-duplicadas son un precio barato por esa garantía.
+ventas y compras son casi idénticas y podrían unificarse mediante una función
+genérica que recibiera el nombre de la tabla como parámetro. No se hizo:
+permitir que una función genérica determine dinámicamente la tabla sobre la
+que opera aumenta el riesgo de escribir donde no corresponde. En este caso,
+unas líneas de duplicación controlada son un precio aceptable por reducir ese
+riesgo.
 
-**Congelar datos históricos.** Las ventas guardan la descripción de la moto y
-el nombre del vendedor como texto, además de las referencias. Si la moto se
-elimina o el usuario cambia de nombre, el registro histórico sigue siendo
-legible. Desnormalización intencional: se sacrifica pureza por robustez.
+**Congelar datos históricos.** Las ventas almacenan la descripción de la
+motocicleta y el nombre del vendedor como texto, además de conservar las
+referencias originales. Si la motocicleta se elimina o el usuario cambia de
+nombre, el registro histórico continúa siendo legible. Es una desnormalización
+intencional: se sacrifica pureza del modelo relacional en favor de preservar
+el contexto histórico de la operación
 
 ---
 
