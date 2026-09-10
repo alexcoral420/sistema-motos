@@ -411,12 +411,17 @@ def registrar_intencion(moto_id: int, sede_id: int, sesion_id: str = None):
 #  BÚSQUEDA EN EL PANEL ADMIN
 # ============================================================
 
-def buscar_motos_admin(moto_id=None, placa=None):
+def buscar_motos_admin(moto_id=None, placa=None, estado=None, sede=None):
     """
-    Todas las motos del panel, con filtros opcionales por id o placa.
+    Todas las motos del panel, con filtros opcionales por id, placa,
+    estado o sede.
 
     Es una LECTURA -> conexión pública (mínimo privilegio: leer no
     requiere la llave administrativa).
+
+    'estado' y 'sede_id' se asumen ya validados por el servicio (estado
+    dentro de la lista blanca de estados; sede_id como entero). Aquí no
+    se confía en texto crudo del cliente.
     """
     supabase = get_supabase_publico()
     consulta = supabase.table("motos").select("*, sedes(nombre)")
@@ -428,6 +433,12 @@ def buscar_motos_admin(moto_id=None, placa=None):
         # ilike + comodines: encuentra la placa aunque escriban solo
         # una parte, y sin distinguir mayúsculas.
         consulta = consulta.ilike("placa", f"%{placa}%")
+
+    if estado:
+        consulta = consulta.eq("estado", estado)
+
+    if sede:
+        consulta = consulta.eq("sede_id", sede)
 
     return consulta.order("created_at", desc=True).execute().data
 
