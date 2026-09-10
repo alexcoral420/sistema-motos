@@ -380,10 +380,31 @@ def registrar_intencion(moto_id: int, sesion_id: str = None):
     repositorios.registrar_intencion(moto_id, moto.get("sede_id"), sesion_id)
     print(f"DEBUG: insert ejecutado")
 
-def obtener_similares(moto: dict, limite: int = 8):
-    """Motos con precio parecido, para sugerir en el detalle."""
+def obtener_similares(moto, limite=15):
+    """
+    Motos para sugerir en el detalle, ordenadas por relevancia.
+
+    La regla de 'que es parecido' vive aca (negocio), no en el repositorio
+    (datos):
+    1. Presupuesto = restriccion dura: solo motos en precio ±50% (el repo).
+    2. Dentro del presupuesto se prioriza MISMA MARCA; como desempate, la
+       mas cercana en precio. En este catalogo casi todo cae entre 7 y 11M,
+       asi que el precio casi no discrimina: la marca es la senal util.
+    La marca NO filtra (no excluye otras marcas), solo ordena: asi la
+    seccion no queda vacia cuando hay pocas motos de esa marca.
+    """
     if not moto:
         return []
-    return repositorios.obtener_motos_similares(
-        moto["id"], moto.get("precio"), limite
-    )
+
+    candidatas = repositorios.obtener_motos_similares(moto["id"], moto.get("precio"))
+    precio_obj = moto.get("precio") or 0
+    marca_obj = (moto.get("marca") or "").strip().lower()
+
+    def clave(m):
+        misma_marca = (m.get("marca") or "").strip().lower() == marca_obj
+        cercania = abs((m.get("precio") or 0) - precio_obj)
+        # (0 antes que 1) -> misma marca primero; luego menor dif. de precio.
+        return (0 if misma_marca else 1, cercania)
+
+    candidatas.sort(key=clave)
+    return candidatas[:limite]

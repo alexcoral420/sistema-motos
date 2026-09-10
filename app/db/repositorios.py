@@ -930,29 +930,26 @@ def marcar_compra_verificada(compra_id, usuario_nombre):
                  .execute())
     return resultado.data
 
-def obtener_motos_similares(moto_id: int, precio: int, limite: int = 8):
+def obtener_motos_similares(moto_id, precio, banda=0.5, tope_pool=60):
     """
-    Motos disponibles con precio parecido a la dada, excluyendola.
-
-    El criterio es el PRECIO (±30%) porque el presupuesto es lo que mas
-    restringe la decision: a alguien que mira una moto de $8M no le sirve
-    ver una de $20M, aunque sea de la misma marca.
-
-    Se usa en el detalle: el 95% de los visitantes mira una sola moto y se
-    va, asi que darle alternativas relevantes es la mejor oportunidad de
-    que explore mas.
+    Candidatas dentro del PRESUPUESTO (precio ±banda), disponibles y
+    excluyendo la actual. Restriccion dura y nada mas: NO decide cuales
+    son 'mas parecidas' ni las ordena por relevancia. Devuelve el conjunto
+    para que el servicio lo rankee por marca/precio. Por eso no corta a
+    'limite' aca: cortar antes de rankear daria 8 motos arbitrarias.
     """
     if not precio:
         return []
-
     supabase = get_supabase_publico()
+    piso = int(precio * (1 - banda))
+    tope = int(precio * (1 + banda))
     resultado = (supabase.table("motos")
-                 .select("*, sedes(nombre)")
+                 .select("id, marca, modelo, precio, anio, cilindraje, foto_url")
                  .eq("estado", "disponible")
                  .neq("id", moto_id)
-                 .gte("precio", int(precio * 0.7))
-                 .lte("precio", int(precio * 1.3))
-                 .limit(limite)
+                 .gte("precio", piso)
+                 .lte("precio", tope)
+                 .limit(tope_pool)
                  .execute())
     return resultado.data
 
