@@ -42,7 +42,7 @@
         .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
         .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-        .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; }
+        .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 24px; }
 
         /* Botón volver */
         .volver { display: inline-flex; align-items: center; gap: 6px; color: #bbb; text-decoration: none; font-size: 14px; margin-bottom: 20px; transition: color 0.2s; }
@@ -62,6 +62,49 @@
         }
         .thumbnail.active { border-color: #ff7a00; }
         .thumbnail:hover { border-color: #ff7a00; }
+
+        /* ===== Carrusel de fotos (deslizable) ===== */
+        .carrusel { position: relative; }
+        .carrusel-pista {
+            display: flex; overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+            border-radius: 16px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .carrusel-pista::-webkit-scrollbar { display: none; }
+        .slide {
+            flex: 0 0 100%; scroll-snap-align: center;
+            height: 440px; background: #0f0f0f;
+            border: 1px solid #2a2a2a; border-radius: 16px;
+            overflow: hidden; display: flex; align-items: center;
+            justify-content: center; font-size: 80px;
+        }
+        .slide img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+
+        /* Flechas: solo en dispositivos con puntero (desktop). En táctil se
+           ocultan porque ahí deslizar con el dedo es lo natural. */
+        .carrusel-flecha {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 44px; height: 44px; border-radius: 50%; border: none;
+            background: rgba(0,0,0,0.55); color: #fff; font-size: 26px;
+            cursor: pointer; z-index: 5; display: none;
+            align-items: center; justify-content: center; transition: background 0.2s, color 0.2s;
+        }
+        .carrusel-flecha:hover { background: #ff7a00; color: #000; }
+        .carrusel-flecha.izq { left: 12px; }
+        .carrusel-flecha.der { right: 12px; }
+        @media (hover: hover) and (pointer: fine) {
+            .carrusel:not(.una-sola) .carrusel-flecha { display: flex; }
+        }
+
+        /* Puntos indicadores */
+        .carrusel-puntos { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+        .punto {
+            width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0;
+            background: #3a3a3a; cursor: pointer; transition: background 0.2s, width 0.2s;
+        }
+        .punto.activo { background: #ff7a00; width: 22px; border-radius: 4px; }
 
         /* Controles de fotos (solo admin) */
         .thumb-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; }
@@ -144,7 +187,7 @@
         }
 
                 /* ===== Motos similares ===== */
-        .similares { padding: 40px 0 20px; border-top: 1px solid #333; margin-top: 40px; }
+        .similares { padding: 20px 0 20px; border-top: 1px solid #333; margin-top: 0; }
         .similares h2 {
             font-size: 22px; text-transform: uppercase; margin: 0 24px 4px;
             font-family: 'Barlow Condensed', sans-serif;
@@ -227,19 +270,29 @@
             <a href="/catalogo" class="volver">← Volver al catálogo</a>
         {% endif %}
 
-        <!-- Galería de fotos. La PORTADA (moto.foto_url) manda: es la que
-             el catálogo muestra. Solo si no hay portada, cae a la galería. -->
-        <div class="galeria-principal" id="galeria-principal">
-            {% if moto.foto_url %}
-                <img src="{{ moto.foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
-            {% elif fotos %}
-                <img src="{{ fotos[0].foto_url }}" id="foto-principal" onclick="abrirModal(this.src)">
-            {% else %}
-                🏍️
-            {% endif %}
+        <!-- Galería como carrusel deslizable. La PORTADA (moto.foto_url) es
+             la primera diapositiva; luego la galería. El admin conserva la
+             grilla de gestión más abajo. -->
+        <div class="carrusel" id="carrusel">
+            <div class="carrusel-pista" id="carrusel-pista">
+                {% if moto.foto_url %}
+                <div class="slide"><img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}" onclick="abrirModal(this.src)"></div>
+                {% endif %}
+                {% for foto in fotos %}
+                <div class="slide"><img src="{{ foto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }} foto {{ loop.index }}" loading="lazy" onclick="abrirModal(this.src)"></div>
+                {% endfor %}
+                {% if not moto.foto_url and not fotos %}
+                <div class="slide">🏍️</div>
+                {% endif %}
+            </div>
+            <button type="button" class="carrusel-flecha izq" onclick="moverCarrusel(-1)" aria-label="Foto anterior">‹</button>
+            <button type="button" class="carrusel-flecha der" onclick="moverCarrusel(1)" aria-label="Foto siguiente">›</button>
+            <div class="carrusel-puntos" id="carrusel-puntos"></div>
         </div>
 
-        {% if session.rol == 'admin' and moto.foto_url %}
+        {% if session.rol == 'admin' %}
+        <!-- Gestión de fotos (solo admin): portada y galería -->
+        {% if moto.foto_url %}
         <div class="portada-acciones">
             <form method="POST" action="{{ url_for('admin.eliminar_portada_moto', id=moto.id) }}"
                   onsubmit="return confirm('¿Eliminar la portada? Si hay fotos en galería, la primera la reemplazará.')">
@@ -249,21 +302,17 @@
         </div>
         {% endif %}
 
-        <!-- Thumbnails -->
         <div class="thumbnails">
             {% if moto.foto_url %}
             <div class="thumb-wrap">
-                <img src="{{ moto.foto_url }}" class="thumbnail active" onclick="cambiarFoto(this)">
-                {% if es_admin %}
+                <img src="{{ moto.foto_url }}" class="thumbnail active" onclick="irASlideDesdeThumb(this)">
                 <div class="thumb-acciones"><span class="thumb-portada">⭐ Portada</span></div>
-                {% endif %}
             </div>
             {% endif %}
 
             {% for foto in fotos %}
             <div class="thumb-wrap">
-                <img src="{{ foto.foto_url }}" class="thumbnail" onclick="cambiarFoto(this)">
-                {% if session.rol == 'admin' %}
+                <img src="{{ foto.foto_url }}" class="thumbnail" onclick="irASlideDesdeThumb(this)">
                 <div class="thumb-acciones">
                     <form method="POST" action="{{ url_for('admin.hacer_portada_moto', id=moto.id, foto_id=foto.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -275,10 +324,10 @@
                         <button type="submit" class="btn-mini btn-mini-rojo" title="Eliminar foto">🗑️</button>
                     </form>
                 </div>
-                {% endif %}
             </div>
             {% endfor %}
         </div>
+        {% endif %}
 
         <!-- Info de la moto -->
         <div class="info-card">
@@ -379,8 +428,7 @@
 
         {% if similares %}
     <section class="similares">
-        <h2>Otras motos en tu presupuesto</h2>
-        <p class="sub">Precios similares, disponibles ahora</p>
+        <h2>Motos similares</h2>
         <div class="pista-similares">
             {% for s in similares %}
             <a href="{{ url_for('publico.detalle_moto', id=s.id) }}" class="card-similar">
@@ -436,11 +484,53 @@
     </div>
 
     <script>
-        function cambiarFoto(thumb) {
-            document.getElementById('foto-principal').src = thumb.src;
-            document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
-            thumb.classList.add('active');
-        }
+        // ===== Carrusel de fotos deslizable =====
+        (function () {
+            const pista = document.getElementById('carrusel-pista');
+            if (!pista) return;
+            const carrusel = document.getElementById('carrusel');
+            const slides = pista.querySelectorAll('.slide');
+            const puntosCont = document.getElementById('carrusel-puntos');
+
+            // Flecha de desktop: avanza/retrocede una foto (un ancho de pista)
+            window.moverCarrusel = (dir) =>
+                pista.scrollBy({ left: dir * pista.clientWidth, behavior: 'smooth' });
+
+            // Miniatura de admin -> saltar a esa foto en el carrusel
+            window.irASlideDesdeThumb = (thumb) => {
+                const imgs = pista.querySelectorAll('.slide img');
+                imgs.forEach((img, i) => {
+                    if (img.getAttribute('src') === thumb.getAttribute('src')) {
+                        pista.scrollTo({ left: i * pista.clientWidth, behavior: 'smooth' });
+                    }
+                });
+            };
+
+            // Con una sola foto no hay nada que deslizar: sin puntos ni flechas.
+            if (slides.length <= 1) { carrusel.classList.add('una-sola'); return; }
+
+            // Un punto indicador por foto
+            slides.forEach((_, i) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'punto' + (i === 0 ? ' activo' : '');
+                b.setAttribute('aria-label', 'Ir a la foto ' + (i + 1));
+                b.addEventListener('click', () =>
+                    pista.scrollTo({ left: i * pista.clientWidth, behavior: 'smooth' }));
+                puntosCont.appendChild(b);
+            });
+            const puntos = puntosCont.querySelectorAll('.punto');
+
+            // Al deslizar, resaltar el punto de la foto visible
+            let t;
+            pista.addEventListener('scroll', () => {
+                clearTimeout(t);
+                t = setTimeout(() => {
+                    const idx = Math.round(pista.scrollLeft / pista.clientWidth);
+                    puntos.forEach((p, i) => p.classList.toggle('activo', i === idx));
+                }, 60);
+            });
+        })();
 
         function abrirModal(src) {
             document.getElementById('modal-img').src = src;
