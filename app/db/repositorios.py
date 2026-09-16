@@ -309,6 +309,7 @@ def obtener_motos_filtradas(filtros: dict, limite: int = 15, pagina: int = 1):
     # 3) Consulta real de datos, con orden y paginacion.
     resultado = (
         construir_consulta()
+        .order("es_reciente", desc=True)
         .order("consultas_recientes", desc=True)
         .order("created_at", desc=True)
         .range(desde, hasta)
