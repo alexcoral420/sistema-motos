@@ -990,3 +990,23 @@ def motos_documentos_por_vencer(dias=120):
             motos.append(m)
 
     return motos
+
+    # En repositorios.py
+
+def ventas_pendientes_detalle(sede_id=None):
+    """
+    Ventas verificadas que aún no tienen el detalle cargado.
+
+    sede_id: si viene, filtra solo esa sede. Si es None, trae todas
+    (lo decide el servicio segun el rol; el repositorio solo obedece).
+    Aisla por la sede_id CONGELADA en la venta, no la del usuario actual.
+    """
+    supabase = get_supabase_admin()
+    consulta = (supabase.table("ventas")
+                .select("*")
+                .eq("verificada", True)
+                .eq("detalle_completo", False)
+                .eq("estado", "activa"))
+    if sede_id is not None:
+        consulta = consulta.eq("sede_id", sede_id)
+    return consulta.order("created_at", desc=True).execute().data

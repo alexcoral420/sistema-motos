@@ -41,7 +41,7 @@ def proteger_todo_el_panel():
 
 
 @admin_bp.route("/")
-@requiere_rol("admin", "asesor", "gerencia")
+@requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def index():
     """Panel principal: lista las motos, con filtros opcionales."""
     datos = busqueda.buscar(request.args)
@@ -325,7 +325,7 @@ def editar(id):
 
 
 @admin_bp.route("/vender/<int:id>", methods=["POST"])
-@requiere_rol("admin", "asesor")
+@requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def vender(id):
     """Marca una moto como vendida y registra quién la vendió."""
     inventario.marcar_vendida(id)

@@ -109,6 +109,7 @@
                     <select name="rol" id="rol" required>
                         <option value="asesor">Asesor</option>
                         {% if session.rol == 'admin' %}
+                        <option value="encargado_sede">Encargado de sede</option>
                         <option value="gerencia">Gerencia</option>
                         <option value="admin">Administrador</option>
                         {% endif %}
