@@ -454,6 +454,18 @@ def panel_gerencia():
         modelos_permutados=reportes.modelos_permutados(),
     )
 
+@admin_bp.route("/ventas/pendientes-detalle")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def vista_ventas_pendientes():
+    """
+    Lista las ventas verificadas que aún no tienen el detalle cargado.
+    El aislamiento por sede lo aplica el servicio: gerencia/admin ven
+    todas, el encargado solo las de su sede.
+    """
+    from app.servicios import detalle_ventas
+    pendientes = detalle_ventas.listar_pendientes()
+    return render_template("ventas_detalle_pendientes.html", pendientes=pendientes)
+
 @admin_bp.route("/gerencia/verificar-venta/<int:venta_id>", methods=["POST"])
 @requiere_rol("admin", "gerencia")
 def verificar_venta(venta_id):
@@ -512,6 +524,8 @@ def gestion_usuarios():
         error=error,
         exito=exito,
     )
+
+
 
 
 @admin_bp.route("/usuarios/<int:usuario_id>/desactivar", methods=["POST"])
