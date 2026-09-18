@@ -372,6 +372,55 @@ def obtener_usuario_por_nombre(usuario: str):
     # ============================================================
 #  VENTAS (registro de operaciones)
 # ============================================================
+def buscar_comprador_por_cedula(cedula: str):
+    """Devuelve el comprador con esa cédula, o None si no existe."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("compradores")
+                 .select("*")
+                 .eq("cedula", cedula)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def crear_comprador(datos: dict):
+    """Inserta un comprador nuevo y devuelve el registro creado."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("compradores").insert(datos).execute()
+    return resultado.data[0]
+
+
+def insertar_pagos(pagos: list):
+    """Inserta varios pagos de una venta de una vez."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("pagos").insert(pagos).execute()
+    return resultado.data
+
+def borrar_pagos_de_venta(venta_id: int):
+    """
+    Borra los pagos de una venta. Se usa antes de reinsertar, para que
+    un reintento tras un fallo parcial no deje pagos duplicados.
+    """
+    supabase = get_supabase_admin()
+    supabase.table("pagos").delete().eq("venta_id", venta_id).execute()
+
+def completar_detalle_venta(venta_id: int, comprador_id: int, precio_venta: int):
+    """
+    Marca la venta con su comprador, precio y detalle_completo=true.
+    Se llama DESPUÉS de insertar los pagos: así, si los pagos fallan,
+    la venta sigue pendiente y se puede reintentar.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("ventas")
+                 .update({
+                     "comprador_id": comprador_id,
+                     "precio_venta": precio_venta,
+                     "detalle_completo": True,
+                 })
+                 .eq("id", venta_id)
+                 .execute())
+    return resultado.data
+
 
 def registrar_venta(datos: dict):
     """Guarda el registro histórico de una venta."""
@@ -1010,3 +1059,12 @@ def ventas_pendientes_detalle(sede_id=None):
     if sede_id is not None:
         consulta = consulta.eq("sede_id", sede_id)
     return consulta.order("created_at", desc=True).execute().data
+def obtener_venta_por_id(venta_id: int):
+    """Devuelve la venta con ese id, o None si no existe."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("ventas")
+                 .select("*")
+                 .eq("id", venta_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None

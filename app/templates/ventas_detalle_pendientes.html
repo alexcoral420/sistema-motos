@@ -78,7 +78,7 @@
                     <td class="tenue">{{ v.placa or '—' }}</td>
                     <td>{{ v.usuario_nombre or '—' }}</td>
                     <td>
-                        <span class="btn btn-primary" style="opacity:0.5; cursor:not-allowed" title="Próximamente">Cargar detalle</span>
+                        <a href="{{ url_for('admin.cargar_detalle_venta', venta_id=v.id) }}" class="btn btn-primary">Cargar detalle</a>
                     </td>
                 </tr>
                 {% endfor %}
