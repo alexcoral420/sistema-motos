@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargar detalle de venta · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #050505;
+            --negro-800: #0d0d0d;
+            --negro-700: #141414;
+            --negro-600: #1c1c1c;
+            --borde: #2a2a2a;
+            --blanco: #f5f5f5;
+            --texto: #e8e8e8;
+            --texto-suave: #a8a8a8;
+            --texto-tenue: #777;
+            --rojo: #e5484d;
+            --verde: #34c759;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, h3 { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: 0.3px; text-transform: uppercase; }
+
+        .barra { background: var(--negro-900); border-bottom: 2px solid var(--naranja); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .barra h1 { color: var(--blanco); font-size: 24px; }
+        .barra h1 span { color: var(--naranja); }
+        .btn-back { color: var(--texto-suave); text-decoration: none; font-size: 14px; padding: 8px 16px; border: 1px solid var(--borde); border-radius: 8px; }
+        .btn-back:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        .contenedor { max-width: 760px; margin: 0 auto; padding: 32px 24px 60px; }
+
+        .aviso { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .aviso-error { background: rgba(229,72,77,0.12); border: 1px solid var(--rojo); color: #ff8b8f; }
+
+        /* Encabezado de la venta (solo lectura) */
+        .venta-info { background: var(--negro-700); border: 1px solid var(--borde); border-left: 3px solid var(--naranja); border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
+        .venta-info .moto { font-size: 18px; color: var(--blanco); font-weight: 600; }
+        .venta-info .meta { color: var(--texto-tenue); font-size: 14px; margin-top: 4px; }
+
+        .bloque { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 10px; padding: 20px; margin-bottom: 22px; }
+        .bloque h2 { font-size: 18px; color: var(--blanco); margin-bottom: 16px; }
+
+        .campo { margin-bottom: 14px; }
+        .campo label { display: block; font-size: 13px; color: var(--texto-suave); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .campo input, .campo select { width: 100%; background: var(--negro-800); border: 1px solid var(--borde); color: var(--texto); border-radius: 8px; padding: 10px 12px; font-family: inherit; font-size: 15px; }
+        .campo input:focus, .campo select:focus { outline: none; border-color: var(--naranja); }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+
+        /* Filas de pago */
+        .pago-fila { display: grid; grid-template-columns: 1.2fr 1.4fr 1.2fr auto; gap: 10px; align-items: end; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--borde); }
+        .pago-fila:last-of-type { border-bottom: none; }
+        @media (max-width: 640px) { .pago-fila { grid-template-columns: 1fr; } }
+        .pago-fila .campo { margin-bottom: 0; }
+        .pago-entidad.oculto { display: none; }
+        .btn-quitar { background: transparent; border: 1px solid var(--rojo); color: #ff8b8f; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; }
+        .btn-quitar:hover { background: rgba(229,72,77,0.12); }
+
+        .btn-agregar { background: transparent; border: 1px dashed var(--borde); color: var(--texto-suave); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; width: 100%; }
+        .btn-agregar:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        .suma-caja { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 12px 16px; background: var(--negro-800); border: 1px solid var(--borde); border-radius: 8px; font-size: 15px; }
+        .suma-caja .valor { font-variant-numeric: tabular-nums; font-weight: 700; }
+        .suma-ok { color: var(--verde); }
+        .suma-desc { color: var(--naranja); }
+
+        .btn-guardar { background: var(--naranja); color: var(--negro-900); border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
+        .btn-guardar:hover { background: var(--naranja-claro); }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Cargar detalle de <span>venta</span></h1>
+        <a href="{{ url_for('admin.vista_ventas_pendientes') }}" class="btn-back">← Volver</a>
+    </div>
+
+    <div class="contenedor">
+        {% if error %}
+        <div class="aviso aviso-error">{{ error }}</div>
+        {% endif %}
+
+        <div class="venta-info">
+            <div class="moto">{{ venta.descripcion or 'Moto' }}</div>
+            <div class="meta">
+                Placa: {{ venta.placa or '—' }} · Vendió: {{ venta.usuario_nombre or '—' }}
+            </div>
+        </div>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <!-- COMPRADOR -->
+            <div class="bloque">
+                <h2>Comprador</h2>
+                <div class="campo">
+                    <label for="comprador_nombre">Nombre completo *</label>
+                    <input type="text" name="comprador_nombre" id="comprador_nombre" required
+                           value="{{ datos.comprador_nombre if datos else '' }}">
+                </div>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="comprador_cedula">Cédula *</label>
+                        <input type="text" name="comprador_cedula" id="comprador_cedula" required
+                               value="{{ datos.comprador_cedula if datos else '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="comprador_telefono">Teléfono *</label>
+                        <input type="text" name="comprador_telefono" id="comprador_telefono" required
+                               value="{{ datos.comprador_telefono if datos else '' }}">
+                    </div>
+                </div>
+                <div class="campo">
+                    <label for="comprador_correo">Correo (opcional)</label>
+                    <input type="email" name="comprador_correo" id="comprador_correo"
+                           value="{{ datos.comprador_correo if datos else '' }}">
+                </div>
+            </div>
+
+            <!-- PRECIO -->
+            <div class="bloque">
+                <h2>Precio de venta</h2>
+                <div class="campo">
+                    <label for="precio_venta">Precio final (en pesos) *</label>
+                    <input type="number" name="precio_venta" id="precio_venta" required min="1"
+                           value="{{ datos.precio_venta if datos else '' }}"
+                           oninput="recalcularSuma()">
+                </div>
+            </div>
+
+            <!-- PAGOS -->
+            <div class="bloque">
+                <h2>Formas de pago</h2>
+                <div id="pagos-lista">
+                    <!-- Las filas se generan con JS -->
+                </div>
+                <button type="button" class="btn-agregar" onclick="agregarPago()">+ Agregar forma de pago</button>
+
+                <div class="suma-caja">
+                    <span>Suma de pagos:</span>
+                    <span class="valor" id="suma-valor">$0</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-guardar">Guardar detalle</button>
+        </form>
+    </div>
+
+    <script>
+        const METODOS = [
+            ["efectivo", "Efectivo"],
+            ["transferencia", "Transferencia"],
+            ["financiado", "Financiado"],
+            ["permuta", "Permuta"],
+        ];
+        const ENTIDADES = [
+            ["banco_bogota", "Banco de Bogotá"],
+            ["vanti", "Vanti"],
+            ["addi", "Addi"],
+            ["sistecredito", "Sistecrédito"],
+        ];
+
+        const lista = document.getElementById("pagos-lista");
+
+        function agregarPago() {
+            const fila = document.createElement("div");
+            fila.className = "pago-fila";
+
+            // Método
+            const optMetodos = METODOS.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+            // Entidad
+            const optEntidades = ['<option value="">— selecciona —</option>']
+                .concat(ENTIDADES.map(([v, t]) => `<option value="${v}">${t}</option>`)).join("");
+
+            fila.innerHTML = `
+                <div class="campo">
+                    <label>Método</label>
+                    <select name="pago_metodo" onchange="toggleEntidad(this)">${optMetodos}</select>
+                </div>
+                <div class="campo pago-entidad oculto">
+                    <label>Entidad</label>
+                    <select name="pago_entidad">${optEntidades}</select>
+                </div>
+                <div class="campo">
+                    <label>Monto</label>
+                    <input type="number" name="pago_monto" min="1" oninput="recalcularSuma()">
+                </div>
+                <button type="button" class="btn-quitar" onclick="quitarPago(this)">Quitar</button>
+            `;
+            lista.appendChild(fila);
+        }
+
+        function quitarPago(boton) {
+            // No dejar quedar sin ninguna fila
+            if (lista.querySelectorAll(".pago-fila").length > 1) {
+                boton.closest(".pago-fila").remove();
+                recalcularSuma();
+            }
+        }
+
+        function toggleEntidad(selectMetodo) {
+            const fila = selectMetodo.closest(".pago-fila");
+            const campoEntidad = fila.querySelector(".pago-entidad");
+            const selectEntidad = campoEntidad.querySelector("select");
+            if (selectMetodo.value === "financiado") {
+                campoEntidad.classList.remove("oculto");
+            } else {
+                campoEntidad.classList.add("oculto");
+                selectEntidad.value = "";  // limpiar si no aplica
+            }
+        }
+
+        function recalcularSuma() {
+            let suma = 0;
+            lista.querySelectorAll('input[name="pago_monto"]').forEach(inp => {
+                const v = parseInt(inp.value, 10);
+                if (!isNaN(v) && v > 0) suma += v;
+            });
+            const precio = parseInt(document.getElementById("precio_venta").value, 10) || 0;
+            const el = document.getElementById("suma-valor");
+            el.textContent = "$" + suma.toLocaleString("es-CO");
+            el.className = "valor " + (suma === precio && precio > 0 ? "suma-ok" : "suma-desc");
+        }
+
+        // Arrancar con una fila de pago
+        agregarPago();
+    </script>
+</body>
+</html>

@@ -14,8 +14,7 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import Blueprint, request, render_template, redirect, url_for, session
-
+from flask import Blueprint, request, render_template, redirect, url_for, session, abort
 from app.servicios import inventario
 
 from app.servicios import sedes
@@ -41,7 +40,7 @@ def proteger_todo_el_panel():
 
 
 @admin_bp.route("/")
-@requiere_rol("admin", "asesor", "gerencia")
+@requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def index():
     """Panel principal: lista las motos, con filtros opcionales."""
     datos = busqueda.buscar(request.args)
@@ -323,9 +322,59 @@ def editar(id):
     moto = inventario.obtener_moto(id)
     return render_template("editar.html", moto=moto, id=id, sedes=sedes.listar_sedes())
 
+@admin_bp.route("/ventas/cargar-detalle/<int:venta_id>", methods=["GET", "POST"])
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def cargar_detalle_venta(venta_id):
+    """
+    Formulario para cargar el detalle de una venta (comprador, pagos, precio).
+    GET muestra el formulario; POST lo guarda. Ambos validan que el usuario
+    pueda operar esta venta según su sede (muralla de escritura).
+    """
+    from app.servicios import detalle_ventas
+
+    # Aislamiento de ESCRITURA: ¿esta venta está en el alcance del usuario?
+    venta = detalle_ventas.venta_en_alcance(venta_id)
+    if not venta:
+        abort(403)
+
+    if request.method == "POST":
+        try:
+            datos_comprador = {
+                "nombre": request.form.get("comprador_nombre"),
+                "cedula": request.form.get("comprador_cedula"),
+                "telefono": request.form.get("comprador_telefono"),
+                "correo": request.form.get("comprador_correo"),
+            }
+            metodos = request.form.getlist("pago_metodo")
+            entidades = request.form.getlist("pago_entidad")
+            montos = request.form.getlist("pago_monto")
+            lista_pagos = [
+                {"metodo": m, "entidad": e, "monto": mo}
+                for m, e, mo in zip(metodos, entidades, montos)
+            ]
+            precio = request.form.get("precio_venta")
+
+            aviso = detalle_ventas.guardar_detalle(
+                venta_id, datos_comprador, lista_pagos, precio
+            )
+            obtener_logger().info("Detalle cargado para venta id=%s por %s.",
+                                  venta_id, session.get("usuario_nombre"))
+            return render_template("detalle_guardado.html", aviso=aviso)
+
+        except ErrorValidacion as e:
+            return render_template(
+                "cargar_detalle_venta.html",
+                venta=venta,
+                error=e.mensaje,
+                datos=request.form,
+            )
+
+    # GET: mostrar el formulario vacío.
+    return render_template("cargar_detalle_venta.html", venta=venta)
+
 
 @admin_bp.route("/vender/<int:id>", methods=["POST"])
-@requiere_rol("admin", "asesor")
+@requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def vender(id):
     """Marca una moto como vendida y registra quién la vendió."""
     inventario.marcar_vendida(id)
@@ -454,6 +503,20 @@ def panel_gerencia():
         modelos_permutados=reportes.modelos_permutados(),
     )
 
+@admin_bp.route("/ventas/pendientes-detalle")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def vista_ventas_pendientes():
+    """
+    Lista las ventas verificadas que aún no tienen el detalle cargado.
+    El aislamiento por sede lo aplica el servicio: gerencia/admin ven
+    todas, el encargado solo las de su sede.
+    """
+    from app.servicios import detalle_ventas
+    pendientes = detalle_ventas.listar_pendientes()
+    return render_template("ventas_detalle_pendientes.html", pendientes=pendientes)
+
+
+
 @admin_bp.route("/gerencia/verificar-venta/<int:venta_id>", methods=["POST"])
 @requiere_rol("admin", "gerencia")
 def verificar_venta(venta_id):
@@ -512,6 +575,8 @@ def gestion_usuarios():
         error=error,
         exito=exito,
     )
+
+
 
 
 @admin_bp.route("/usuarios/<int:usuario_id>/desactivar", methods=["POST"])

@@ -15,7 +15,7 @@ from werkzeug.security import generate_password_hash
 from app.db import repositorios
 from app.seguridad.logging_config import obtener_logger
 
-ROLES_VALIDOS = {"admin", "asesor", "gerencia"}
+ROLES_VALIDOS = {"admin", "asesor", "gerencia", "encargado_sede"}
 
 
 class ErrorGestionUsuario(Exception):
