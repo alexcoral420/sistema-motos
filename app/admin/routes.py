@@ -516,6 +516,19 @@ def vista_ventas_pendientes():
     return render_template("ventas_detalle_pendientes.html", pendientes=pendientes)
 
 
+@admin_bp.route("/ventas")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def ventas_mi_sede():
+    """
+    Vista unificada de ventas: verificar, cargar detalle o ver completas.
+    El aislamiento por sede lo aplica el servicio: gerencia/admin ven
+    todas, el encargado solo las de su sede.
+    """
+    from app.servicios import detalle_ventas
+    ventas = detalle_ventas.listar_ventas_de_mi_sede()
+    return render_template("ventas_mi_sede.html", ventas=ventas)
+
+
 # ============================================================
 #  GASTOS (taller, repuestos, lavadero — por moto)
 # ============================================================
@@ -600,18 +613,29 @@ def sincronizar_gastos_taller():
 
 
 @admin_bp.route("/gerencia/verificar-venta/<int:venta_id>", methods=["POST"])
-@requiere_rol("admin", "gerencia")
+@requiere_rol("admin", "gerencia", "encargado_sede")
 def verificar_venta(venta_id):
     """
-    Marca una venta como verificada. Solo gerencia y admin.
+    Marca una venta como verificada. Gerencia/admin cualquiera; el
+    encargado solo las de su sede (lo valida el servicio).
 
     Quien verifica sale de la SESION, no del formulario: nadie puede
     firmar la verificacion a nombre de otro.
     """
-    reportes.verificar_venta(venta_id, session.get("usuario_nombre"))
+    try:
+        reportes.verificar_venta(venta_id, session.get("usuario_nombre"))
+    except ErrorValidacion:
+        obtener_logger().warning("%s intento verificar la venta id=%s fuera de su alcance.",
+                                 session.get("usuario_nombre"), venta_id)
+        abort(403)
 
     obtener_logger().info("%s verifico la venta id=%s.",
                           session.get("usuario_nombre"), venta_id)
+
+    # El encargado no tiene acceso al panel de gerencia: vuelve a su vista.
+    # "origen" solo elige entre dos destinos fijos, nunca una URL libre.
+    if session.get("rol") == "encargado_sede" or request.form.get("origen") == "ventas":
+        return redirect(url_for("admin.ventas_mi_sede"))
     return redirect(url_for("admin.panel_gerencia"))
 
 @admin_bp.route("/gerencia/verificar-compra/<int:compra_id>", methods=["POST"])

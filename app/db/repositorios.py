@@ -1059,6 +1059,23 @@ def ventas_pendientes_detalle(sede_id=None):
     if sede_id is not None:
         consulta = consulta.eq("sede_id", sede_id)
     return consulta.order("created_at", desc=True).execute().data
+
+
+def ventas_de_sede(sede_id=None):
+    """
+    Todas las ventas de una sede, en cualquier estado de verificación
+    o detalle. Si sede_id es None, trae las de todas las sedes.
+
+    Igual que ventas_pendientes_detalle: el servicio decide la sede
+    según el rol; aquí solo se filtra por la sede_id CONGELADA en la venta.
+    """
+    supabase = get_supabase_admin()
+    consulta = supabase.table("ventas").select("*")
+    if sede_id is not None:
+        consulta = consulta.eq("sede_id", sede_id)
+    return consulta.order("created_at", desc=True).execute().data
+
+
 def obtener_venta_por_id(venta_id: int):
     """Devuelve la venta con ese id, o None si no existe."""
     supabase = get_supabase_admin()

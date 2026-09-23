@@ -11,6 +11,7 @@ no tiene permiso SELECT sobre ellas.
 """
 
 from app.db import repositorios
+from app.seguridad.validadores import ErrorValidacion
 
 
 def ventas_por_usuario(desde=None, hasta=None):
@@ -106,7 +107,17 @@ def ventas_detalle(desde=None, hasta=None, orden="fecha"):
     )
 
 def verificar_venta(venta_id, usuario_nombre):
-    """Marca una venta como verificada por gerencia."""
+    """
+    Marca una venta como verificada.
+
+    Antes valida que la venta esté en el alcance de sede del usuario en
+    sesión: gerencia/admin verifican cualquiera, el encargado solo las de
+    su sede. La guarda vive aquí (no en la ruta) para que proteja
+    cualquier camino que llegue a verificar, incluido un POST directo.
+    """
+    from app.servicios.detalle_ventas import venta_en_alcance
+    if not venta_en_alcance(venta_id):
+        raise ErrorValidacion("La venta no existe o no pertenece a su sede.", "venta")
     return repositorios.marcar_venta_verificada(venta_id, usuario_nombre)
 
 def compras_por_usuario(desde=None, hasta=None):
