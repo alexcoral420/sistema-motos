@@ -65,6 +65,24 @@ def listar_pendientes():
 
     return repositorios.ventas_pendientes_detalle(sede_id=alcance)
 
+
+def listar_ventas_de_mi_sede():
+    """
+    Todas las ventas (cualquier estado) dentro del alcance del usuario.
+    Gerencia/admin ven todas; el encargado solo las de su sede.
+    Si el usuario no tiene alcance válido, devuelve lista vacía.
+    """
+    alcance = _sede_del_alcance()
+
+    if alcance is None:
+        # Usuario mal configurado: no ve nada.
+        return []
+
+    if alcance is TODAS_LAS_SEDES:
+        return repositorios.ventas_de_sede(sede_id=None)
+
+    return repositorios.ventas_de_sede(sede_id=alcance)
+
 def venta_en_alcance(venta_id):
     """
     Devuelve la venta si el usuario en sesión puede operarla según su
