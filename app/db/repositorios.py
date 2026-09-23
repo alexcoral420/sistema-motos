@@ -1068,3 +1068,64 @@ def obtener_venta_por_id(venta_id: int):
                  .limit(1)
                  .execute())
     return resultado.data[0] if resultado.data else None
+
+
+# ============================================================
+#  GASTOS (taller, repuestos, lavadero — por moto)
+# ============================================================
+
+def obtener_moto_por_placa(placa: str):
+    """
+    Busca UNA moto por placa EXACTA, sin importar su estado (a
+    diferencia de obtener_disponible_por_placa): una moto ya vendida
+    también puede tener gastos históricos.
+    """
+    supabase = get_supabase_publico()
+    resultado = (supabase.table("motos")
+                 .select("*")
+                 .eq("placa", placa)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def ordenes_taller_guardadas(moto_id: int) -> set:
+    """
+    Números de orden del taller ya guardados como gasto para esta moto.
+    Es la base del anti-duplicado: antes de insertar una orden nueva,
+    el servicio consulta este conjunto y salta las que ya están.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("gastos")
+                 .select("orden_taller")
+                 .eq("moto_id", moto_id)
+                 .not_.is_("orden_taller", "null")
+                 .execute())
+    return {fila["orden_taller"] for fila in resultado.data}
+
+
+def insertar_gasto(datos: dict):
+    """Inserta un gasto y devuelve el registro creado."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("gastos").insert(datos).execute()
+    return resultado.data[0]
+
+
+def insertar_gastos(lista: list):
+    """Inserta varios gastos de una vez (sincronización con el taller)."""
+    if not lista:
+        return []
+    supabase = get_supabase_admin()
+    resultado = supabase.table("gastos").insert(lista).execute()
+    return resultado.data
+
+
+def listar_gastos_de_moto(moto_id: int):
+    """Todos los gastos de una moto, más recientes primero."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("gastos")
+                 .select("*")
+                 .eq("moto_id", moto_id)
+                 .order("fecha_gasto", desc=True)
+                 .execute())
+    return resultado.data

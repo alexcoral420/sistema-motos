@@ -516,6 +516,88 @@ def vista_ventas_pendientes():
     return render_template("ventas_detalle_pendientes.html", pendientes=pendientes)
 
 
+# ============================================================
+#  GASTOS (taller, repuestos, lavadero — por moto)
+# ============================================================
+
+@admin_bp.route("/gastos")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def ver_gastos():
+    """
+    Panel de gastos de una moto: buscar por placa, ver el historial
+    (taller + manuales) y su total. Sin placa en la URL, solo muestra
+    el buscador.
+    """
+    from app.servicios import gastos
+
+    placa = (request.args.get("placa") or "").strip().upper()
+    moto = None
+    lista_gastos = []
+    total = 0
+    error = request.args.get("error")
+
+    if placa:
+        moto = gastos.moto_por_placa_en_alcance(placa)
+        if not moto:
+            error = error or "La moto no existe o no pertenece a su sede."
+        else:
+            lista_gastos, total = gastos.listar_gastos(moto["id"])
+
+    aviso = None
+    if request.args.get("guardado"):
+        aviso = "Gasto guardado correctamente."
+    elif request.args.get("sincronizado") is not None:
+        aviso = f"Sincronización completa: {request.args.get('sincronizado')} gasto(s) nuevo(s) del taller."
+    elif request.args.get("taller_off"):
+        aviso = "El taller no respondió. Intente sincronizar de nuevo más tarde."
+
+    return render_template(
+        "gastos_moto.html",
+        placa=placa, moto=moto, gastos=lista_gastos, total=total,
+        error=error, aviso=aviso,
+    )
+
+
+@admin_bp.route("/gastos/manual", methods=["POST"])
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def guardar_gasto_manual():
+    """Carga un gasto manual (repuesto o lavadero) para una moto."""
+    from app.servicios import gastos
+
+    placa = (request.form.get("placa") or "").strip().upper()
+    try:
+        gastos.crear_gasto_manual(
+            placa=placa,
+            tipo=request.form.get("tipo"),
+            concepto=request.form.get("concepto"),
+            monto=request.form.get("monto"),
+            fecha_gasto=request.form.get("fecha_gasto"),
+            usuario_id=session.get("usuario_id"),
+        )
+        obtener_logger().info("%s cargó un gasto manual para placa=%s.",
+                              session.get("usuario_nombre"), placa)
+        return redirect(url_for("admin.ver_gastos", placa=placa, guardado=1))
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.ver_gastos", placa=placa, error=e.mensaje))
+
+
+@admin_bp.route("/gastos/sincronizar", methods=["POST"])
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def sincronizar_gastos_taller():
+    """Trae del taller las órdenes nuevas de una moto y las guarda como gasto."""
+    from app.servicios import gastos
+
+    placa = (request.form.get("placa") or "").strip().upper()
+    try:
+        cantidad, aviso_taller = gastos.sincronizar_taller(placa)
+        obtener_logger().info("%s sincronizó taller para placa=%s (%s gasto(s) nuevos).",
+                              session.get("usuario_nombre"), placa, cantidad)
+        if aviso_taller:
+            return redirect(url_for("admin.ver_gastos", placa=placa, taller_off=1))
+        return redirect(url_for("admin.ver_gastos", placa=placa, sincronizado=cantidad))
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.ver_gastos", placa=placa, error=e.mensaje))
+
 
 @admin_bp.route("/gerencia/verificar-venta/<int:venta_id>", methods=["POST"])
 @requiere_rol("admin", "gerencia")
