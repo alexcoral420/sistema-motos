@@ -21,91 +21,37 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <style>
-        :root {
-            /* Superficies: negro cálido en capas, como el tablero de una moto */
-            --bg:         #0a0a0b;
-            --surface:    #141416;
-            --surface-2:  #1b1b1f;
-            --surface-3:  #212127;
-            --line:       #2b2b31;
-            --line-soft:  #232329;
 
-            /* Acento único: el naranja de la marca. Se gana su lugar, no se regala */
-            --naranja:      #ff7a00;
-            --naranja-dim:  #c95f00;
-            --naranja-wash: rgba(255, 122, 0, 0.08);
-
-            /* Texto */
-            --texto:       #ededf0;
-            --texto-suave: #a3a3ab;
-            --texto-tenue: #6d6d76;
-
-            /* Señales funcionales */
-            --verde:  #35c759;
-            --rojo:   #ff5b52;
-            --ambar:  #f5a623;
-
-            --radio:  10px;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Barlow', 'Segoe UI', Arial, sans-serif;
-            background:
-                radial-gradient(1200px 600px at 100% -10%, rgba(255,122,0,0.05), transparent 60%),
-                var(--bg);
-            color: var(--texto);
-            -webkit-font-smoothing: antialiased;
-            line-height: 1.5;
-        }
-
+        body { line-height: 1.5; }
         h1, h2, .stat-num, .kpi-num {
             font-family: 'Barlow Condensed', 'Segoe UI', sans-serif;
             letter-spacing: 0.2px;
             font-weight: 600;
         }
 
-        /* ---------- Barra superior ---------- */
-        .barra {
-            position: sticky; top: 0; z-index: 20;
-            background: rgba(10,10,11,0.85);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--line);
-            padding: 14px 24px;
-            display: flex; justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 12px;
-        }
+        /* ---------- Barra superior (fija) ---------- */
+        .barra { position: sticky; top: 0; z-index: 20; padding: 14px 24px; }
         .barra .marca { display: flex; align-items: baseline; gap: 12px; }
-        .barra h1 {
-            color: var(--texto); font-size: 25px; line-height: 1;
-            text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        .barra h1 span { color: var(--naranja); }
+        .barra h1 { font-size: 25px; line-height: 1; letter-spacing: 0.5px; }
         .barra .kicker {
             font-size: 12px; color: var(--texto-tenue);
             letter-spacing: 1.5px; text-transform: uppercase;
         }
         .barra .acciones { display: flex; gap: 10px; }
-        .barra a.nav {
-            color: var(--texto-suave); text-decoration: none; font-size: 14px;
-            padding: 8px 15px; border: 1px solid var(--line); border-radius: 8px;
-            transition: border-color .18s, color .18s, background .18s;
-        }
-        .barra a.nav:hover { border-color: var(--naranja); color: var(--naranja); background: var(--naranja-wash); }
-        .barra a.nav:focus-visible { outline: 2px solid var(--naranja); outline-offset: 2px; }
+        .barra a.nav { padding: 8px 15px; transition: border-color .18s, color .18s; }
 
-        .contenedor { max-width: 1120px; margin: 0 auto; padding: 30px 24px 72px; }
+        .contenedor { max-width: 1120px; padding: 30px 24px 72px; }
 
         /* ---------- Banda de KPIs (ledger, no tarjetas) ---------- */
         .ledger {
             display: grid; grid-template-columns: repeat(3, 1fr);
-            background: var(--surface); border: 1px solid var(--line);
+            background: var(--superficie); border: 1px solid var(--borde);
             border-radius: var(--radio); overflow: hidden; margin-bottom: 14px;
         }
         .kpi { padding: 22px 26px; position: relative; }
-        .kpi + .kpi { border-left: 1px solid var(--line-soft); }
+        .kpi + .kpi { border-left: 1px solid var(--borde); }
         .kpi-num { font-size: 46px; color: var(--texto); line-height: 0.95; }
         .kpi.acento .kpi-num { color: var(--naranja); }
         .kpi-label {
@@ -119,8 +65,8 @@
 
         /* ---------- Bloque Movimiento (lo que el filtro alcanza) ---------- */
         .bloque-mov {
-            border: 1px solid var(--line); border-radius: 14px;
-            background: linear-gradient(180deg, var(--naranja-wash), transparent 120px);
+            border: 1px solid var(--borde); border-radius: 14px;
+            background: linear-gradient(180deg, var(--naranja-suave), var(--bg) 120px);
             padding: 24px; margin-bottom: 48px;
         }
         .bloque-mov > .titulo {
@@ -135,36 +81,34 @@
         /* ---------- Barra de filtro ---------- */
         .filtro-mov {
             display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
-            background: var(--surface); border: 1px solid var(--line);
+            background: var(--superficie); border: 1px solid var(--borde);
             border-radius: var(--radio); padding: 16px 18px; margin-bottom: 26px;
         }
-        .filtro-mov .campo { display: flex; flex-direction: column; gap: 5px; }
+        .filtro-mov .campo { display: flex; flex-direction: column; gap: 5px; margin-bottom: 0; }
         .filtro-mov label {
             font-size: 11px; color: var(--texto-tenue);
-            text-transform: uppercase; letter-spacing: 1px;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0;
         }
         .filtro-mov input[type="date"],
         .filtro-mov select {
-            background: var(--surface-2); border: 1px solid var(--line);
+            background: var(--superficie); border: 1px solid var(--borde);
             color: var(--texto); border-radius: 8px; padding: 9px 12px;
-            font-family: inherit; font-size: 14px; min-width: 150px;
+            font-family: inherit; font-size: 14px; min-width: 150px; width: auto;
         }
         .filtro-mov input[type="date"]:focus,
         .filtro-mov select:focus { outline: none; border-color: var(--naranja); }
-        .filtro-mov input[type="date"] { color-scheme: dark; }
         .filtro-mov .btn-filtrar {
-            background: var(--naranja); color: #100a04; border: none;
+            background: var(--naranja); color: var(--barra-bg); border: none;
             border-radius: 8px; padding: 10px 20px; font-family: inherit;
             font-size: 14px; font-weight: 700; cursor: pointer;
             transition: background .18s;
         }
-        .filtro-mov .btn-filtrar:hover { background: var(--naranja-dim); }
+        .filtro-mov .btn-filtrar:hover { background: var(--naranja-hover); }
         .filtro-mov .btn-limpiar {
             color: var(--texto-suave); text-decoration: none; font-size: 14px;
             padding: 10px 6px; border-bottom: 1px solid transparent;
         }
         .filtro-mov .btn-limpiar:hover { color: var(--naranja); border-bottom-color: var(--naranja); }
-        .filtro-mov :focus-visible { outline: 2px solid var(--naranja); outline-offset: 2px; }
 
         /* Dos reportes por-vendedor lado a lado */
         .par-reportes { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
@@ -176,24 +120,10 @@
         .reporte h2 { color: var(--texto); font-size: 21px; text-transform: uppercase; margin-bottom: 3px; }
         .reporte .sub { color: var(--texto-tenue); font-size: 14px; margin-bottom: 16px; }
 
-        /* ---------- Tablas ---------- */
-        table {
-            width: 100%; border-collapse: collapse;
-            background: var(--surface); border: 1px solid var(--line);
-            border-radius: var(--radio); overflow: hidden;
-        }
-        thead th {
-            background: var(--surface-2); color: var(--texto-suave);
-            text-align: left; padding: 11px 16px; font-size: 11px;
-            text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
-            border-bottom: 1px solid var(--line);
-        }
-        tbody td { padding: 13px 16px; border-top: 1px solid var(--line-soft); font-size: 15px; }
-        tbody tr:first-child td { border-top: none; }
+        /* ---------- Tablas (la base viene de admin.css) ---------- */
+        thead th { padding: 11px 16px; }
         tbody tr { transition: background .12s; }
-        tbody tr:hover { background: var(--surface-2); }
         .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--naranja); }
-        .tenue { color: var(--texto-tenue); font-size: 13px; }
         .vendido { color: var(--verde); font-weight: 600; }
 
         .venc-vencido { color: var(--rojo); font-weight: 700; }
@@ -201,24 +131,23 @@
         .venc-pronto  { color: var(--ambar); font-weight: 600; }
         .venc-normal  { color: var(--texto-suave); }
 
-        /* Botón verificar (antes sin estilo) */
         .btn-verificar {
             background: transparent; color: var(--verde);
-            border: 1px solid rgba(53,199,89,0.4); border-radius: 7px;
+            border: 1px solid rgba(46,158,91,0.45); border-radius: 7px;
             padding: 6px 13px; font-family: inherit; font-size: 13px; font-weight: 600;
             cursor: pointer; transition: background .16s, border-color .16s;
         }
-        .btn-verificar:hover { background: rgba(53,199,89,0.12); border-color: var(--verde); }
+        .btn-verificar:hover { background: #e9f6ee; border-color: var(--verde); }
         .btn-verificar:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
 
         /* Barra de proporción (marcas / modelos) */
         .barra-dato { display: flex; align-items: center; gap: 10px; }
-        .barra-dato .track { flex: 1; height: 7px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
-        .barra-dato .fill { height: 100%; background: linear-gradient(90deg, var(--naranja-dim), var(--naranja)); border-radius: 4px; }
+        .barra-dato .track { flex: 1; height: 7px; background: var(--superficie-2); border-radius: 4px; overflow: hidden; }
+        .barra-dato .fill { height: 100%; background: linear-gradient(90deg, var(--naranja-hover), var(--naranja)); border-radius: 4px; }
 
         /* Estado vacío: invitación a actuar, no lamento */
         .vacio {
-            background: var(--surface); border: 1px dashed var(--line);
+            background: var(--superficie); border: 1px dashed var(--borde);
             border-radius: var(--radio); padding: 30px; text-align: center;
             color: var(--texto-tenue); font-size: 15px;
         }
@@ -227,17 +156,17 @@
         .pos {
             display: inline-flex; align-items: center; justify-content: center;
             width: 25px; height: 25px; border-radius: 6px;
-            background: var(--surface-3); border: 1px solid var(--line);
+            background: var(--superficie-2); border: 1px solid var(--borde);
             font-size: 13px; font-weight: 700; color: var(--texto-suave);
             font-variant-numeric: tabular-nums;
         }
-        tbody tr:first-child .pos { background: var(--naranja); color: #100a04; border-color: var(--naranja); }
+        tbody tr:first-child .pos { background: var(--naranja); color: var(--barra-bg); border-color: var(--naranja); }
 
         /* Encabezado de sección de analítica */
         .seccion-titulo {
             font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
             text-transform: uppercase; letter-spacing: 2px; color: var(--texto-tenue);
-            padding-bottom: 10px; border-bottom: 1px solid var(--line);
+            padding-bottom: 10px; border-bottom: 1px solid var(--borde);
             margin: 4px 0 30px;
         }
 
@@ -246,7 +175,7 @@
             .reporte h2 { font-size: 19px; }
             .kpi-num { font-size: 38px; }
             .ledger { grid-template-columns: 1fr; }
-            .kpi + .kpi { border-left: none; border-top: 1px solid var(--line-soft); }
+            .kpi + .kpi { border-left: none; border-top: 1px solid var(--borde); }
         }
 
         @media (prefers-reduced-motion: reduce) {

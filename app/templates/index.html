@@ -10,51 +10,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <style>
-        :root {
-            --naranja: #ff7a00;
-            --naranja-claro: #ff9633;
-            --negro-900: #050505;
-            --negro-800: #0d0d0d;
-            --negro-700: #141414;
-            --negro-600: #1c1c1c;
-            --borde: #2e2e2e;
-            --blanco: #f5f5f5;
-            --texto: #ededed;
-            --texto-suave: #b0b0b0;
-            --texto-tenue: #8c8c8c;
-            /* Colores semánticos de estado (se conservan: comunican información) */
-            --verde: #27ae60;
-            --amber: #f5a623;
-            --rojo: #e74c3c;
-        }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Barlow', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
         h1, h2, h3, .btn, .stat-card h3, .card-title { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
 
-        a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
-
-        /* ===== Header ===== */
-        .header { background: var(--negro-900); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid var(--naranja); position: sticky; top: 0; z-index: 50; }
-        .header h1 { font-size: 24px; text-transform: uppercase; font-weight: 800; display: flex; align-items: center; gap: 10px; }
-        .header h1 .ico { width: 26px; height: 26px; color: var(--naranja); }
+        /* ===== Barra (fija arriba en el inventario) ===== */
+        .barra { padding: 18px 24px; gap: 16px; position: sticky; top: 0; z-index: 50; }
+        .barra h1 { font-weight: 800; display: flex; align-items: center; gap: 10px; }
+        .barra h1 .ico { width: 26px; height: 26px; color: var(--naranja); }
         .header-acciones { display: flex; gap: 10px; flex-wrap: wrap; }
 
-        /* ===== Botones ===== */
-        .btn { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 15px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-transform: uppercase; letter-spacing: 0.3px; transition: transform 0.15s, filter 0.15s, background 0.15s; }
-        .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+        /* ===== Botones (versión del inventario: condensados, en mayúscula) ===== */
+        .btn { font-size: 15px; text-transform: uppercase; letter-spacing: 0.3px; transition: transform 0.15s, filter 0.15s, background 0.15s; }
+        .btn:hover { transform: translateY(-1px); }
         .btn .ico { width: 16px; height: 16px; }
-        .btn-primary { background: var(--naranja); color: #000; }
-        .btn-warning { background: var(--amber); color: #000; }
+        .btn-warning { background: var(--ambar); color: var(--barra-bg); }
         .btn-success { background: var(--verde); color: #fff; }
         .btn-danger { background: var(--rojo); color: #fff; }
+        .btn-warning:hover, .btn-success:hover, .btn-danger:hover { filter: brightness(0.92); }
 
-        .container { padding: 28px 24px; max-width: 1200px; margin: 0 auto; }
+        .contenedor { max-width: 1200px; padding: 28px 24px; }
 
         /* ===== Estadísticas ===== */
         .stats { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
-        .stat-card { background: var(--negro-600); border: 1px solid var(--borde); padding: 20px 24px; border-radius: 14px; flex: 1; min-width: 150px; text-align: center; }
+        .stat-card { background: var(--superficie); border: 1px solid var(--borde); padding: 20px 24px; border-radius: 14px; flex: 1; min-width: 150px; text-align: center; }
         .stat-card h3 { font-size: 34px; color: var(--naranja); font-weight: 800; }
         .stat-card p { color: var(--texto-tenue); font-size: 12px; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
 
@@ -62,13 +42,13 @@
         /* GET a propósito (filtrado en servidor, resultado compartible). Sin CSRF. */
         .busqueda-admin {
             display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch;
-            background: var(--negro-700); border: 1px solid var(--borde);
+            background: var(--superficie); border: 1px solid var(--borde);
             padding: 16px; border-radius: 14px; margin-bottom: 28px;
         }
         .busqueda-admin input {
             height: 46px; padding: 0 16px; box-sizing: border-box;
             flex: 1 1 200px; min-width: 160px;
-            background: var(--negro-800); color: var(--texto);
+            background: var(--superficie); color: var(--texto);
             border: 1px solid var(--borde); border-radius: 10px;
             font-family: 'Barlow', sans-serif; font-size: 15px;
             transition: border-color 0.2s;
@@ -76,33 +56,33 @@
         .busqueda-admin input::placeholder { color: var(--texto-tenue); }
         .busqueda-admin input:hover, .busqueda-admin input:focus { border-color: var(--naranja); outline: none; }
         /* Selector específico para no tocar los .btn de las tarjetas */
-        .busqueda-admin .btn { height: 46px; padding: 0 24px; box-sizing: border-box; }
+        .busqueda-admin .btn, .busqueda-admin .btn-back { height: 46px; padding: 0 24px; box-sizing: border-box; }
         .busqueda-admin .btn-secundario {
-            background: transparent; color: var(--texto-suave);
+            background: var(--superficie); color: var(--texto-suave);
             border: 1px solid var(--borde);
         }
         .busqueda-admin .btn-secundario:hover { border-color: var(--naranja); color: var(--naranja); }
 
         /* ===== Grid de motos ===== */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .card { background: var(--negro-600); border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; transition: transform 0.2s, border-color 0.2s; }
-        .card:hover { transform: translateY(-4px); border-color: var(--naranja); }
-        .card img { width: 100%; height: 200px; object-fit: cover; background: var(--negro-700); display: block; }
-        .card-no-img { width: 100%; height: 200px; background: var(--negro-700); display: flex; align-items: center; justify-content: center; color: var(--texto-tenue); }
+        .card { background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
+        .card:hover { transform: translateY(-4px); border-color: var(--naranja); box-shadow: 0 6px 18px rgba(28,31,38,0.08); }
+        .card img { width: 100%; height: 200px; object-fit: cover; background: var(--superficie-2); display: block; }
+        .card-no-img { width: 100%; height: 200px; background: var(--superficie-2); display: flex; align-items: center; justify-content: center; color: var(--texto-tenue); }
         .card-no-img .ico { width: 56px; height: 56px; }
         .card-body { padding: 18px; }
-        .card-title { font-size: 18px; font-weight: 700; color: var(--blanco); margin-bottom: 8px; text-transform: uppercase; }
+        .card-title { font-size: 18px; font-weight: 700; color: var(--texto); margin-bottom: 8px; text-transform: uppercase; }
         .card-price { font-size: 22px; color: var(--naranja); font-weight: 800; margin-bottom: 10px; font-family: 'Barlow Condensed', sans-serif; }
         .card-info { font-size: 13px; color: var(--texto-suave); margin-bottom: 5px; display: flex; align-items: center; gap: 7px; }
         .card-info .ico { width: 14px; height: 14px; color: var(--texto-tenue); flex-shrink: 0; }
-        .card-info.placa { color: var(--blanco); font-weight: 700; }
+        .card-info.placa { color: var(--texto); font-weight: 700; }
         .card-info.placa .ico { color: var(--naranja); }
 
         /* Badges de estado (colores semánticos conservados) */
         .badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .badge-disponible { background: rgba(39,174,96,0.18); color: #4ade80; border: 1px solid rgba(39,174,96,0.4); }
-        .badge-vendido { background: rgba(231,76,60,0.18); color: #f87171; border: 1px solid rgba(231,76,60,0.4); }
-        .badge-reservado { background: rgba(245,166,35,0.18); color: #fbbf24; border: 1px solid rgba(245,166,35,0.4); }
+        .badge-disponible { background: #e9f6ee; color: #1f7443; border: 1px solid rgba(46,158,91,0.4); }
+        .badge-vendido { background: #fdecee; color: #a8303a; border: 1px solid rgba(214,69,80,0.4); }
+        .badge-reservado { background: #fdf3e0; color: #8a5d05; border: 1px solid rgba(217,147,10,0.45); }
 
         .card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
         .card-actions a, .card-actions form { flex: 1; }
@@ -114,7 +94,7 @@
         .empty p { margin-top: 12px; }
 
         @media (max-width: 600px) {
-            .header h1 { font-size: 20px; }
+            .barra h1 { font-size: 20px; }
             .btn { font-size: 13px; padding: 9px 14px; }
         }
     </style>
@@ -145,7 +125,8 @@
         <symbol id="ico-nota" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/></symbol>
     </svg>
 
-    <div class="header-acciones">
+    <div class="barra">
+        <div class="header-acciones">
             <a href="{{ url_for('publico.catalogo_publico') }}" class="btn btn-primary" target="_blank">🌐 Ver sitio público</a>
             {% if session.rol in ['admin', 'gerencia'] %}
             <a href="{{ url_for('admin.panel_gerencia') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
@@ -165,7 +146,7 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="contenedor">
         <!-- Estadísticas -->
         <div class="stats">
             <div class="stat-card">
@@ -213,7 +194,7 @@
             </select>
 
             <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Buscar</button>
-            <a href="{{ url_for('admin.index') }}" class="btn btn-back">← Volver</a>
+            <a href="{{ url_for('admin.index') }}" class="btn-back">← Volver</a>
         </form>
         <!-- Grid de motos -->
         {% if motos %}

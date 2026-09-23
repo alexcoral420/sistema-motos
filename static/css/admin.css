@@ -1,0 +1,139 @@
+/*
+ * Tema del panel administrativo (tema claro, gris suave).
+ *
+ * Fuente única de estilos comunes de los templates admin. Cada template
+ * conserva en su <style> solo lo específico de su página. Las variables
+ * de :root viven SOLO aquí: los nombres son semánticos (qué papel cumple
+ * el color), no el color en sí, para poder repintar sin tocar templates.
+ *
+ * Los templates públicos NO cargan este archivo: mantienen la identidad
+ * corporativa negro/naranja.
+ */
+
+:root {
+    --bg:           #f4f5f7;
+    --superficie:   #ffffff;
+    --superficie-2: #eef0f3;
+    --borde:        #dfe2e7;
+    --texto:        #2a2d34;
+    --texto-suave:  #5c626e;
+    --texto-tenue:  #9096a0;
+    --naranja:      #e56a00;
+    --naranja-suave:#fff2e8;
+    --naranja-hover:#c95d00;
+    --verde:        #2e9e5b;
+    --rojo:         #d64550;
+    --ambar:        #d9930a;
+    /* Barra oscura de contraste (excepción al tema claro) */
+    --barra-bg:     #1c1f26;
+    --barra-texto:  #f5f5f5;
+
+    --radio:        10px;
+}
+
+/* ---------- Base ---------- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Barlow', 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--texto);
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 {
+    font-family: 'Barlow Condensed', 'Segoe UI', sans-serif;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--naranja);
+    outline-offset: 2px;
+}
+
+/* ---------- Barra superior (oscura de contraste) ---------- */
+.barra {
+    background: var(--barra-bg);
+    color: var(--barra-texto);
+    border-bottom: 2px solid var(--naranja);
+    padding: 16px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+}
+.barra h1 { color: var(--barra-texto); font-size: 24px; }
+.barra h1 span { color: var(--naranja); }
+
+/* Botón "volver": sobre superficie clara por defecto… */
+.btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--texto-suave); background: var(--superficie);
+    text-decoration: none; font-family: 'Barlow', sans-serif; font-size: 14px;
+    padding: 8px 16px; border: 1px solid var(--borde); border-radius: 8px;
+    cursor: pointer;
+}
+.btn-back:hover { border-color: var(--naranja); color: var(--naranja); }
+/* …y en la barra oscura, texto claro sobre transparente */
+.barra .btn-back, .barra a.volver, .barra a.nav {
+    color: var(--barra-texto); background: transparent;
+    border: 1px solid rgba(255,255,255,0.22);
+    text-decoration: none; font-size: 14px; padding: 8px 16px; border-radius: 8px;
+}
+.barra .btn-back:hover, .barra a.volver:hover, .barra a.nav:hover {
+    border-color: var(--naranja); color: var(--naranja);
+}
+
+/* ---------- Contenedor base ---------- */
+.contenedor { max-width: 1000px; margin: 0 auto; padding: 32px 24px 60px; }
+
+/* ---------- Avisos ---------- */
+.aviso { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+.aviso-error { background: #fdecee; border: 1px solid var(--rojo); color: #a8303a; }
+.aviso-exito, .aviso-ok { background: #e9f6ee; border: 1px solid var(--verde); color: #1f7443; }
+
+/* ---------- Campos de formulario ---------- */
+.campo { margin-bottom: 16px; }
+.campo label {
+    display: block; font-size: 13px; color: var(--texto-suave);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.campo input, .campo select, .campo textarea {
+    width: 100%; padding: 10px 12px;
+    background: var(--superficie); color: var(--texto);
+    border: 1px solid var(--borde); border-radius: 8px;
+    font-family: 'Barlow', sans-serif; font-size: 15px;
+}
+.campo input::placeholder, .campo textarea::placeholder { color: var(--texto-tenue); }
+.campo input:focus, .campo select:focus, .campo textarea:focus {
+    outline: none; border-color: var(--naranja);
+    box-shadow: 0 0 0 3px var(--naranja-suave);
+}
+.nota { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+
+/* ---------- Botones ---------- */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    text-decoration: none; font-family: 'Barlow', sans-serif;
+    font-size: 14px; font-weight: 700;
+    padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
+}
+.btn-primary, .btn-crear { background: var(--naranja); color: var(--barra-bg); }
+.btn-primary:hover, .btn-crear:hover { background: var(--naranja-hover); }
+.btn-crear { width: 100%; }
+
+/* ---------- Tablas ---------- */
+table {
+    width: 100%; border-collapse: collapse;
+    background: var(--superficie); border: 1px solid var(--borde);
+    border-radius: var(--radio); overflow: hidden;
+}
+thead th {
+    background: var(--superficie-2); color: var(--texto-suave);
+    text-align: left; padding: 12px 16px; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+    border-bottom: 1px solid var(--borde);
+}
+tbody td { padding: 13px 16px; border-top: 1px solid var(--borde); font-size: 15px; }
+tbody tr:first-child td { border-top: none; }
+tbody tr:hover { background: var(--superficie-2); }
+
+.tenue { color: var(--texto-tenue); font-size: 13px; }

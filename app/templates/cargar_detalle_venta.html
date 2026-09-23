@@ -7,49 +7,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <style>
-        :root {
-            --naranja: #ff7a00;
-            --naranja-claro: #ff9633;
-            --negro-900: #050505;
-            --negro-800: #0d0d0d;
-            --negro-700: #141414;
-            --negro-600: #1c1c1c;
-            --borde: #2a2a2a;
-            --blanco: #f5f5f5;
-            --texto: #e8e8e8;
-            --texto-suave: #a8a8a8;
-            --texto-tenue: #777;
-            --rojo: #e5484d;
-            --verde: #34c759;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
-        h1, h2, h3 { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: 0.3px; text-transform: uppercase; }
 
-        .barra { background: var(--negro-900); border-bottom: 2px solid var(--naranja); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-        .barra h1 { color: var(--blanco); font-size: 24px; }
-        .barra h1 span { color: var(--naranja); }
-        .btn-back { color: var(--texto-suave); text-decoration: none; font-size: 14px; padding: 8px 16px; border: 1px solid var(--borde); border-radius: 8px; }
-        .btn-back:hover { border-color: var(--naranja); color: var(--naranja); }
-
-        .contenedor { max-width: 760px; margin: 0 auto; padding: 32px 24px 60px; }
-
-        .aviso { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
-        .aviso-error { background: rgba(229,72,77,0.12); border: 1px solid var(--rojo); color: #ff8b8f; }
+        .contenedor { max-width: 760px; }
 
         /* Encabezado de la venta (solo lectura) */
-        .venta-info { background: var(--negro-700); border: 1px solid var(--borde); border-left: 3px solid var(--naranja); border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
-        .venta-info .moto { font-size: 18px; color: var(--blanco); font-weight: 600; }
+        .venta-info { background: var(--superficie); border: 1px solid var(--borde); border-left: 3px solid var(--naranja); border-radius: var(--radio); padding: 16px 20px; margin-bottom: 28px; }
+        .venta-info .moto { font-size: 18px; color: var(--texto); font-weight: 600; }
         .venta-info .meta { color: var(--texto-tenue); font-size: 14px; margin-top: 4px; }
 
-        .bloque { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 10px; padding: 20px; margin-bottom: 22px; }
-        .bloque h2 { font-size: 18px; color: var(--blanco); margin-bottom: 16px; }
+        .bloque { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 20px; margin-bottom: 22px; }
+        .bloque h2 { font-size: 18px; color: var(--texto); margin-bottom: 16px; }
 
         .campo { margin-bottom: 14px; }
-        .campo label { display: block; font-size: 13px; color: var(--texto-suave); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .campo input, .campo select { width: 100%; background: var(--negro-800); border: 1px solid var(--borde); color: var(--texto); border-radius: 8px; padding: 10px 12px; font-family: inherit; font-size: 15px; }
-        .campo input:focus, .campo select:focus { outline: none; border-color: var(--naranja); }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
 
@@ -59,19 +30,19 @@
         @media (max-width: 640px) { .pago-fila { grid-template-columns: 1fr; } }
         .pago-fila .campo { margin-bottom: 0; }
         .pago-entidad.oculto { display: none; }
-        .btn-quitar { background: transparent; border: 1px solid var(--rojo); color: #ff8b8f; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; }
-        .btn-quitar:hover { background: rgba(229,72,77,0.12); }
+        .btn-quitar { background: transparent; border: 1px solid var(--rojo); color: var(--rojo); padding: 10px 12px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; }
+        .btn-quitar:hover { background: #fdecee; }
 
-        .btn-agregar { background: transparent; border: 1px dashed var(--borde); color: var(--texto-suave); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; width: 100%; }
+        .btn-agregar { background: var(--superficie); border: 1px dashed var(--borde); color: var(--texto-suave); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; width: 100%; }
         .btn-agregar:hover { border-color: var(--naranja); color: var(--naranja); }
 
-        .suma-caja { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 12px 16px; background: var(--negro-800); border: 1px solid var(--borde); border-radius: 8px; font-size: 15px; }
+        .suma-caja { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 12px 16px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: 8px; font-size: 15px; }
         .suma-caja .valor { font-variant-numeric: tabular-nums; font-weight: 700; }
         .suma-ok { color: var(--verde); }
         .suma-desc { color: var(--naranja); }
 
-        .btn-guardar { background: var(--naranja); color: var(--negro-900); border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
-        .btn-guardar:hover { background: var(--naranja-claro); }
+        .btn-guardar { background: var(--naranja); color: var(--barra-bg); border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
+        .btn-guardar:hover { background: var(--naranja-hover); }
     </style>
 </head>
 <body>
