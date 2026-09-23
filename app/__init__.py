@@ -21,7 +21,7 @@ todo en un lugar ordenado y controlado.
 """
 
 import os
-from flask import Flask
+from flask import Flask, request
 from flask_wtf.csrf import CSRFProtect
 
 from config import config_por_nombre
@@ -114,6 +114,12 @@ def create_app(nombre_config=None):
 
     from app.webhook.routes import webhook_bp
     app.register_blueprint(webhook_bp)
+    @app.after_request
+    def limpiar_vary_en_detalle(response):
+        if request.path.startswith("/moto/"):
+            response.headers.pop("Vary", None)
+        return response
+
 
     # 5. Aquí luego inicializaremos extensiones de seguridad
     #    (flask-limiter para rate limiting, logging de auditoría, etc.)
