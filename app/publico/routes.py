@@ -19,6 +19,13 @@ from app.servicios import seo
 from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
+# Rastreadores de preview de enlaces. Descartan la tarjeta OG si la
+# respuesta trae Set-Cookie, así que a estos NO les creamos sesión:
+# no la necesitan y no son visitas reales.
+BOTS_PREVIEW = (
+    "whatsapp", "facebookexternalhit", "facebot", "twitterbot",
+    "telegrambot", "discordbot", "slackbot", "linkedinbot",
+)
 
 
 @publico_bp.before_request
@@ -31,7 +38,16 @@ def capturar_linea_origen():
 
     La línea persiste en la sesión durante toda la navegación del cliente
     (aunque cambie de filtros o de página), gracias a la cookie de sesión.
+
+    EXCEPCIÓN: a los rastreadores de preview (WhatsApp, Facebook...) no les
+    tocamos la sesión. Si la respuesta lleva Set-Cookie, WhatsApp descarta
+    la tarjeta Open Graph y muestra el enlace pelado. No necesitan sesión
+    ni cuentan como visita real.
     """
+    ua = request.headers.get("User-Agent", "").lower()
+    if any(bot in ua for bot in BOTS_PREVIEW):
+        return
+
     asesor_id = request.args.get("a")
     if asesor_id:
         session["asesor_origen"] = asesor_id
@@ -40,6 +56,8 @@ def capturar_linea_origen():
     if not session.get("visita_id"):
         import uuid
         session["visita_id"] = uuid.uuid4().hex
+
+
 
 @publico_bp.route("/")
 @publico_bp.route("/inicio")
