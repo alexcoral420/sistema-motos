@@ -44,6 +44,10 @@ def capturar_linea_origen():
     la tarjeta Open Graph y muestra el enlace pelado. No necesitan sesión
     ni cuentan como visita real.
     """
+
+    obtener_logger().info("UA: %s | ruta: %s", 
+                          request.headers.get("User-Agent", "sin-ua"), 
+                          request.path)
     ua = request.headers.get("User-Agent", "").lower()
     if any(bot in ua for bot in BOTS_PREVIEW):
         return
