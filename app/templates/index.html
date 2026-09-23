@@ -151,6 +151,9 @@
             <a href="{{ url_for('admin.panel_gerencia') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
             <a href="{{ url_for('admin.gestion_usuarios') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
             {% endif %}
+            {% if session.rol in ['admin', 'gerencia', 'encargado_sede'] %}
+            <a href="{{ url_for('admin.ver_gastos') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Gastos</a>
+            {% endif %}
             {% if session.rol == 'admin' %}
             <a href="{{ url_for('admin.agregar') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Agregar moto</a>
             {% endif %}
