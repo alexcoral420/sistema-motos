@@ -268,3 +268,10 @@ def financiacion():
 def credito():
     """Landing de financiacion: explica el proceso y lleva al asistente."""
     return render_template("credito.html")
+
+@publico_bp.route("/debug-ua")
+def debug_ua():
+    """TEMPORAL - diagnóstico. Quitar después."""
+    ua = request.headers.get("User-Agent", "sin-ua")
+    obtener_logger().warning("DEBUG UA: %s", ua)
+    return f"UA recibido: {ua}"
