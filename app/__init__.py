@@ -23,7 +23,7 @@ todo en un lugar ordenado y controlado.
 import os
 from flask import Flask, request
 from flask_wtf.csrf import CSRFProtect
-
+from config import BOTS_PREVIEW
 from config import config_por_nombre
 csrf = CSRFProtect()
 
@@ -116,8 +116,14 @@ def create_app(nombre_config=None):
     app.register_blueprint(webhook_bp)
     @app.after_request
     def limpiar_vary_en_detalle(response):
-        if request.path.startswith("/moto/"):
+        # Solo a los rastreadores de preview les quitamos el Vary/cookie.
+        # Los usuarios reales los necesitan para que la sesión (y la
+        # atribución de asesor) persista entre páginas.
+        ua = request.headers.get("User-Agent", "").lower()
+        es_bot = any(bot in ua for bot in BOTS_PREVIEW)
+        if es_bot and request.path.startswith("/moto/"):
             response.headers.pop("Vary", None)
+            response.headers.pop("Set-Cookie", None)
         return response
 
 

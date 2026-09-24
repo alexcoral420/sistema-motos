@@ -94,3 +94,10 @@ config_por_nombre = {
     "development": DesarrolloConfig,
     "production": ProduccionConfig,
 }
+
+# Rastreadores de preview de enlaces (WhatsApp, redes). Se usa para
+# servirles una respuesta sin cookie/Vary y que muestren la tarjeta OG.
+BOTS_PREVIEW = (
+    "whatsapp", "facebookexternalhit", "facebot", "twitterbot",
+    "telegrambot", "discordbot", "slackbot", "linkedinbot",
+)

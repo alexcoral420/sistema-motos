@@ -16,16 +16,10 @@ from app.seguridad.logging_config import obtener_logger
 from app.servicios import catalogo
 from app.servicios import inventario
 from app.servicios import seo
+from config import BOTS_PREVIEW
 from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
-# Rastreadores de preview de enlaces. Descartan la tarjeta OG si la
-# respuesta trae Set-Cookie, así que a estos NO les creamos sesión:
-# no la necesitan y no son visitas reales.
-BOTS_PREVIEW = (
-    "whatsapp", "facebookexternalhit", "facebot", "twitterbot",
-    "telegrambot", "discordbot", "slackbot", "linkedinbot",
-)
 
 
 @publico_bp.before_request
@@ -45,9 +39,7 @@ def capturar_linea_origen():
     ni cuentan como visita real.
     """
 
-    obtener_logger().info("UA: %s | ruta: %s", 
-                          request.headers.get("User-Agent", "sin-ua"), 
-                          request.path)
+    
     ua = request.headers.get("User-Agent", "").lower()
     if any(bot in ua for bot in BOTS_PREVIEW):
         return
