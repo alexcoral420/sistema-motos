@@ -1146,3 +1146,31 @@ def listar_gastos_de_moto(moto_id: int):
                  .order("fecha_gasto", desc=True)
                  .execute())
     return resultado.data
+
+# ============================================================
+#  DATOS DE CONTRATO (capturados desde el RUNT — uno por moto)
+# ============================================================
+
+def guardar_datos_contrato(moto_id: int, datos: dict):
+    """
+    Upsert de los datos de contrato de una moto: si ya hay registro
+    para esa moto lo reemplaza, si no lo crea. Se apoya en el índice
+    único de moto_id (migración 007).
+    """
+    supabase = get_supabase_admin()
+    fila = {**datos, "moto_id": moto_id}
+    resultado = (supabase.table("datos_contrato")
+                 .upsert(fila, on_conflict="moto_id")
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_datos_contrato(moto_id: int):
+    """Datos de contrato de una moto, o None si aún no se cargaron."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("datos_contrato")
+                 .select("*")
+                 .eq("moto_id", moto_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None

@@ -157,6 +157,20 @@
         input[type="file"] { display: none; }
         .btn-full { width: 100%; padding: 13px; margin-top: 12px; font-size: 15px; }
 
+        /* Datos de contrato (RUNT) */
+        .runt-textarea {
+            width: 100%; min-height: 180px; padding: 12px; border-radius: 10px;
+            border: 1px solid #2a2a2a; background: #0f0f0f; color: #e8e8e8;
+            font-family: monospace; font-size: 13px; resize: vertical; box-sizing: border-box;
+        }
+        .runt-aviso { padding: 10px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 14px; }
+        .runt-aviso-ok { background: rgba(37,211,102,0.12); color: #4ee584; border: 1px solid rgba(37,211,102,0.3); }
+        .runt-aviso-error { background: rgba(233,69,96,0.12); color: #ff6b81; border: 1px solid rgba(233,69,96,0.3); }
+        .runt-tabla { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 16px; }
+        .runt-tabla td { padding: 6px 8px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+        .runt-tabla td:first-child { color: #888; width: 45%; }
+        .runt-faltante { color: #ffa64d; font-style: italic; }
+
         /* Modal imagen grande */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 1000; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
@@ -407,6 +421,52 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Datos de contrato desde el RUNT (admin, gerencia, encargado de sede;
+             el servidor ya filtró por alcance de sede al calcular puede_cargar_contrato) -->
+        {% if puede_cargar_contrato %}
+        <div class="upload-card" id="datos-contrato">
+            <h3>📄 Datos de contrato (RUNT)</h3>
+
+            {% if contrato_guardado %}
+            <div class="runt-aviso runt-aviso-ok">Datos del RUNT guardados. Revíselos abajo.</div>
+            {% endif %}
+            {% if contrato_error %}
+            <div class="runt-aviso runt-aviso-error">{{ contrato_error }}</div>
+            {% endif %}
+
+            {% if datos_contrato %}
+            <table class="runt-tabla">
+                {% for columna, etiqueta in etiquetas_contrato.items() %}
+                <tr>
+                    <td>{{ etiqueta }}</td>
+                    <td>
+                        {% if datos_contrato[columna] %}{{ datos_contrato[columna] }}
+                        {% else %}<span class="runt-faltante">No encontrado en el RUNT</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            <p style="font-size:13px; color:#888; margin-bottom:10px">
+                Si algo está mal, vuelva a pegar la consulta: los datos se reemplazan.
+            </p>
+            {% else %}
+            <p style="font-size:13px; color:#888; margin-bottom:10px">
+                Aún no hay datos cargados. Copie toda la consulta de la placa en el RUNT y péguela aquí.
+            </p>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('admin.guardar_datos_contrato', id=moto.id) }}"
+                  {% if datos_contrato %}onsubmit="return confirm('¿Reemplazar los datos de contrato ya cargados?')"{% endif %}>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <textarea name="texto_runt" class="runt-textarea" required
+                          placeholder="Pegue aquí el texto de la consulta RUNT..."></textarea>
+                <button type="submit" class="btn btn-primary btn-full">
+                    {% if datos_contrato %}🔄 Reemplazar datos de contrato{% else %}💾 Cargar datos de contrato{% endif %}
+                </button>
+            </form>
+        </div>
+        {% endif %}
 
         <!-- Subir fotos (solo admin) -->
         {% if session.rol == 'admin' %}

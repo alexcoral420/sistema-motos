@@ -403,13 +403,58 @@ def eliminar(id):
 
 
 
+ROLES_DATOS_CONTRATO = ("admin", "gerencia", "encargado_sede")
+
+
 @admin_bp.route("/moto/<int:id>")
-@requiere_rol("admin", "asesor", "gerencia")
+@requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def detalle_moto_admin(id):
-    """Detalle de una moto en vista admin (es_admin=True)."""
+    """
+    Detalle de una moto en vista admin (es_admin=True). Para los roles
+    que cargan datos de contrato, y solo si la moto es de su alcance
+    de sede, incluye la sección del RUNT.
+    """
+    from app.servicios import contratos
+
     moto = inventario.obtener_moto(id)
     fotos = inventario.obtener_galeria(id)
-    return render_template("detalle.html", moto=moto, fotos=fotos, es_admin=True)
+
+    puede_cargar_contrato = False
+    datos_contrato = None
+    if session.get("rol") in ROLES_DATOS_CONTRATO and contratos.moto_en_alcance(id):
+        puede_cargar_contrato = True
+        datos_contrato = contratos.obtener_datos(id)
+
+    return render_template(
+        "detalle.html", moto=moto, fotos=fotos, es_admin=True,
+        puede_cargar_contrato=puede_cargar_contrato,
+        datos_contrato=datos_contrato,
+        etiquetas_contrato=contratos.ETIQUETAS_VISIBLES,
+        contrato_guardado=request.args.get("contrato_guardado"),
+        contrato_error=request.args.get("contrato_error"),
+    )
+
+
+@admin_bp.route("/moto/<int:id>/datos-contrato", methods=["POST"])
+@requiere_rol(*ROLES_DATOS_CONTRATO)
+def guardar_datos_contrato(id):
+    """
+    Recibe el texto pegado del RUNT, lo parsea y guarda los datos de
+    contrato de la moto. El servicio valida el alcance de sede: un
+    encargado no puede cargar datos a una moto de otra sede cambiando
+    el id de la URL.
+    """
+    from app.servicios import contratos
+
+    try:
+        contratos.procesar_y_guardar(id, request.form.get("texto_runt"))
+        obtener_logger().info("Datos de contrato (RUNT) cargados para moto id=%s por %s.",
+                              id, session.get("usuario_nombre"))
+        return redirect(url_for("admin.detalle_moto_admin", id=id, contrato_guardado=1,
+                                _anchor="datos-contrato"))
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.detalle_moto_admin", id=id, contrato_error=e.mensaje,
+                                _anchor="datos-contrato"))
 
 @admin_bp.route("/moto/<int:id>/subir-fotos", methods=["POST"])
 @requiere_rol("admin")
