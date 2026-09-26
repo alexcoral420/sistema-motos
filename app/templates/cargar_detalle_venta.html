@@ -101,6 +101,11 @@
                            value="{{ datos.precio_venta if datos else '' }}"
                            oninput="recalcularSuma()">
                 </div>
+                <div class="campo">
+                    <label for="valor_traspaso">Valor del traspaso (opcional)</label>
+                    <input type="number" name="valor_traspaso" id="valor_traspaso" min="0"
+                           value="{{ datos.valor_traspaso if datos else '' }}">
+                </div>
             </div>
 
             <!-- PAGOS -->

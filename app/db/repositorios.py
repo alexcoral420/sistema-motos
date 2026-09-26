@@ -390,6 +390,28 @@ def crear_comprador(datos: dict):
     return resultado.data[0]
 
 
+def obtener_comprador_por_id(comprador_id: int):
+    """Devuelve el comprador con ese id, o None si no existe."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("compradores")
+                 .select("*")
+                 .eq("id", comprador_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_pagos_de_venta(venta_id: int):
+    """Pagos de una venta, en el orden en que se cargaron."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("pagos")
+                 .select("*")
+                 .eq("venta_id", venta_id)
+                 .order("id")
+                 .execute())
+    return resultado.data
+
+
 def insertar_pagos(pagos: list):
     """Inserta varios pagos de una venta de una vez."""
     supabase = get_supabase_admin()
@@ -404,9 +426,11 @@ def borrar_pagos_de_venta(venta_id: int):
     supabase = get_supabase_admin()
     supabase.table("pagos").delete().eq("venta_id", venta_id).execute()
 
-def completar_detalle_venta(venta_id: int, comprador_id: int, precio_venta: int):
+def completar_detalle_venta(venta_id: int, comprador_id: int, precio_venta: int,
+                            valor_traspaso=None):
     """
-    Marca la venta con su comprador, precio y detalle_completo=true.
+    Marca la venta con su comprador, precio, valor del traspaso
+    (opcional) y detalle_completo=true.
     Se llama DESPUÉS de insertar los pagos: así, si los pagos fallan,
     la venta sigue pendiente y se puede reintentar.
     """
@@ -415,6 +439,7 @@ def completar_detalle_venta(venta_id: int, comprador_id: int, precio_venta: int)
                  .update({
                      "comprador_id": comprador_id,
                      "precio_venta": precio_venta,
+                     "valor_traspaso": valor_traspaso,
                      "detalle_completo": True,
                  })
                  .eq("id", venta_id)
