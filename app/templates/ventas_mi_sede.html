@@ -32,6 +32,10 @@
     <div class="contenedor">
         <p class="sub">Verifica cada venta y luego carga su detalle (comprador, pagos y precio).</p>
 
+        {% if contrato_error %}
+        <div class="aviso aviso-error">{{ contrato_error }}</div>
+        {% endif %}
+
         {% if ventas %}
         <div class="tabla-scroll">
         <table>
@@ -73,6 +77,9 @@
                         <a href="{{ url_for('admin.cargar_detalle_venta', venta_id=v.id) }}" class="btn btn-primary">Cargar detalle</a>
                         {% else %}
                         <span class="completa">✓ Completa</span>
+                        {% if session.rol in ('admin', 'gerencia', 'encargado_sede') and (not v.estado or v.estado == 'activa') %}
+                        <a href="{{ url_for('admin.descargar_contrato', venta_id=v.id) }}" class="btn btn-secundario">📄 Generar contrato</a>
+                        {% endif %}
                         {% endif %}
                     </td>
                 </tr>

@@ -1,10 +1,14 @@
 """
-Módulo de contratos — Fase 1: captura de datos desde el RUNT.
+Módulo de contratos.
 
-El encargado de sede pega el texto de la consulta RUNT en el detalle
-de la moto; parsear_runt() lo organiza en columnas y se guarda en
-datos_contrato (un registro por moto). La Fase 2 (generar el Word)
-es aparte y solo lee de esa tabla.
+Fase 1 — captura de datos desde el RUNT: el encargado de sede pega el
+texto de la consulta RUNT en el detalle de la moto; parsear_runt() lo
+organiza en columnas y se guarda en datos_contrato (un registro por moto).
+
+Fase 2 — contrato de venta en Word: generar_contrato() cruza la venta,
+el comprador, los pagos y los datos_contrato de la moto, y llena la
+plantilla app/plantillas/contrato.docx. No se guarda el .docx: se
+regenera de los datos cada vez que hace falta.
 
 SEGURIDAD - AISLAMIENTO POR SEDE:
 Igual que gastos y detalle_ventas: el panel usa get_supabase_admin(),
@@ -18,9 +22,15 @@ que dice el registro oficial.
 """
 
 import unicodedata
+from datetime import datetime, timedelta, timezone
+from io import BytesIO
+from pathlib import Path
+
+from docxtpl import DocxTemplate
+
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
-from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
+from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES, venta_en_alcance
 
 # Tope del texto pegado: una consulta RUNT completa ocupa unos pocos KB.
 # Evita que alguien mande un blob enorme al parser.
@@ -36,6 +46,7 @@ MAPA_RUNT = {
     "NRO DE LICENCIA DE TRANSITO": "licencia_transito",
     "NUMERO DE LICENCIA DE TRANSITO": "licencia_transito",
     "LICENCIA DE TRANSITO": "licencia_transito",
+    "AUTORIDAD DE TRANSITO": "autoridad_transito",
     "ESTADO DEL VEHICULO": "estado_vehiculo",
     "TIPO DE SERVICIO": "tipo_servicio",
     "CLASE DE VEHICULO": "clase_vehiculo",
@@ -62,6 +73,7 @@ COLUMNAS = list(dict.fromkeys(MAPA_RUNT.values()))
 ETIQUETAS_VISIBLES = {
     "placa": "Placa",
     "licencia_transito": "Licencia de tránsito",
+    "autoridad_transito": "Autoridad de tránsito",
     "estado_vehiculo": "Estado del vehículo",
     "tipo_servicio": "Tipo de servicio",
     "clase_vehiculo": "Clase de vehículo",
@@ -199,3 +211,131 @@ def procesar_y_guardar(moto_id: int, texto_runt: str) -> dict:
     # una re-carga reemplaza todo y no deja valores viejos mezclados.
     registro = {columna: datos.get(columna) for columna in COLUMNAS}
     return repositorios.guardar_datos_contrato(moto["id"], registro)
+
+
+# ============================================================
+# FASE 2 — CONTRATO DE VENTA EN WORD
+# ============================================================
+
+# Colombia no tiene horario de verano: UTC-5 fijo. El servidor (Railway)
+# corre en UTC; sin esto, un contrato hecho después de las 7 p.m. saldría
+# con la fecha de mañana.
+HORA_COLOMBIA = timezone(timedelta(hours=-5))
+
+PLANTILLA_CONTRATO = Path(__file__).resolve().parent.parent / "plantillas" / "contrato.docx"
+
+# Nombres internos (los de detalle_ventas) -> texto presentable en el
+# contrato. Si aparece un valor que no está aquí, se muestra tal cual
+# en vez de romper la generación.
+METODOS_PRESENTABLES = {
+    "efectivo": "Efectivo",
+    "transferencia": "Transferencia",
+    "financiado": "Financiado",
+    "permuta": "Permuta",
+}
+ENTIDADES_PRESENTABLES = {
+    "banco_bogota": "Banco de Bogotá",
+    "vanti": "Vanti",
+    "addi": "Addi",
+    "sistecredito": "Sistecrédito",
+}
+
+# Obligatorios que bloquean la generación: sin ellos el contrato no
+# identifica el vehículo o al comprador.
+OBLIGATORIOS_VEHICULO = {
+    "placa": "la placa",
+    "numero_chasis": "el número de chasis",
+    "numero_motor": "el número de motor",
+}
+
+
+def _formatear_pesos(valor) -> str:
+    """8500000 -> '8.500.000'. Misma lógica que el filtro 'pesos' de las plantillas."""
+    if valor is None:
+        return ""
+    return f"{valor:,.0f}".replace(",", ".")
+
+
+def _linea_de_pago(pago: dict) -> str:
+    metodo = pago.get("metodo") or ""
+    texto = METODOS_PRESENTABLES.get(metodo, metodo)
+    if metodo == "financiado":
+        entidad = pago.get("entidad") or ""
+        texto += f" ({ENTIDADES_PRESENTABLES.get(entidad, entidad)})"
+    return texto
+
+
+def generar_contrato(venta_id: int):
+    """
+    Genera el contrato de venta en Word para una venta completa.
+    Devuelve (BytesIO con el .docx, nombre_de_archivo). Lanza
+    ErrorValidacion si la venta no está en el alcance del usuario o si
+    falta algún dato obligatorio (indicando cuál).
+    """
+    venta = venta_en_alcance(venta_id)
+    if not venta:
+        raise ErrorValidacion("La venta no existe o no pertenece a su sede.", "venta")
+
+    if venta.get("estado") and venta["estado"] != "activa":
+        raise ErrorValidacion("No se puede generar contrato de una venta anulada.", "venta")
+
+    if not venta.get("detalle_completo") or not venta.get("comprador_id"):
+        raise ErrorValidacion(
+            "La venta no tiene el detalle cargado (comprador, pagos y precio).", "venta")
+
+    datos = repositorios.obtener_datos_contrato(venta["moto_id"]) if venta.get("moto_id") else None
+    if not datos:
+        raise ErrorValidacion(
+            "Faltan los datos del RUNT de esta moto, cárguelos primero.", "datos_contrato")
+
+    faltantes = [nombre for campo, nombre in OBLIGATORIOS_VEHICULO.items()
+                 if not (datos.get(campo) or "").strip()]
+
+    comprador = repositorios.obtener_comprador_por_id(venta["comprador_id"]) or {}
+    if not (comprador.get("nombre") or "").strip():
+        faltantes.append("el nombre del comprador")
+    if not (comprador.get("cedula") or "").strip():
+        faltantes.append("la cédula del comprador")
+
+    if faltantes:
+        raise ErrorValidacion(
+            "No se puede generar el contrato. Falta: " + ", ".join(faltantes) + ".",
+            "datos_contrato")
+
+    pagos = [
+        {"linea": _linea_de_pago(p), "monto": _formatear_pesos(p.get("monto"))}
+        for p in repositorios.obtener_pagos_de_venta(venta_id)
+    ]
+
+    contexto = {
+        "fecha": datetime.now(HORA_COLOMBIA).strftime("%d/%m/%Y"),
+        "comprador": comprador["nombre"].strip(),
+        "cedula": comprador["cedula"].strip(),
+        "telefono": comprador.get("telefono") or "",
+        "placa": datos.get("placa") or "",
+        "clase": datos.get("clase_vehiculo") or "",
+        "marca": datos.get("marca") or "",
+        "linea": datos.get("linea") or "",
+        "modelo": datos.get("modelo") or "",
+        "color": datos.get("color") or "",
+        "autoridad": datos.get("autoridad_transito") or "",
+        "tarjeta": datos.get("licencia_transito") or "",
+        "chasis": datos.get("numero_chasis") or "",
+        "motor": datos.get("numero_motor") or "",
+        "serie": datos.get("numero_serie") or "",
+        "precio": _formatear_pesos(venta.get("precio_venta")),
+        "traspaso": _formatear_pesos(venta.get("valor_traspaso")),
+        "pagos": pagos,
+    }
+
+    # autoescape: los valores vienen del RUNT y del formulario; un '&' o
+    # '<' sin escapar corrompería el XML del .docx.
+    documento = DocxTemplate(str(PLANTILLA_CONTRATO))
+    documento.render(contexto, autoescape=True)
+
+    salida = BytesIO()
+    documento.save(salida)
+    salida.seek(0)
+
+    placa_archivo = "".join(c for c in contexto["placa"] if c.isalnum()) or f"venta{venta_id}"
+    return salida, f"contrato_{placa_archivo}.docx"

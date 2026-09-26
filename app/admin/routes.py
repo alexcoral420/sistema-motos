@@ -14,7 +14,7 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import Blueprint, request, render_template, redirect, url_for, session, abort
+from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file
 from app.servicios import inventario
 
 from app.servicios import sedes
@@ -353,9 +353,10 @@ def cargar_detalle_venta(venta_id):
                 for m, e, mo in zip(metodos, entidades, montos)
             ]
             precio = request.form.get("precio_venta")
+            traspaso = request.form.get("valor_traspaso")
 
             aviso = detalle_ventas.guardar_detalle(
-                venta_id, datos_comprador, lista_pagos, precio
+                venta_id, datos_comprador, lista_pagos, precio, traspaso
             )
             obtener_logger().info("Detalle cargado para venta id=%s por %s.",
                                   venta_id, session.get("usuario_nombre"))
@@ -571,7 +572,34 @@ def ventas_mi_sede():
     """
     from app.servicios import detalle_ventas
     ventas = detalle_ventas.listar_ventas_de_mi_sede()
-    return render_template("ventas_mi_sede.html", ventas=ventas)
+    return render_template("ventas_mi_sede.html", ventas=ventas,
+                           contrato_error=request.args.get("contrato_error"))
+
+
+@admin_bp.route("/venta/<int:venta_id>/contrato")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def descargar_contrato(venta_id):
+    """
+    Genera y descarga el contrato de venta en Word. No se guarda: se
+    regenera de los datos cada vez. El servicio valida el alcance de
+    sede y los obligatorios; si falta algo, vuelve a la lista de ventas
+    diciendo qué falta, sin descargar nada.
+    """
+    from app.servicios import contratos
+
+    try:
+        archivo, nombre = contratos.generar_contrato(venta_id)
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.ventas_mi_sede", contrato_error=e.mensaje))
+
+    obtener_logger().info("Contrato generado para venta id=%s por %s.",
+                          venta_id, session.get("usuario_nombre"))
+    return send_file(
+        archivo,
+        as_attachment=True,
+        download_name=nombre,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
 
 
 # ============================================================

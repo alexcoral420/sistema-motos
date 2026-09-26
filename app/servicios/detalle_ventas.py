@@ -140,23 +140,42 @@ def _validar_pago(metodo, entidad, monto):
     return {"metodo": metodo, "entidad": entidad_limpia, "monto": monto}
 
 
-def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta):
+def _validar_traspaso(valor_traspaso):
+    """Valor del traspaso: opcional. Vacío -> None; si viene, entero >= 0."""
+    valor_traspaso = (str(valor_traspaso) if valor_traspaso is not None else "").strip()
+    if not valor_traspaso:
+        return None
+    try:
+        valor_traspaso = int(valor_traspaso)
+    except ValueError:
+        raise ErrorValidacion("Valor del traspaso inválido.", "valor_traspaso")
+    if valor_traspaso < 0:
+        raise ErrorValidacion("El valor del traspaso no puede ser negativo.", "valor_traspaso")
+    return valor_traspaso
+
+
+def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta,
+                    valor_traspaso=None):
     """
     Carga el detalle de una venta: comprador (reusa por cédula o crea),
-    pagos (validados), y marca la venta como completa.
+    pagos (validados), valor del traspaso (opcional) y marca la venta
+    como completa.
 
     La ruta ya validó con venta_en_alcance() que el usuario puede operar
     esta venta. Aquí se asume ese chequeo hecho.
 
-    Devuelve (ok, mensaje_error, aviso_suma).
+    Lanza ErrorValidacion si algo no cuadra. Devuelve aviso_suma (texto
+    si los pagos no suman el precio, None si cuadran).
     """
     # 1. Validar precio
     try:
         precio_venta = int(precio_venta)
     except (ValueError, TypeError):
-        return False, "Precio de venta inválido.", None
+        raise ErrorValidacion("Precio de venta inválido.", "precio_venta")
     if precio_venta <= 0:
-        return False, "El precio de venta debe ser mayor a cero.", None
+        raise ErrorValidacion("El precio de venta debe ser mayor a cero.", "precio_venta")
+
+    valor_traspaso = _validar_traspaso(valor_traspaso)
 
         # 2. Validar todos los pagos
     pagos_limpios = []
@@ -176,7 +195,7 @@ def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta):
     # 4. Comprador: reusar por cédula o crear (sin actualizar si existe)
     cedula = (datos_comprador.get("cedula") or "").strip()
     if not cedula:
-        return False, "La cédula del comprador es obligatoria.", None
+        raise ErrorValidacion("La cédula del comprador es obligatoria.", "comprador_cedula")
 
     existente = repositorios.buscar_comprador_por_cedula(cedula)
     if existente:
@@ -197,6 +216,6 @@ def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta):
     repositorios.insertar_pagos(pagos_limpios)
 
     # 6. Recién ahora marcar la venta como completa
-    repositorios.completar_detalle_venta(venta_id, comprador_id, precio_venta)
+    repositorios.completar_detalle_venta(venta_id, comprador_id, precio_venta, valor_traspaso)
 
-    return True, None, aviso_suma
+    return aviso_suma
