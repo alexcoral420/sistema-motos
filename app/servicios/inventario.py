@@ -8,6 +8,8 @@ la diferencia — misma firma, misma forma de datos. Ese era el punto
 de la arquitectura por capas: cambiar la fuente tocando UN archivo.
 """
 
+from datetime import datetime, timezone
+
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
@@ -17,11 +19,14 @@ from app.servicios.contratos import moto_en_alcance
 
 
 # Estados posibles de una moto: fuente única para validación, filtros
-# del panel y vista pública.
-ESTADOS_MOTO = ("disponible", "reservado", "vendido")
+# del panel y vista pública. DEBE coincidir con el CHECK
+# motos_estado_check de la migración 010 (ciclo de publicación).
+ESTADOS_MOTO = ("por_publicar", "disponible", "reservado", "vendido")
 # Subconjunto de ESTADOS_MOTO visible al público (detalle de moto).
-# Hoy coinciden; si se agrega un estado interno, se excluye aquí.
-ESTADOS_VISIBLES_PUBLICO = ESTADOS_MOTO
+ESTADOS_VISIBLES_PUBLICO = ("disponible", "reservado", "vendido")
+# Estados que se pueden elegir al editar. 'por_publicar' NO es editable:
+# solo se sale de él con publicar_moto (que valida foto y precio).
+ESTADOS_EDITABLES = ("disponible", "reservado", "vendido")
 
 
 # ============================================================
@@ -123,6 +128,43 @@ def actualizar_moto(id: int, datos: dict):
 def marcar_vendida(id: int):
     """Marca una moto como vendida."""
     return repositorios.marcar_como_vendida(id)
+
+
+def publicar_moto(id: int):
+    """
+    Publica una moto: pasa de 'por_publicar' a 'disponible' y registra
+    publicada_en. Valida existencia, alcance de sede (moto_en_alcance),
+    estado y que tenga foto y precio. Lanza ErrorValidacion si no.
+    """
+    moto = repositorios.obtener_moto_por_id(id)
+    if not moto:
+        raise ErrorValidacion("La moto no existe.")
+
+    if moto_en_alcance(id) is None:
+        raise ErrorValidacion("La moto está fuera del alcance de tu sede.")
+
+    if moto.get("estado") != "por_publicar":
+        raise ErrorValidacion(
+            f"Solo se pueden publicar motos pendientes (estado actual: "
+            f"'{moto.get('estado')}').")
+
+    faltantes = []
+    if not moto.get("foto_url"):
+        faltantes.append("foto de portada")
+    if not moto.get("precio") or moto["precio"] <= 0:
+        faltantes.append("precio mayor a cero")
+    if faltantes:
+        raise ErrorValidacion(
+            "No se puede publicar: falta " + " y ".join(faltantes) + ".")
+
+    # El WHERE incluye estado = 'por_publicar': si dos personas publican
+    # a la vez, solo una actualiza; la otra no encuentra la fila.
+    filas = repositorios.actualizar_moto_si_estado(id, "por_publicar", {
+        "estado": "disponible",
+        "publicada_en": datetime.now(timezone.utc).isoformat(),
+    })
+    if not filas:
+        raise ErrorValidacion("La moto ya no estaba pendiente de publicar.")
 
 
 ESTADOS_VENDIBLES = ("disponible", "reservado")
