@@ -11,13 +11,17 @@ de la arquitectura por capas: cambiar la fuente tocando UN archivo.
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
+from app.seguridad import validadores
+from app.servicios import sedes
 from app.servicios.contratos import moto_en_alcance
 
 
-# Estados que la vista pública de detalle puede mostrar. Cualquier otro
-# (borradores, motos dadas de baja, etc.) responde 404 al público; el
-# panel admin sigue viéndolas vía obtener_moto.
-ESTADOS_VISIBLES_PUBLICO = ("disponible", "reservado", "vendido")
+# Estados posibles de una moto: fuente única para validación, filtros
+# del panel y vista pública.
+ESTADOS_MOTO = ("disponible", "reservado", "vendido")
+# Subconjunto de ESTADOS_MOTO visible al público (detalle de moto).
+# Hoy coinciden; si se agrega un estado interno, se excluye aquí.
+ESTADOS_VISIBLES_PUBLICO = ESTADOS_MOTO
 
 
 # ============================================================
@@ -56,6 +60,55 @@ def obtener_galeria(moto_id: int):
 # ============================================================
 #  ESCRITURA
 # ============================================================
+
+def validar_datos_moto(form, estado: str) -> dict:
+    """
+    Valida y normaliza los datos de una moto que llegan de un formulario
+    (agregar, comprar, permuta, editar). Fuente única de las reglas.
+
+    El estado NO lo decide esta función: lo pasa quien llama, ya
+    validado. Devuelve el dict listo para guardar. Lanza ErrorValidacion
+    si cualquier campo no cumple, sin construir datos a medias.
+    """
+    datos = {
+        "marca": validadores.validar_texto(
+            form.get("marca"), "marca", min_len=1, max_len=50),
+        "modelo": validadores.validar_texto(
+            form.get("modelo"), "modelo", min_len=1, max_len=50),
+        "anio": validadores.validar_entero(
+            form.get("anio"), "año", minimo=1950, maximo=2100),
+        "cilindraje": validadores.validar_entero(
+            form.get("cilindraje"), "cilindraje", minimo=90, maximo=1200),
+        "color": validadores.validar_texto(
+            form.get("color"), "color", min_len=1, max_len=30),
+        "precio": validadores.validar_entero(
+            form.get("precio"), "precio", minimo=0, maximo=999999999),
+        "kilometraje": validadores.validar_entero(
+            form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
+        "estado": estado,
+        "sede_id": validadores.validar_entero(
+            form.get("sede_id"), "sede", minimo=1),
+        "descripcion": validadores.validar_texto(
+            form.get("descripcion"), "descripción",
+            max_len=1000, obligatorio=False) or "",
+        "soat": validadores.validar_texto(
+            form.get("soat"), "soat", max_len=20, obligatorio=False),
+        "tecno": validadores.validar_texto(
+            form.get("tecno"), "tecno", max_len=20, obligatorio=False),
+        "placa": validadores.validar_texto(
+            form.get("placa"), "placa", max_len=10, obligatorio=False),
+    }
+    # Lista blanca DINÁMICA: la sede debe existir de verdad en la
+    # base. Si mañana agregas una sede, se acepta sola.
+    if str(datos["sede_id"]) not in sedes.ids_validos():
+        raise ErrorValidacion("La sede seleccionada no es válida.", "sede")
+    # Normalizamos a mayúsculas para consistencia de datos.
+    datos["marca"] = datos["marca"].upper()
+    datos["modelo"] = datos["modelo"].upper()
+    if datos["placa"]:
+        datos["placa"] = datos["placa"].upper()
+    return datos
+
 
 def agregar_moto(datos: dict):
     """Agrega una moto nueva al inventario."""
