@@ -8,7 +8,7 @@ servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 from app import csrf
 from app.seguridad.limites import limiter
-from flask import Blueprint, render_template, request, redirect, current_app, session, url_for, jsonify
+from flask import Blueprint, abort, render_template, request, redirect, current_app, session, url_for, jsonify
 from urllib.parse import quote
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
@@ -119,7 +119,9 @@ def catalogo_publico():
 @publico_bp.route("/moto/<int:id>")
 def detalle_moto(id):
     """Detalle de una moto. es_admin=False -> vista pública."""
-    moto = inventario.obtener_moto(id)
+    moto = inventario.obtener_moto_publica(id)
+    if moto is None:
+        abort(404)
     fotos = inventario.obtener_galeria(id)
     # El 95% de los visitantes mira una sola moto y se va: las similares
     # son la mejor oportunidad de que explore alguna mas.
