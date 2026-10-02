@@ -371,7 +371,8 @@ def eliminar_foto_galeria(foto_id: int):
 
 def obtener_usuario_por_nombre(usuario: str):
     """
-    Busca un usuario activo por su nombre de login.
+    Busca por su nombre de login un usuario que pueda entrar: activo
+    (pertenece a la empresa) Y puede_ingresar (tiene acceso al panel).
 
     Usa la conexión ADMIN: la tabla usuarios tiene RLS que la hace
     invisible al rol público. Solo el service_role puede leerla.
@@ -382,6 +383,7 @@ def obtener_usuario_por_nombre(usuario: str):
         .select("*")\
         .eq("usuario", usuario)\
         .eq("activo", True)\
+        .eq("puede_ingresar", True)\
         .execute()
     return resultado.data[0] if resultado.data else None
     # ============================================================
@@ -634,7 +636,7 @@ def listar_usuarios():
     """
     supabase = get_supabase_admin()
     return supabase.table("usuarios")\
-        .select("id, usuario, nombre_completo, rol, sede_id, activo, created_at")\
+        .select("id, usuario, nombre_completo, rol, sede_id, activo, puede_ingresar, created_at")\
         .order("activo", desc=True)\
         .order("nombre_completo")\
         .execute().data
@@ -670,11 +672,35 @@ def contar_admins_activos():
     return resultado.count
 
 
-def obtener_usuario_por_id(usuario_id: int):
-    """Un usuario por su id (para validar antes de desactivar)."""
+def cambiar_acceso_usuario(usuario_id: int, puede_ingresar: bool):
+    """Da o quita el acceso al panel (puede_ingresar). No toca 'activo'."""
+    supabase = get_supabase_admin()
+    return supabase.table("usuarios")\
+        .update({"puede_ingresar": puede_ingresar})\
+        .eq("id", usuario_id)\
+        .execute().data
+
+
+def contar_admins_activos_con_acceso():
+    """
+    Cuántos admin activos Y con acceso al panel quedan. Salvaguarda de
+    'no quitarle el acceso al último admin': sin él, nadie administra.
+    """
     supabase = get_supabase_admin()
     resultado = supabase.table("usuarios")\
-        .select("id, usuario, nombre_completo, rol, activo")\
+        .select("id", count="exact")\
+        .eq("rol", "admin")\
+        .eq("activo", True)\
+        .eq("puede_ingresar", True)\
+        .execute()
+    return resultado.count
+
+
+def obtener_usuario_por_id(usuario_id: int):
+    """Un usuario por su id (salvaguardas de gestión y chequeo por petición)."""
+    supabase = get_supabase_admin()
+    resultado = supabase.table("usuarios")\
+        .select("id, usuario, nombre_completo, rol, sede_id, activo, puede_ingresar")\
         .eq("id", usuario_id)\
         .execute()
     return resultado.data[0] if resultado.data else None
@@ -691,6 +717,7 @@ def obtener_whatsapp_por_id(usuario_id):
                  .select("whatsapp")
                  .eq("id", usuario_id)
                  .eq("activo", True)
+                 .eq("rol", "asesor")   # solo los asesores reciben clientes por link
                  .execute())
     if resultado.data and resultado.data[0].get("whatsapp"):
         return resultado.data[0]["whatsapp"]

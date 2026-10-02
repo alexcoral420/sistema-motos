@@ -35,6 +35,11 @@
 
         .btn-desactivar { background: transparent; border: 1px solid var(--rojo); color: var(--rojo); padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: 'Barlow', sans-serif; }
         .btn-desactivar:hover { background: #fdecee; }
+
+        .acceso-si { color: var(--verde); font-size: 13px; }
+        .acceso-no { color: var(--rojo); font-size: 13px; }
+        .btn-acceso { background: transparent; border: 1px solid var(--borde); color: var(--texto); padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: 'Barlow', sans-serif; margin-right: 6px; }
+        .btn-acceso:hover { background: var(--superficie-2); }
     </style>
 </head>
 <body>
@@ -110,6 +115,7 @@
                         <th>Usuario</th>
                         <th>Rol</th>
                         <th>Estado</th>
+                        <th>Acceso</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -129,6 +135,31 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if u.puede_ingresar %}
+                            <span class="acceso-si">● Con acceso</span>
+                            {% else %}
+                            <span class="acceso-no">○ Sin acceso</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {# Quitar/dar acceso: no a uno mismo, y gerencia solo a asesores.
+                               El servidor revalida todas las salvaguardas; esto es solo UX. #}
+                            {% if u.id != session.usuario_id and (session.rol == 'admin' or u.rol == 'asesor') %}
+                            {% if u.puede_ingresar %}
+                            <form method="POST" action="{{ url_for('admin.quitar_acceso_usuario', usuario_id=u.id) }}"
+                                  onsubmit="return confirm('¿Quitarle el acceso al sistema a {{ u.nombre_completo }}? Sigue activo en la empresa, pero no podrá iniciar sesión.')"
+                                  style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-acceso">Quitar acceso</button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('admin.dar_acceso_usuario', usuario_id=u.id) }}"
+                                  style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-acceso">Dar acceso</button>
+                            </form>
+                            {% endif %}
+                            {% endif %}
                             {# Solo se ofrece desactivar a usuarios activos que NO son uno mismo.
                                El servidor revalida todas las salvaguardas; esto es solo UX. #}
                             {% if u.activo and u.id != session.usuario_id %}

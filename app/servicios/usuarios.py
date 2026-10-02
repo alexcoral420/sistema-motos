@@ -107,3 +107,55 @@ def desactivar(actor_id: int, actor_rol: str, objetivo_id: int):
     obtener_logger().warning(
         "Usuario desactivado: '%s' (id %s) por un %s (id %s).",
         objetivo["usuario"], objetivo_id, actor_rol, actor_id)
+
+
+def _cambiar_acceso(actor_id: int, actor_rol: str, objetivo_id: int,
+                    puede_ingresar: bool):
+    """
+    Da o quita el acceso al panel aplicando las salvaguardas. No toca
+    'activo': un usuario sin acceso sigue perteneciendo a la empresa
+    (sus links del catálogo y su atribución siguen funcionando).
+    """
+    accion = "dar" if puede_ingresar else "quitar"
+
+    objetivo = repositorios.obtener_usuario_por_id(objetivo_id)
+    if not objetivo:
+        raise ErrorGestionUsuario("El usuario no existe.")
+
+    # --- SALVAGUARDA: nadie cambia su propio acceso ---
+    # Evita quedar fuera del sistema por accidente.
+    if objetivo_id == actor_id:
+        raise ErrorGestionUsuario("No puedes cambiar tu propio acceso.")
+
+    # --- SALVAGUARDA: gerencia solo cambia el acceso de asesores ---
+    if actor_rol == "gerencia" and objetivo["rol"] != "asesor":
+        raise ErrorGestionUsuario(
+            "Gerencia solo puede cambiar el acceso de usuarios con rol asesor.")
+
+    # Idempotente: si ya está en ese estado, no hacemos nada.
+    if bool(objetivo.get("puede_ingresar")) == puede_ingresar:
+        raise ErrorGestionUsuario(
+            "Ese usuario ya tiene acceso." if puede_ingresar
+            else "Ese usuario ya no tiene acceso.")
+
+    # --- SALVAGUARDA: no quitarle el acceso al último admin activo con acceso ---
+    if (not puede_ingresar and objetivo["rol"] == "admin" and objetivo["activo"]
+            and repositorios.contar_admins_activos_con_acceso() <= 1):
+        raise ErrorGestionUsuario(
+            "No puedes quitarle el acceso al último administrador activo con acceso.")
+
+    repositorios.cambiar_acceso_usuario(objetivo_id, puede_ingresar)
+
+    obtener_logger().warning(
+        "Acceso al panel (%s): '%s' (id %s) por un %s (id %s).",
+        accion, objetivo["usuario"], objetivo_id, actor_rol, actor_id)
+
+
+def quitar_acceso(actor_id: int, actor_rol: str, objetivo_id: int):
+    """Quita el acceso al panel (puede_ingresar = false). No desactiva."""
+    _cambiar_acceso(actor_id, actor_rol, objetivo_id, puede_ingresar=False)
+
+
+def dar_acceso(actor_id: int, actor_rol: str, objetivo_id: int):
+    """Devuelve el acceso al panel (puede_ingresar = true)."""
+    _cambiar_acceso(actor_id, actor_rol, objetivo_id, puede_ingresar=True)

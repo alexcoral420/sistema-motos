@@ -32,6 +32,8 @@ def login():
 
         log = obtener_logger()
         if usuario:
+            # Sesión limpia: nada de una identidad anterior sobrevive.
+            session.clear()
             # Guardamos la IDENTIDAD, no solo un booleano.
             session["logueado"] = True
             session["usuario_id"] = usuario["id"]
