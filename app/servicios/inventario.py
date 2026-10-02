@@ -11,6 +11,12 @@ de la arquitectura por capas: cambiar la fuente tocando UN archivo.
 from app.db import repositorios
 
 
+# Estados que la vista pública de detalle puede mostrar. Cualquier otro
+# (borradores, motos dadas de baja, etc.) responde 404 al público; el
+# panel admin sigue viéndolas vía obtener_moto.
+ESTADOS_VISIBLES_PUBLICO = ("disponible", "reservado", "vendido")
+
+
 # ============================================================
 #  LECTURA
 # ============================================================
@@ -28,6 +34,15 @@ def listar_todas_las_motos():
 def obtener_moto(id: int):
     """Una moto por su id, o None si no existe."""
     return repositorios.obtener_moto_por_id(id)
+
+
+def obtener_moto_publica(id: int):
+    """Una moto por su id para la vista pública, o None si no existe
+    o si su estado no está en ESTADOS_VISIBLES_PUBLICO."""
+    moto = repositorios.obtener_moto_por_id(id)
+    if not moto or moto.get("estado") not in ESTADOS_VISIBLES_PUBLICO:
+        return None
+    return moto
 
 
 def obtener_galeria(moto_id: int):
