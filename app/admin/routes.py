@@ -23,6 +23,7 @@ from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 from app.auth.decorators import requiere_rol
+from app.auth.sesion import verificar_usuario_habilitado
 from app.servicios import busqueda
 from app.servicios import reportes
 from app.servicios import usuarios
@@ -38,6 +39,10 @@ def proteger_todo_el_panel():
         obtener_logger().warning(
             "Acceso denegado a ruta de admin sin sesión: %s", request.path)
         return redirect(url_for("auth.login"))
+
+    # El usuario puede haber perdido el acceso (o cambiado de rol/sede)
+    # después de loguearse: se revalida contra la base en cada petición.
+    return verificar_usuario_habilitado()
 
 
 @admin_bp.route("/")
@@ -692,5 +697,38 @@ def desactivar_usuario(usuario_id):
     except usuarios.ErrorGestionUsuario as e:
         # Guardamos el mensaje para mostrarlo al volver.
         obtener_logger().info("Desactivación rechazada: %s", str(e))
+
+    return redirect(url_for("admin.gestion_usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:usuario_id>/quitar-acceso", methods=["POST"])
+@requiere_rol("admin", "gerencia")
+def quitar_acceso_usuario(usuario_id):
+    """Quita el acceso al panel (puede_ingresar = false). No desactiva."""
+    try:
+        # Actor id y rol: de la SESIÓN. objetivo: de la URL.
+        usuarios.quitar_acceso(
+            actor_id=session.get("usuario_id"),
+            actor_rol=session.get("rol"),
+            objetivo_id=usuario_id,
+        )
+    except usuarios.ErrorGestionUsuario as e:
+        obtener_logger().info("Quitar acceso rechazado: %s", str(e))
+
+    return redirect(url_for("admin.gestion_usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:usuario_id>/dar-acceso", methods=["POST"])
+@requiere_rol("admin", "gerencia")
+def dar_acceso_usuario(usuario_id):
+    """Devuelve el acceso al panel (puede_ingresar = true)."""
+    try:
+        usuarios.dar_acceso(
+            actor_id=session.get("usuario_id"),
+            actor_rol=session.get("rol"),
+            objetivo_id=usuario_id,
+        )
+    except usuarios.ErrorGestionUsuario as e:
+        obtener_logger().info("Dar acceso rechazado: %s", str(e))
 
     return redirect(url_for("admin.gestion_usuarios"))
