@@ -13,12 +13,12 @@ import re
 
 from app.db import repositorios
 from app.servicios import sedes
+from app.servicios.inventario import ESTADOS_MOTO
 
 # Placas colombianas: letras y números, sin símbolos. Lista blanca
 # estricta -> nada de comas, comillas ni caracteres con significado
 # en la sintaxis de la consulta.
 _PLACA_PERMITIDA = re.compile(r"^[a-zA-Z0-9]{1,10}$")
-_ESTADOS_VALIDOS = ("disponible", "reservado", "vendido")
 
 
 def _limpiar_id(valor):
@@ -46,7 +46,7 @@ def _limpiar_estado(valor):
     if not valor:
         return None
     estado = valor.strip().lower()
-    return estado if estado in _ESTADOS_VALIDOS else None
+    return estado if estado in ESTADOS_MOTO else None
 
 def _limpiar_sede(valor):
     """Sede válida contra las sedes reales (lista blanca), o None."""
