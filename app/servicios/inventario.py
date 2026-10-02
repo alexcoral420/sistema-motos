@@ -9,6 +9,9 @@ de la arquitectura por capas: cambiar la fuente tocando UN archivo.
 """
 
 from app.db import repositorios
+from app.seguridad.validadores import ErrorValidacion
+from app.seguridad.logging_config import obtener_logger
+from app.servicios.contratos import moto_en_alcance
 
 
 # Estados que la vista pública de detalle puede mostrar. Cualquier otro
@@ -67,6 +70,45 @@ def actualizar_moto(id: int, datos: dict):
 def marcar_vendida(id: int):
     """Marca una moto como vendida."""
     return repositorios.marcar_como_vendida(id)
+
+
+ESTADOS_VENDIBLES = ("disponible", "reservado")
+
+
+def vender_moto(id: int, usuario_id: int, usuario_nombre: str):
+    """
+    Vende una moto: valida existencia, alcance de sede y estado, y solo
+    entonces la marca como vendida y registra la venta.
+
+    El id viene de la URL y se puede editar: sin estas validaciones un
+    usuario de una sede podría vender motos de otra, o vender dos veces
+    la misma. El alcance reutiliza moto_en_alcance (contratos.py), que
+    a su vez usa _sede_del_alcance (sede tomada de la SESIÓN).
+    """
+    moto = repositorios.obtener_moto_por_id(id)
+    if not moto:
+        raise ErrorValidacion("La moto no existe.")
+
+    if moto_en_alcance(id) is None:
+        raise ErrorValidacion("La moto está fuera del alcance de tu sede.")
+
+    if moto.get("estado") not in ESTADOS_VENDIBLES:
+        raise ErrorValidacion(
+            f"La moto no se puede vender en estado '{moto.get('estado')}'.")
+
+    marcar_vendida(id)
+
+    # Sin transacción todavía: si el registro falla, la moto ya quedó
+    # vendida sin su fila en 'ventas'. Se deja rastro claro para
+    # corregirlo a mano, y el error sigue subiendo (nada silencioso).
+    try:
+        registrar_venta(id, usuario_id, usuario_nombre)
+    except Exception:
+        obtener_logger().exception(
+            "INCONSISTENCIA: moto id=%s marcada como vendida pero falló "
+            "registrar_venta (usuario_id=%s, usuario=%s). Corregir a mano.",
+            id, usuario_id, usuario_nombre)
+        raise
 
 
 def eliminar_moto(id: int):

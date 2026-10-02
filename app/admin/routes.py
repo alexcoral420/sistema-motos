@@ -378,15 +378,19 @@ def cargar_detalle_venta(venta_id):
 @requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def vender(id):
     """Marca una moto como vendida y registra quién la vendió."""
-    inventario.marcar_vendida(id)
-
     # Registro histórico: quién vendió qué. La identidad sale de la
     # SESIÓN, no del formulario: el usuario no puede falsear quién es.
-    inventario.registrar_venta(
-        id,
-        session.get("usuario_id"),
-        session.get("usuario_nombre"),
-    )
+    try:
+        inventario.vender_moto(
+            id,
+            session.get("usuario_id"),
+            session.get("usuario_nombre"),
+        )
+    except ErrorValidacion as e:
+        obtener_logger().warning(
+            "Venta rechazada: usuario=%s quiso vender moto id=%s. Motivo: %s",
+            session.get("usuario_nombre"), id, e.mensaje)
+        abort(403)
 
     obtener_logger().info("%s marcó como vendida la moto id=%s.",
                           session.get("usuario_nombre"), id)
