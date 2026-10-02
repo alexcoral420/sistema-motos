@@ -26,7 +26,7 @@ from app.auth.decorators import requiere_rol
 from app.servicios import busqueda
 from app.servicios import reportes
 from app.servicios import usuarios
-from app.servicios.inventario import ESTADOS_MOTO
+from app.servicios.inventario import ESTADOS_EDITABLES
 
 @admin_bp.before_request
 def proteger_todo_el_panel():
@@ -169,12 +169,22 @@ def permuta():
 @requiere_rol("admin")
 def editar(id):
     """Formulario para editar una moto existente, con validación de entrada."""
+    moto = inventario.obtener_moto(id)
+    if not moto:
+        abort(404)
+    # 'por_publicar' no se cambia desde editar: solo publicar_moto lo saca.
+    por_publicar = moto.get("estado") == "por_publicar"
+
     if request.method == "POST":
         try:
-            # En editar el estado sí viene del formulario: lista blanca.
-            estado = validadores.validar_opcion(
-                request.form.get("estado"), "estado",
-                opciones_validas=ESTADOS_MOTO)
+            if por_publicar:
+                # Se conserva aunque el form mande otro estado.
+                estado = "por_publicar"
+            else:
+                # En editar el estado sí viene del formulario: lista blanca.
+                estado = validadores.validar_opcion(
+                    request.form.get("estado"), "estado",
+                    opciones_validas=ESTADOS_EDITABLES)
             datos = inventario.validar_datos_moto(request.form, estado)
 
             inventario.actualizar_moto(id, datos)
@@ -188,10 +198,11 @@ def editar(id):
                 moto=request.form,
                 id=id,
                 sedes=sedes.listar_sedes(),
+                por_publicar=por_publicar,
             )
 
-    moto = inventario.obtener_moto(id)
-    return render_template("editar.html", moto=moto, id=id, sedes=sedes.listar_sedes())
+    return render_template("editar.html", moto=moto, id=id, sedes=sedes.listar_sedes(),
+                           por_publicar=por_publicar)
 
 @admin_bp.route("/ventas/cargar-detalle/<int:venta_id>", methods=["GET", "POST"])
 @requiere_rol("admin", "gerencia", "encargado_sede")
@@ -280,6 +291,7 @@ def eliminar(id):
 
 
 ROLES_DATOS_CONTRATO = ("admin", "gerencia", "encargado_sede")
+ROLES_PUBLICAR = ("admin", "gerencia", "encargado_sede")
 
 
 @admin_bp.route("/moto/<int:id>")
@@ -301,6 +313,15 @@ def detalle_moto_admin(id):
         puede_cargar_contrato = True
         datos_contrato = contratos.obtener_datos(id)
 
+    # Botón Publicar: solo si está pendiente, para los roles que publican
+    # y dentro de su sede. Es cosmético: publicar_moto vuelve a validar.
+    puede_publicar = (
+        moto is not None
+        and moto.get("estado") == "por_publicar"
+        and session.get("rol") in ROLES_PUBLICAR
+        and contratos.moto_en_alcance(id) is not None
+    )
+
     return render_template(
         "detalle.html", moto=moto, fotos=fotos, es_admin=True,
         puede_cargar_contrato=puede_cargar_contrato,
@@ -308,7 +329,31 @@ def detalle_moto_admin(id):
         etiquetas_contrato=contratos.ETIQUETAS_VISIBLES,
         contrato_guardado=request.args.get("contrato_guardado"),
         contrato_error=request.args.get("contrato_error"),
+        puede_publicar=puede_publicar,
+        publicar_error=request.args.get("publicar_error"),
     )
+
+
+@admin_bp.route("/moto/<int:id>/publicar", methods=["POST"])
+@requiere_rol(*ROLES_PUBLICAR)
+def publicar(id):
+    """
+    Publica una moto 'por_publicar' (pasa a 'disponible'). El servicio
+    valida alcance de sede, estado, foto y precio. Quién publicó sale
+    de la SESIÓN.
+    """
+    try:
+        inventario.publicar_moto(id)
+    except ErrorValidacion as e:
+        obtener_logger().warning(
+            "Publicación rechazada: usuario=%s, moto id=%s. Motivo: %s",
+            session.get("usuario_nombre"), id, e.mensaje)
+        return redirect(url_for("admin.detalle_moto_admin", id=id,
+                                publicar_error=e.mensaje))
+
+    obtener_logger().info("%s publicó la moto id=%s.",
+                          session.get("usuario_nombre"), id)
+    return redirect(url_for("admin.detalle_moto_admin", id=id))
 
 
 @admin_bp.route("/moto/<int:id>/datos-contrato", methods=["POST"])

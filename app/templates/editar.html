@@ -98,11 +98,17 @@
                 </div>
                 <div class="campo">
                     <label>Estado</label>
+                    {% if por_publicar %}
+                    <!-- 'por_publicar' no se edita: se sale de él con el botón
+                         Publicar del detalle. El servidor lo conserva igual. -->
+                    <p>Pendiente de publicar (se publica desde el detalle de la moto)</p>
+                    {% else %}
                     <select name="estado">
                         <option value="disponible" {% if moto.estado == 'disponible' %}selected{% endif %}>Disponible</option>
                         <option value="reservado" {% if moto.estado == 'reservado' %}selected{% endif %}>Reservado</option>
                         <option value="vendido" {% if moto.estado == 'vendido' %}selected{% endif %}>Vendido</option>
                     </select>
+                    {% endif %}
                 </div>
                 <div class="campo">
                     <label>Descripción</label>

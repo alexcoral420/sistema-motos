@@ -132,6 +132,9 @@
         .badge-disponible { background: rgba(37,211,102,0.12); color: #4ee584; border-color: rgba(37,211,102,0.3); }
         .badge-vendido { background: rgba(233,69,96,0.12); color: #ff6b81; border-color: rgba(233,69,96,0.3); }
         .badge-reservado { background: rgba(255,122,0,0.12); color: #ffa64d; border-color: rgba(255,122,0,0.3); }
+        .badge-por_publicar { background: rgba(120,140,255,0.12); color: #9aa8ff; border-color: rgba(120,140,255,0.3); }
+        .aviso-publicar { padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 16px;
+                          background: rgba(120,140,255,0.12); color: #c3cbff; border: 1px solid rgba(120,140,255,0.35); }
 
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
         .info-item { background: #0f0f0f; border: 1px solid #2a2a2a; padding: 14px 16px; border-radius: 10px; }
@@ -357,6 +360,16 @@
             {% endif %}
             <span class="badge badge-{{ moto.estado }}">{{ moto.estado.upper() }}</span>
 
+            {% if es_admin and moto.estado == 'por_publicar' %}
+            <div class="aviso-publicar">
+                ⏳ <strong>Pendiente de publicar.</strong> Esta moto no aparece en el catálogo
+                público hasta que se publique (requiere foto de portada y precio).
+            </div>
+            {% endif %}
+            {% if es_admin and publicar_error %}
+            <div class="runt-aviso runt-aviso-error">{{ publicar_error }}</div>
+            {% endif %}
+
             <div class="info-grid">
                 {% if moto.color %}
                 <div class="info-item">
@@ -418,6 +431,14 @@
 
                 {% if session.rol == 'admin' %}
                 <a href="{{ url_for('admin.editar', id=moto.id) }}" class="btn btn-primary">✏️ Editar</a>
+                {% endif %}
+
+                {% if es_admin and puede_publicar %}
+                <form method="POST" action="{{ url_for('admin.publicar', id=moto.id) }}" style="flex:1; min-width:140px; display:flex"
+                      onsubmit="return confirm('¿Publicar esta moto en el catálogo?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-whatsapp" style="flex:1">🚀 Publicar</button>
+                </form>
                 {% endif %}
             </div>
         </div>

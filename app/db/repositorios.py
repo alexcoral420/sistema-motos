@@ -94,6 +94,21 @@ def actualizar_moto(id: int, datos: dict):
     return resultado.data
 
 
+def actualizar_moto_si_estado(id: int, estado_actual: str, datos: dict):
+    """
+    Actualiza una moto SOLO si su estado sigue siendo estado_actual
+    (condición en el WHERE, no solo el id). Devuelve las filas
+    actualizadas: lista vacía si la moto ya no estaba en ese estado.
+    """
+    supabase = get_supabase_admin()
+    resultado = supabase.table("motos")\
+        .update(datos)\
+        .eq("id", id)\
+        .eq("estado", estado_actual)\
+        .execute()
+    return resultado.data
+
+
 def marcar_como_vendida(id: int):
     """Cambia el estado a 'vendido'."""
     return actualizar_moto(id, {"estado": "vendido"})
