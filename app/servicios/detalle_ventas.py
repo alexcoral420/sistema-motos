@@ -17,6 +17,7 @@ un efecto colateral de un valor vacío.
 from flask import session
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
+from app.servicios import personas
 
 # Marcador explícito de "sin restricción de sede" (ve todas).
 # Es un objeto único, imposible de confundir con un sede_id real ni
@@ -192,22 +193,9 @@ def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta,
         aviso_suma = (f"Los pagos suman ${suma:,} pero el precio es "
                       f"${precio_venta:,} (diferencia ${abs(suma - precio_venta):,}).")
 
-    # 4. Comprador: reusar por cédula o crear (sin actualizar si existe)
-    cedula = (datos_comprador.get("cedula") or "").strip()
-    if not cedula:
-        raise ErrorValidacion("La cédula del comprador es obligatoria.", "comprador_cedula")
-
-    existente = repositorios.buscar_comprador_por_cedula(cedula)
-    if existente:
-        comprador_id = existente["id"]
-    else:
-        nuevo = repositorios.crear_comprador({
-            "nombre": (datos_comprador.get("nombre") or "").strip(),
-            "cedula": cedula,
-            "telefono": (datos_comprador.get("telefono") or "").strip() or None,
-            "correo": (datos_comprador.get("correo") or "").strip() or None,
-        })
-        comprador_id = nuevo["id"]
+    # 4. Comprador: la persona se reusa por cédula o se crea (sin
+    #    actualizar si existe). "Comprador" es su rol en esta venta.
+    comprador_id = personas.obtener_o_crear(datos_comprador)
 
     # 5. Insertar pagos. Borra los previos por si es reintento (anti-duplicado).
     for p in pagos_limpios:

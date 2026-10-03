@@ -17,7 +17,13 @@ Vamos migrando por partes. De momento: LECTURA de motos, que es lo que
 necesitan las rutas públicas. Escritura, CRM y archivos vendrán después.
 """
 
+from postgrest.exceptions import APIError
+
 from app.db.cliente import get_supabase_publico, get_supabase_admin
+
+
+class RegistroDuplicado(Exception):
+    """Un insert violó una restricción unique (código Postgres 23505)."""
 
 
 # ============================================================
@@ -389,10 +395,10 @@ def obtener_usuario_por_nombre(usuario: str):
     # ============================================================
 #  VENTAS (registro de operaciones)
 # ============================================================
-def buscar_comprador_por_cedula(cedula: str):
-    """Devuelve el comprador con esa cédula, o None si no existe."""
+def buscar_persona_por_cedula(cedula: str):
+    """Devuelve la persona con esa cédula, o None si no existe."""
     supabase = get_supabase_admin()
-    resultado = (supabase.table("compradores")
+    resultado = (supabase.table("personas")
                  .select("*")
                  .eq("cedula", cedula)
                  .limit(1)
@@ -400,19 +406,27 @@ def buscar_comprador_por_cedula(cedula: str):
     return resultado.data[0] if resultado.data else None
 
 
-def crear_comprador(datos: dict):
-    """Inserta un comprador nuevo y devuelve el registro creado."""
+def crear_persona(datos: dict):
+    """
+    Inserta una persona nueva y devuelve el registro creado.
+    Lanza RegistroDuplicado si la cédula ya existe (unique de cédula).
+    """
     supabase = get_supabase_admin()
-    resultado = supabase.table("compradores").insert(datos).execute()
+    try:
+        resultado = supabase.table("personas").insert(datos).execute()
+    except APIError as e:
+        if e.code == "23505":
+            raise RegistroDuplicado(e.message) from e
+        raise
     return resultado.data[0]
 
 
-def obtener_comprador_por_id(comprador_id: int):
-    """Devuelve el comprador con ese id, o None si no existe."""
+def obtener_persona_por_id(persona_id: int):
+    """Devuelve la persona con ese id, o None si no existe."""
     supabase = get_supabase_admin()
-    resultado = (supabase.table("compradores")
+    resultado = (supabase.table("personas")
                  .select("*")
-                 .eq("id", comprador_id)
+                 .eq("id", persona_id)
                  .limit(1)
                  .execute())
     return resultado.data[0] if resultado.data else None
