@@ -291,7 +291,7 @@ def generar_contrato(venta_id: int):
     faltantes = [nombre for campo, nombre in OBLIGATORIOS_VEHICULO.items()
                  if not (datos.get(campo) or "").strip()]
 
-    comprador = repositorios.obtener_comprador_por_id(venta["comprador_id"]) or {}
+    comprador = repositorios.obtener_persona_por_id(venta["comprador_id"]) or {}
     if not (comprador.get("nombre") or "").strip():
         faltantes.append("el nombre del comprador")
     if not (comprador.get("cedula") or "").strip():
