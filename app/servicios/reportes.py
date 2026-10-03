@@ -123,7 +123,8 @@ def verificar_venta(venta_id, usuario_nombre):
 def compras_por_usuario(desde=None, hasta=None):
     """
     Cuantas motos ha comprado cada persona en el rango dado.
-    Misma forma que ventas_por_usuario: usuario_nombre, total_compras,
+    Se atribuye al asesor que hizo el negocio (asesor_nombre), no a
+    quien la registró. Forma: asesor_nombre, total_compras,
     primera_compra, ultima_compra. Ordenado por total desc.
     """
     desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
@@ -131,10 +132,10 @@ def compras_por_usuario(desde=None, hasta=None):
 
     agregado = {}
     for f in filas:
-        nombre = f["usuario_nombre"]
+        nombre = f["asesor_nombre"]
         fecha = f["created_at"]
         if nombre not in agregado:
-            agregado[nombre] = {"usuario_nombre": nombre, "total_compras": 0,
+            agregado[nombre] = {"asesor_nombre": nombre, "total_compras": 0,
                                 "primera_compra": fecha, "ultima_compra": fecha}
         a = agregado[nombre]
         a["total_compras"] += 1
