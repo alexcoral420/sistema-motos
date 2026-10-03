@@ -1028,7 +1028,7 @@ def reporte_compras_por_usuario(desde=None, hasta=None):
     filtradas y el servicio agrupa. desde/hasta ya saneados; hasta exclusivo.
     """
     supabase = get_supabase_admin()
-    consulta = supabase.table("compras").select("usuario_nombre, created_at")
+    consulta = supabase.table("compras").select("asesor_nombre, created_at")
     if desde:
         consulta = consulta.gte("created_at", desde)
     if hasta:
@@ -1049,7 +1049,7 @@ def reporte_compras_detalle(desde=None, hasta=None, orden="fecha", limite=100):
     if hasta:
         consulta = consulta.lt("created_at", hasta)
     if orden == "asesor":
-        consulta = consulta.order("usuario_nombre").order("created_at", desc=True)
+        consulta = consulta.order("asesor_nombre").order("created_at", desc=True)
     else:
         consulta = consulta.order("created_at", desc=True)
     return consulta.limit(limite).execute().data

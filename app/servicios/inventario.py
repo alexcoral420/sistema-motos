@@ -433,15 +433,34 @@ def comprar_moto(datos: dict, usuario_id: int, usuario_nombre: str):
         partes.append(str(moto_creada["anio"]))
     descripcion = " ".join(p for p in partes if p).strip()
 
-    # 3. Registrar la compra con la identidad del asesor (de sesión).
-    repositorios.registrar_compra({
-        "moto_id": moto_id,
-        "descripcion": descripcion,
-        "placa": moto_creada.get("placa"),
-        "usuario_id": usuario_id,
-        "usuario_nombre": usuario_nombre,
+    # 3. Registrar la compra con la identidad de sesión. usuario_* = quién
+    #    registró; asesor_* = quién hizo el negocio. Hoy son la misma persona.
+    #    Sin transacción todavía: si el registro falla, la moto ya quedó en
+    #    inventario sin su fila en 'compras'. Mismo patrón que vender_moto.
+    try:
+        registrada = repositorios.registrar_compra({
+            "moto_id": moto_id,
+            "descripcion": descripcion,
+            "placa": moto_creada.get("placa"),
+            "usuario_id": usuario_id,
+            "usuario_nombre": usuario_nombre,
+            "asesor_id": usuario_id,
+            "asesor_nombre": usuario_nombre,
+            "sede_id": moto_creada.get("sede_id"),
+        })
+    except Exception:
+        obtener_logger().exception(
+            "INCONSISTENCIA: moto id=%s creada en inventario pero falló "
+            "registrar_compra (usuario_id=%s, usuario=%s). Corregir a mano.",
+            moto_id, usuario_id, usuario_nombre)
+        raise
 
-    })
+    if not registrada:
+        obtener_logger().error(
+            "INCONSISTENCIA: moto id=%s creada en inventario pero "
+            "registrar_compra no devolvió fila (usuario_id=%s, usuario=%s). "
+            "Corregir a mano.",
+            moto_id, usuario_id, usuario_nombre)
 
     return moto_creada
 
