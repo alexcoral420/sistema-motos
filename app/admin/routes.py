@@ -14,7 +14,8 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file
+from flask import (Blueprint, request, render_template, redirect, url_for, session, abort,
+                   send_file, flash)
 from app.servicios import inventario
 
 from app.servicios import sedes
@@ -247,7 +248,11 @@ def cargar_detalle_venta(venta_id):
             )
             obtener_logger().info("Detalle cargado para venta id=%s por %s.",
                                   venta_id, session.get("usuario_nombre"))
-            return render_template("detalle_guardado.html", aviso=aviso)
+            # Post/Redirect/Get: recargar la página de destino no reenvía
+            # el formulario. El aviso viaja en la sesión (flash), no en la URL.
+            if aviso:
+                flash(aviso, "aviso_suma")
+            return redirect(url_for("admin.venta_completada", venta_id=venta_id))
 
         except ErrorValidacion as e:
             return render_template(
@@ -259,6 +264,28 @@ def cargar_detalle_venta(venta_id):
 
     # GET: mostrar el formulario vacío.
     return render_template("cargar_detalle_venta.html", venta=venta)
+
+
+@admin_bp.route("/venta/<int:venta_id>/completada")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def venta_completada(venta_id):
+    """Confirmación tras cargar el detalle: descargar contrato o volver a ventas."""
+    from app.servicios import detalle_ventas
+
+    # Muralla: el id viene de la URL.
+    venta = detalle_ventas.venta_en_alcance(venta_id)
+    if not venta:
+        abort(403)
+    # Entrar aquí con una venta sin detalle (URL escrita a mano) no tiene
+    # sentido: se la manda a cargarlo.
+    if not venta.get("detalle_completo"):
+        return redirect(url_for("admin.cargar_detalle_venta", venta_id=venta_id))
+
+    return render_template(
+        "venta_completada.html",
+        venta=venta,
+        comprador=detalle_ventas.comprador_de(venta),
+    )
 
 
 @admin_bp.route("/vender/<int:id>", methods=["POST"])
