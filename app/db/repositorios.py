@@ -20,6 +20,8 @@ necesitan las rutas públicas. Escritura, CRM y archivos vendrán después.
 from postgrest.exceptions import APIError
 
 from app.db.cliente import get_supabase_publico, get_supabase_admin
+from app.seguridad.logging_config import obtener_logger
+from app.seguridad.validadores import ErrorValidacion
 
 
 class RegistroDuplicado(Exception):
@@ -491,6 +493,35 @@ def registrar_compra(datos: dict):
     resultado = supabase.table("compras").insert(datos).execute()
     return resultado.data
 
+def registrar_compra_completa(moto: dict, datos_contrato: dict, compra: dict,
+                              pagos: list) -> dict:
+    """
+    Llama a la función registrar_compra (migración 013): crea moto,
+    datos de contrato, compra, pagos y gasto de traspaso en UNA
+    transacción. Devuelve {"moto_id", "compra_id"}.
+
+    Si la función rechaza los datos (raise exception, código P0001), su
+    mensaje ya está en español y es apto para el usuario: se traduce a
+    ErrorValidacion. Cualquier otro error es técnico: se registra y
+    sigue subiendo tal cual.
+    """
+    supabase = get_supabase_admin()
+    try:
+        resultado = supabase.rpc("registrar_compra", {
+            "p_moto": moto,
+            "p_datos_contrato": datos_contrato,
+            "p_compra": compra,
+            "p_pagos": pagos,
+        }).execute()
+    except APIError as e:
+        if e.code == "P0001":
+            raise ErrorValidacion(e.message) from e
+        obtener_logger().error("Error al llamar a registrar_compra: %s (código %s)",
+                               e.message, e.code)
+        raise
+    return resultado.data
+
+
 def registrar_permuta(datos: dict):
     """Guarda el registro histórico de una permuta."""
     supabase = get_supabase_admin()
@@ -718,6 +749,21 @@ def obtener_usuario_por_id(usuario_id: int):
         .eq("id", usuario_id)\
         .execute()
     return resultado.data[0] if resultado.data else None
+
+def listar_asesores_activos(sede_id=None):
+    """
+    Asesores activos, por nombre. Con sede_id, solo los de esa sede.
+    Para el selector de asesor del registro de compras.
+    """
+    supabase = get_supabase_admin()
+    consulta = (supabase.table("usuarios")
+                .select("id, nombre_completo, sede_id")
+                .eq("rol", "asesor")
+                .eq("activo", True))
+    if sede_id is not None:
+        consulta = consulta.eq("sede_id", sede_id)
+    return consulta.order("nombre_completo").execute().data
+
 
 def obtener_whatsapp_por_id(usuario_id):
     """

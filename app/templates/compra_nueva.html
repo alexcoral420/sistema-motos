@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar compra · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .contenedor { max-width: 760px; }
+        .bloque { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 20px; margin-bottom: 22px; }
+        .bloque h2 { font-size: 18px; color: var(--texto); margin-bottom: 8px; }
+        .ayuda { font-size: 14px; color: var(--texto-tenue); margin-bottom: 14px; }
+        .runt-textarea { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; padding: 12px; border: 1px solid var(--borde); border-radius: 8px; resize: vertical; }
+        .btn-guardar { background: var(--naranja); color: var(--barra-bg); border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 12px; }
+        .btn-guardar:hover { background: var(--naranja-hover); }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Registrar <span>compra</span></h1>
+        <a href="{{ url_for('admin.index') }}" class="btn-back">← Volver</a>
+    </div>
+
+    <div class="contenedor">
+        {% if error %}
+        <div class="aviso aviso-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('admin.compra_revisar') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="bloque">
+                <h2>1. Consulta RUNT</h2>
+                <p class="ayuda">
+                    Copie toda la consulta de la placa en el RUNT y péguela aquí.
+                    En el siguiente paso revisa los datos y completa la compra.
+                </p>
+                <textarea name="texto_runt" class="runt-textarea" required
+                          placeholder="Pegue aquí el texto de la consulta RUNT...">{{ texto_runt or '' }}</textarea>
+                <button type="submit" class="btn-guardar">Continuar</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

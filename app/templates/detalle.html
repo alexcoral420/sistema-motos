@@ -463,7 +463,8 @@
                     <td>{{ etiqueta }}</td>
                     <td>
                         {% if datos_contrato[columna] %}{{ datos_contrato[columna] }}
-                        {% else %}<span class="runt-faltante">No encontrado en el RUNT</span>{% endif %}
+                        {% elif columna in columnas_runt %}<span class="runt-faltante">No encontrado en el RUNT</span>
+                        {% else %}<span class="runt-faltante">Sin cargar</span>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}

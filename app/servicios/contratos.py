@@ -21,6 +21,7 @@ de convertir números ni fechas: el contrato debe decir exactamente lo
 que dice el registro oficial.
 """
 
+import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -89,6 +90,12 @@ ETIQUETAS_VISIBLES = {
     "tipo_carroceria": "Tipo de carrocería",
     "tipo_combustible": "Tipo de combustible",
     "fecha_matricula": "Fecha de matrícula",
+    # No salen del RUNT (por eso no están en MAPA_RUNT ni en COLUMNAS):
+    # se cargan a mano en el registro de compra, solo motos importadas.
+    # Tampoco los toca una re-carga del RUNT (procesar_y_guardar solo
+    # escribe COLUMNAS).
+    "manifiesto_aduana": "Manifiesto de aduana",
+    "fecha_manifiesto": "Fecha del manifiesto",
 }
 
 
@@ -144,6 +151,54 @@ def parsear_runt(texto: str) -> dict:
     return datos
 
 
+def parsear_texto_runt(texto_runt) -> dict:
+    """
+    Valida el texto pegado (no vacío, tamaño acotado) y lo parsea.
+    Devuelve {columna: valor}. Lanza ErrorValidacion si no hay texto o
+    no se reconoce ningún dato.
+    """
+    texto_runt = (texto_runt or "").strip()
+    if not texto_runt:
+        raise ErrorValidacion("Pegue el texto de la consulta RUNT.", "texto_runt")
+    if len(texto_runt) > MAX_CARACTERES_RUNT:
+        raise ErrorValidacion("El texto pegado es demasiado largo para una consulta RUNT.",
+                              "texto_runt")
+
+    datos = parsear_runt(texto_runt)
+    if not datos:
+        raise ErrorValidacion(
+            "No se reconoció ningún dato del RUNT. Verifique que pegó la consulta completa.",
+            "texto_runt")
+    return datos
+
+
+def moto_desde_runt(datos_runt: dict) -> dict:
+    """
+    Traduce datos del RUNT (salida de parsear_runt) a campos de motos,
+    para prellenar el formulario de compra. Lo que no se pueda traducir
+    queda en None: el formulario lo muestra vacío y validar_datos_moto
+    lo exige al registrar.
+
+    OJO con el cruce de nombres: en el RUNT, LINEA es lo que en motos
+    llamamos 'modelo' (ej: "FZ 2.0"), y MODELO es el AÑO del vehículo
+    (ej: "2019"). Por eso modelo <- linea y anio <- modelo.
+    """
+    def _entero(texto):
+        coincidencia = re.search(r"\d+", texto or "")
+        return int(coincidencia.group()) if coincidencia else None
+
+    return {
+        "marca": datos_runt.get("marca"),
+        "modelo": datos_runt.get("linea"),
+        "anio": _entero(datos_runt.get("modelo")),
+        "color": datos_runt.get("color"),
+        "placa": datos_runt.get("placa"),
+        # El RUNT trae el cilindraje como texto ("150", "149.00 CC"):
+        # se toma el primer número entero.
+        "cilindraje": _entero(datos_runt.get("cilindraje")),
+    }
+
+
 def moto_en_alcance(moto_id: int):
     """
     Devuelve la moto si el usuario en sesión puede cargar/ver sus datos
@@ -185,18 +240,7 @@ def procesar_y_guardar(moto_id: int, texto_runt: str) -> dict:
     if not moto:
         raise ErrorValidacion("La moto no existe o no pertenece a su sede.", "moto")
 
-    texto_runt = (texto_runt or "").strip()
-    if not texto_runt:
-        raise ErrorValidacion("Pegue el texto de la consulta RUNT.", "texto_runt")
-    if len(texto_runt) > MAX_CARACTERES_RUNT:
-        raise ErrorValidacion("El texto pegado es demasiado largo para una consulta RUNT.",
-                              "texto_runt")
-
-    datos = parsear_runt(texto_runt)
-    if not datos:
-        raise ErrorValidacion(
-            "No se reconoció ningún dato del RUNT. Verifique que pegó la consulta completa.",
-            "texto_runt")
+    datos = parsear_texto_runt(texto_runt)
 
     # Protección contra pegar el RUNT de OTRA moto: el contrato saldría
     # con los datos equivocados. Solo se compara si ambos tienen placa.
