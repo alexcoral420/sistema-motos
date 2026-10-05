@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venta completada · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .contenedor { max-width: 560px; }
+        .tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-left: 3px solid var(--verde); border-radius: var(--radio); padding: 24px; margin-top: 24px; }
+        .tarjeta h2 { font-size: 20px; color: var(--texto); margin-bottom: 6px; }
+        .tarjeta .meta { color: var(--texto-tenue); font-size: 14px; margin-bottom: 20px; }
+        .aviso-suma { background: var(--naranja-suave); border: 1px solid var(--naranja); color: var(--naranja-hover); }
+        .aviso-suma strong { display: block; margin-bottom: 4px; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .acciones { display: flex; flex-direction: column; gap: 10px; }
+        .acciones .btn { text-align: center; padding: 13px 24px; font-size: 16px; }
+        .btn-secundario { background: transparent; color: var(--naranja); border: 1px solid var(--naranja); font-weight: 600; }
+        .btn-secundario:hover { background: var(--naranja); color: var(--barra-bg); }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Venta <span>completada</span></h1>
+        <a href="{{ url_for('admin.ventas_mi_sede') }}" class="btn-back">← Ventas</a>
+    </div>
+
+    <div class="contenedor">
+        <div class="tarjeta">
+            <h2>✓ {{ venta.descripcion or 'Moto' }}</h2>
+            <div class="meta">
+                Placa: {{ venta.placa or '—' }}
+                · Comprador: {{ comprador.nombre if comprador and comprador.nombre else '—' }}
+                · Precio: ${{ venta.precio_venta | pesos }}
+            </div>
+
+            {% for aviso in get_flashed_messages(category_filter=["aviso_suma"]) %}
+            <div class="aviso aviso-suma">
+                <strong>Aviso: los pagos no cuadran con el precio</strong>
+                {{ aviso }}
+            </div>
+            {% endfor %}
+
+            <div class="acciones">
+                <a href="{{ url_for('admin.descargar_contrato', venta_id=venta.id) }}" class="btn btn-primary">📄 Descargar contrato</a>
+                <a href="{{ url_for('admin.ventas_mi_sede') }}" class="btn btn-secundario">Ir a ventas</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

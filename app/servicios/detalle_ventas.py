@@ -109,7 +109,15 @@ def venta_en_alcance(venta_id):
         return venta
     return None
 
-    # ============================================================
+
+def comprador_de(venta: dict):
+    """El comprador (persona) de una venta con detalle, o None."""
+    if not venta.get("comprador_id"):
+        return None
+    return repositorios.obtener_persona_por_id(venta["comprador_id"])
+
+
+# ============================================================
 # VALIDACIÓN Y GUARDADO DEL DETALLE
 # ============================================================
 
