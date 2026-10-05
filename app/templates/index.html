@@ -234,10 +234,7 @@
                         {% endif %}
 
                         {% if moto.estado == 'disponible' %}
-                        <form method="POST" action="{{ url_for('admin.vender', id=moto.id) }}" onsubmit="return confirm('¿Marcar como vendida?')">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-success"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Vendida</button>
-                        </form>
+                        <a href="{{ url_for('admin.vender', id=moto.id) }}" class="btn btn-success"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Vendida</a>
                         {% endif %}
 
                         {% if session.rol == 'admin' %}

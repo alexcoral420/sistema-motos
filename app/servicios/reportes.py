@@ -17,18 +17,19 @@ from app.seguridad.validadores import ErrorValidacion
 def ventas_por_usuario(desde=None, hasta=None):
     """
     Cuantas motos ha vendido cada persona en el rango dado.
-    Replica la vista reporte_ventas_por_usuario (usuario_nombre,
-    total_ventas, primera_venta, ultima_venta) pero filtrable por fecha.
+    Se atribuye al asesor que hizo la venta (asesor_nombre), no a quien
+    la registró. Forma: asesor_nombre, total_ventas, primera_venta,
+    ultima_venta. Ordenado por total desc.
     """
     desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
     filas = repositorios.reporte_ventas_por_usuario(desde=desde_iso, hasta=hasta_iso)
 
     agregado = {}
     for f in filas:
-        nombre = f["usuario_nombre"]
+        nombre = f["asesor_nombre"]
         fecha = f["created_at"]
         if nombre not in agregado:
-            agregado[nombre] = {"usuario_nombre": nombre, "total_ventas": 0,
+            agregado[nombre] = {"asesor_nombre": nombre, "total_ventas": 0,
                                 "primera_venta": fecha, "ultima_venta": fecha}
         a = agregado[nombre]
         a["total_ventas"] += 1

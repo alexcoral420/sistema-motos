@@ -288,27 +288,51 @@ def venta_completada(venta_id):
     )
 
 
-@admin_bp.route("/vender/<int:id>", methods=["POST"])
+@admin_bp.route("/vender/<int:id>", methods=["GET", "POST"])
 @requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def vender(id):
-    """Marca una moto como vendida y registra quién la vendió."""
-    # Registro histórico: quién vendió qué. La identidad sale de la
-    # SESIÓN, no del formulario: el usuario no puede falsear quién es.
+    """
+    GET: confirma la venta y, salvo que venda un asesor, pide qué asesor
+    la hizo. POST: registra la venta. Quién registra (y, si es asesor,
+    quién vendió) sale de la SESIÓN, no del formulario.
+    """
+    # Moto inexistente, de otra sede o no vendible: 403 y rastro en el
+    # log, como antes (un id fuera de alcance es un intento a vigilar).
     try:
-        inventario.vender_moto(
-            id,
-            session.get("usuario_id"),
-            session.get("usuario_nombre"),
-        )
+        moto = inventario.moto_para_vender(id)
     except ErrorValidacion as e:
         obtener_logger().warning(
             "Venta rechazada: usuario=%s quiso vender moto id=%s. Motivo: %s",
             session.get("usuario_nombre"), id, e.mensaje)
         abort(403)
 
-    obtener_logger().info("%s marcó como vendida la moto id=%s.",
-                          session.get("usuario_nombre"), id)
-    return redirect(url_for("admin.index"))
+    error = None
+    if request.method == "POST":
+        try:
+            venta_id = inventario.vender_moto(
+                id,
+                session.get("usuario_id"),
+                session.get("usuario_nombre"),
+                session.get("rol"),
+                request.form.get("asesor_id"),
+            )
+            obtener_logger().info("%s registró la venta id=%s (moto id=%s).",
+                                  session.get("usuario_nombre"), venta_id, id)
+            return redirect(url_for("admin.index"))
+        except ErrorValidacion as e:
+            # Asesor inválido, o la base rechazó (p. ej. otra persona la
+            # vendió entre el GET y el POST): se muestra, no es un ataque.
+            error = e.mensaje
+
+    es_asesor = session.get("rol") == "asesor"
+    return render_template(
+        "vender_moto.html",
+        moto=moto,
+        es_asesor=es_asesor,
+        asesores=[] if es_asesor else inventario.asesores_para_venta(moto),
+        asesor_elegido=request.form.get("asesor_id"),
+        error=error,
+    )
 
 
 @admin_bp.route("/eliminar/<int:id>", methods=["POST"])

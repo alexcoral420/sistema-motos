@@ -129,11 +129,6 @@ def actualizar_moto(id: int, datos: dict):
     return repositorios.actualizar_moto(id, datos)
 
 
-def marcar_vendida(id: int):
-    """Marca una moto como vendida."""
-    return repositorios.marcar_como_vendida(id)
-
-
 def publicar_moto(id: int):
     """
     Publica una moto: pasa de 'por_publicar' a 'disponible' y registra
@@ -174,15 +169,15 @@ def publicar_moto(id: int):
 ESTADOS_VENDIBLES = ("disponible", "reservado")
 
 
-def vender_moto(id: int, usuario_id: int, usuario_nombre: str):
+def moto_para_vender(id: int) -> dict:
     """
-    Vende una moto: valida existencia, alcance de sede y estado, y solo
-    entonces la marca como vendida y registra la venta.
+    La moto, si el usuario en sesión puede venderla: existe, está en el
+    alcance de su sede y en un estado vendible. Lanza ErrorValidacion
+    con un mensaje claro si no.
 
     El id viene de la URL y se puede editar: sin estas validaciones un
-    usuario de una sede podría vender motos de otra, o vender dos veces
-    la misma. El alcance reutiliza moto_en_alcance (contratos.py), que
-    a su vez usa _sede_del_alcance (sede tomada de la SESIÓN).
+    usuario de una sede podría vender motos de otra. El alcance reutiliza
+    moto_en_alcance (contratos.py), que usa la sede de la SESIÓN.
     """
     moto = repositorios.obtener_moto_por_id(id)
     if not moto:
@@ -194,20 +189,50 @@ def vender_moto(id: int, usuario_id: int, usuario_nombre: str):
     if moto.get("estado") not in ESTADOS_VENDIBLES:
         raise ErrorValidacion(
             f"La moto no se puede vender en estado '{moto.get('estado')}'.")
+    return moto
 
-    marcar_vendida(id)
 
-    # Sin transacción todavía: si el registro falla, la moto ya quedó
-    # vendida sin su fila en 'ventas'. Se deja rastro claro para
-    # corregirlo a mano, y el error sigue subiendo (nada silencioso).
-    try:
-        registrar_venta(id, usuario_id, usuario_nombre)
-    except Exception:
-        obtener_logger().exception(
-            "INCONSISTENCIA: moto id=%s marcada como vendida pero falló "
-            "registrar_venta (usuario_id=%s, usuario=%s). Corregir a mano.",
-            id, usuario_id, usuario_nombre)
-        raise
+def asesores_para_venta(moto: dict) -> list:
+    """Asesores activos de la sede de la moto, para el selector."""
+    return repositorios.listar_asesores_activos(moto.get("sede_id"))
+
+
+def _validar_asesor_de_venta(asesor_id, sede_id: int) -> dict:
+    """El asesor existe, es asesor, está activo y es de la sede de la moto."""
+    asesor_id = validadores.validar_entero(asesor_id, "asesor", minimo=1)
+    asesor = repositorios.obtener_usuario_por_id(asesor_id)
+    if (not asesor
+            or asesor.get("rol") != "asesor"
+            or not asesor.get("activo")
+            or asesor.get("sede_id") != sede_id):
+        raise ErrorValidacion("El asesor elegido no es válido para la sede de esta moto.",
+                              "asesor")
+    return asesor
+
+
+def vender_moto(id: int, usuario_id: int, usuario_nombre: str, rol: str,
+                asesor_id=None) -> int:
+    """
+    Vende una moto y devuelve el id de la venta.
+
+    En Python se valida lo que da mensajes claros: la moto
+    (moto_para_vender) y el asesor. usuario_* (quién registra) y rol
+    vienen de la SESIÓN. Si quien vende es asesor, el asesor es él
+    mismo y se ignora cualquier asesor_id. El nombre del asesor sale de
+    la base, nunca del formulario.
+
+    Marcar vendida y crear la venta es UNA llamada a la función
+    registrar_venta_moto (migración 015), que bloquea la moto: dos
+    clics simultáneos ya no pueden venderla dos veces.
+    """
+    moto = moto_para_vender(id)
+
+    if rol == "asesor":
+        asesor_id = usuario_id
+    asesor = _validar_asesor_de_venta(asesor_id, moto.get("sede_id"))
+
+    return repositorios.registrar_venta_moto(
+        id, usuario_id, usuario_nombre, asesor["id"], asesor.get("nombre_completo"))
 
 
 def eliminar_moto(id: int):
@@ -378,37 +403,6 @@ def hacer_portada(moto_id: int, foto_id: int) -> bool:
         repositorios.agregar_foto_galeria(moto_id, portada_url, portada_path, orden)
 
     return True
-    # ============================================================
-#  REGISTRO DE VENTAS
-# ============================================================
-
-def registrar_venta(moto_id: int, usuario_id: int, usuario_nombre: str):
-    """
-    Deja constancia histórica de una venta.
-
-    Congela la descripción de la moto (marca modelo año) y el nombre
-    del vendedor como TEXTO, para que el reporte siga siendo legible
-    aunque después se borre la moto o cambie el usuario.
-    """
-    moto = repositorios.obtener_moto_por_id(moto_id)
-    if not moto:
-        return
-
-    # "YAMAHA Fazer 2026" — se arma aquí y se guarda tal cual.
-    partes = [moto.get("marca") or "", moto.get("modelo") or ""]
-    if moto.get("anio"):
-        partes.append(str(moto["anio"]))
-    descripcion = " ".join(p for p in partes if p).strip()
-
-    repositorios.registrar_venta({
-        "moto_id": moto_id,
-        "descripcion": descripcion,
-        "placa": moto.get("placa"),
-        "usuario_id": usuario_id,
-        "usuario_nombre": usuario_nombre,
-        "sede_id": moto.get("sede_id"),
-    })
-
     # ============================================================
 #  COMPRAS (asesor compra una moto a un particular)
 # ============================================================
