@@ -35,13 +35,57 @@ from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
 METODOS_PAGO_COMPRA = {
     "efectivo": {"etiqueta": "Efectivo", "a_tercero": False},
     "transferencia": {"etiqueta": "Transferencia", "a_tercero": False},
-    "prenda": {"etiqueta": "Prenda", "a_tercero": True},
+    "prenda": {"etiqueta": "Cancelación prenda", "a_tercero": True},
     "comparendo": {"etiqueta": "Comparendo", "a_tercero": True},
     "impuesto": {"etiqueta": "Impuesto", "a_tercero": True},
     "otro": {"etiqueta": "Otro", "a_tercero": True},
 }
 
 MAX_MONTO = 999999999
+
+
+# ============================================================
+#  LECTURA (aislada por sede)
+# ============================================================
+
+def compra_en_alcance(compra_id: int):
+    """
+    Devuelve la compra si el usuario en sesión puede operarla según su
+    sede, o None (no existe, o es de otra sede). Misma muralla que
+    venta_en_alcance: el id viene de la URL y se puede editar.
+    """
+    alcance = _sede_del_alcance()
+    if alcance is None:
+        return None  # usuario mal configurado: no opera nada
+
+    compra = repositorios.obtener_compra_por_id(compra_id)
+    if not compra:
+        return None
+
+    if alcance is TODAS_LAS_SEDES:
+        return compra
+
+    if compra.get("sede_id") == alcance:
+        return compra
+    return None
+
+
+def listar_compras_de_mi_sede() -> list:
+    """
+    Compras con vendedor dentro del alcance del usuario, cada una con
+    su fecha en hora de Colombia ('fecha') y el nombre del vendedor
+    ('vendedor_nombre'). Sin alcance válido, lista vacía.
+    """
+    alcance = _sede_del_alcance()
+    if alcance is None:
+        return []
+
+    sede_id = None if alcance is TODAS_LAS_SEDES else alcance
+    compras = repositorios.compras_con_vendedor_de_sede(sede_id=sede_id)
+    for c in compras:
+        c["fecha"] = contratos.fecha_operacion(c.get("created_at"))
+        c["vendedor_nombre"] = (c.get("personas") or {}).get("nombre")
+    return compras
 
 
 # ============================================================

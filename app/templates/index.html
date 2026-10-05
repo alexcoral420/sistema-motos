@@ -135,6 +135,7 @@
             {% if session.rol in ['admin', 'gerencia', 'encargado_sede'] %}
             <a href="{{ url_for('admin.ventas_mi_sede') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Ventas</a>
             <a href="{{ url_for('admin.ver_gastos') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Gastos</a>
+            <a href="{{ url_for('admin.compras_mi_sede') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Compras</a>
             <a href="{{ url_for('admin.compra_nueva') }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Registrar compra</a>
             {% endif %}
             {% if session.rol == 'admin' %}

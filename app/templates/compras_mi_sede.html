@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compras · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+
+        .sub { color: var(--texto-tenue); font-size: 14px; margin: 4px 0 24px; }
+        .btn { padding: 8px 16px; }
+        .btn-secundario { background: transparent; color: var(--naranja); border: 1px solid var(--naranja); font-weight: 600; white-space: nowrap; }
+        .btn-secundario:hover { background: var(--naranja); color: var(--barra-bg); }
+        .monto { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tabla-scroll { overflow-x: auto; }
+
+        .vacio { background: var(--superficie); border: 1px dashed var(--borde); border-radius: var(--radio); padding: 32px; text-align: center; color: var(--texto-tenue); font-size: 15px; }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1><span>Compras</span>{% if session.rol == 'encargado_sede' %} de mi sede{% endif %}</h1>
+        <a href="{{ url_for('admin.index') }}" class="btn-back">← Volver</a>
+    </div>
+
+    <div class="contenedor">
+        <p class="sub">Compras registradas con el RUNT. Desde aquí se genera el contrato de compra.</p>
+
+        {% if contrato_error %}
+        <div class="aviso aviso-error">{{ contrato_error }}</div>
+        {% endif %}
+
+        {% if compras %}
+        <div class="tabla-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Moto</th>
+                    <th>Placa</th>
+                    <th>Vendedor</th>
+                    <th>Asesor</th>
+                    <th>Precio</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in compras %}
+                <tr>
+                    <td class="tenue">{{ c.fecha or '—' }}</td>
+                    <td>
+                        {% if c.moto_id %}<a href="{{ url_for('admin.detalle_moto_admin', id=c.moto_id) }}">{{ c.descripcion or 'Moto' }}</a>
+                        {% else %}{{ c.descripcion or '—' }}{% endif %}
+                    </td>
+                    <td class="tenue">{{ c.placa or '—' }}</td>
+                    <td>{{ c.vendedor_nombre or '—' }}</td>
+                    <td>{{ c.asesor_nombre or '—' }}</td>
+                    <td class="monto">{% if c.precio_compra %}${{ c.precio_compra | pesos }}{% else %}—{% endif %}</td>
+                    <td>
+                        <a href="{{ url_for('admin.descargar_contrato_compra', compra_id=c.id) }}" class="btn btn-secundario">📄 Generar contrato</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div class="vacio">No hay compras registradas.</div>
+        {% endif %}
+    </div>
+</body>
+</html>

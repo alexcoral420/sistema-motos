@@ -28,6 +28,7 @@ from io import BytesIO
 from pathlib import Path
 
 from docxtpl import DocxTemplate
+from flask import current_app
 
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
@@ -258,15 +259,18 @@ def procesar_y_guardar(moto_id: int, texto_runt: str) -> dict:
 
 
 # ============================================================
-# FASE 2 — CONTRATO DE VENTA EN WORD
+# FASE 2 — CONTRATOS EN WORD (VENTA Y COMPRA)
 # ============================================================
 
-# Colombia no tiene horario de verano: UTC-5 fijo. El servidor (Railway)
-# corre en UTC; sin esto, un contrato hecho después de las 7 p.m. saldría
-# con la fecha de mañana.
+# Hora de Colombia (America/Bogota): UTC-5 fijo, sin horario de verano
+# desde 1993. Offset fijo en vez de ZoneInfo("America/Bogota") porque
+# ZoneInfo necesita la base de zonas del sistema o el paquete tzdata,
+# que en Windows no viene y en el contenedor no está garantizada.
 HORA_COLOMBIA = timezone(timedelta(hours=-5))
 
-PLANTILLA_CONTRATO = Path(__file__).resolve().parent.parent / "plantillas" / "contrato.docx"
+CARPETA_PLANTILLAS = Path(__file__).resolve().parent.parent / "plantillas"
+PLANTILLA_CONTRATO = CARPETA_PLANTILLAS / "contrato.docx"
+PLANTILLA_CONTRATO_COMPRA = CARPETA_PLANTILLAS / "contrato_compra.docx"
 
 # Nombres internos (los de detalle_ventas) -> texto presentable en el
 # contrato. Si aparece un valor que no está aquí, se muestra tal cual
@@ -285,12 +289,27 @@ ENTIDADES_PRESENTABLES = {
 }
 
 # Obligatorios que bloquean la generación: sin ellos el contrato no
-# identifica el vehículo o al comprador.
+# identifica el vehículo.
 OBLIGATORIOS_VEHICULO = {
     "placa": "la placa",
     "numero_chasis": "el número de chasis",
     "numero_motor": "el número de motor",
 }
+
+
+def fecha_operacion(created_at) -> str:
+    """
+    Fecha de una operación (created_at de Supabase, ISO en UTC) en hora
+    de Colombia, como dd/mm/aaaa. Los contratos SIEMPRE usan esta fecha,
+    no la del día en que se generan: regenerarlos no puede cambiarla.
+    Ojo: una operación de las 9 p.m. en Bogotá ya es "mañana" en UTC.
+    """
+    if not created_at:
+        return ""
+    momento = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=timezone.utc)
+    return momento.astimezone(HORA_COLOMBIA).strftime("%d/%m/%Y")
 
 
 def _formatear_pesos(valor) -> str:
@@ -307,6 +326,78 @@ def _linea_de_pago(pago: dict) -> str:
         entidad = pago.get("entidad") or ""
         texto += f" ({ENTIDADES_PRESENTABLES.get(entidad, entidad)})"
     return texto
+
+
+def _linea_de_pago_compra(pago: dict, metodos_compra: dict) -> str:
+    """
+    Método legible y, si los tiene, entidad y descripción, separados por
+    guion: "Cancelación prenda - Banco de Bogotá".
+    """
+    metodo = pago.get("metodo") or ""
+    partes = [metodos_compra.get(metodo, {}).get("etiqueta")
+              or METODOS_PRESENTABLES.get(metodo, metodo)]
+    entidad = pago.get("entidad")
+    if entidad:
+        partes.append(ENTIDADES_PRESENTABLES.get(entidad, entidad))
+    if pago.get("descripcion"):
+        partes.append(pago["descripcion"].strip())
+    return " - ".join(p for p in partes if p)
+
+
+def _datos_vehiculo(moto_id):
+    """
+    Datos del RUNT de la moto y la lista de obligatorios del vehículo
+    que faltan. Lanza ErrorValidacion si la moto no tiene RUNT cargado.
+    """
+    datos = repositorios.obtener_datos_contrato(moto_id) if moto_id else None
+    if not datos:
+        raise ErrorValidacion(
+            "Faltan los datos del RUNT de esta moto, cárguelos primero.", "datos_contrato")
+    faltantes = [nombre for campo, nombre in OBLIGATORIOS_VEHICULO.items()
+                 if not (datos.get(campo) or "").strip()]
+    return datos, faltantes
+
+
+def _contexto_vehiculo(datos: dict) -> dict:
+    """Marcadores del vehículo, comunes a los dos contratos."""
+    return {
+        "placa": datos.get("placa") or "",
+        "clase": datos.get("clase_vehiculo") or "",
+        "marca": datos.get("marca") or "",
+        "linea": datos.get("linea") or "",
+        "modelo": datos.get("modelo") or "",
+        "color": datos.get("color") or "",
+        "autoridad": datos.get("autoridad_transito") or "",
+        "tarjeta": datos.get("licencia_transito") or "",
+        "chasis": datos.get("numero_chasis") or "",
+        "motor": datos.get("numero_motor") or "",
+        "serie": datos.get("numero_serie") or "",
+    }
+
+
+def _bloquear_si_falta(faltantes: list):
+    if faltantes:
+        raise ErrorValidacion(
+            "No se puede generar el contrato. Falta: " + ", ".join(faltantes) + ".",
+            "datos_contrato")
+
+
+def _renderizar(plantilla: Path, contexto: dict, respaldo: str):
+    """
+    Llena la plantilla. Devuelve (BytesIO con el .docx, placa para el
+    nombre del archivo, o 'respaldo' si no hay placa).
+    """
+    # autoescape: los valores vienen del RUNT y del formulario; un '&' o
+    # '<' sin escapar corrompería el XML del .docx.
+    documento = DocxTemplate(str(plantilla))
+    documento.render(contexto, autoescape=True)
+
+    salida = BytesIO()
+    documento.save(salida)
+    salida.seek(0)
+
+    placa_archivo = "".join(c for c in contexto["placa"] if c.isalnum()) or respaldo
+    return salida, placa_archivo
 
 
 def generar_contrato(venta_id: int):
@@ -327,13 +418,7 @@ def generar_contrato(venta_id: int):
         raise ErrorValidacion(
             "La venta no tiene el detalle cargado (comprador, pagos y precio).", "venta")
 
-    datos = repositorios.obtener_datos_contrato(venta["moto_id"]) if venta.get("moto_id") else None
-    if not datos:
-        raise ErrorValidacion(
-            "Faltan los datos del RUNT de esta moto, cárguelos primero.", "datos_contrato")
-
-    faltantes = [nombre for campo, nombre in OBLIGATORIOS_VEHICULO.items()
-                 if not (datos.get(campo) or "").strip()]
+    datos, faltantes = _datos_vehiculo(venta.get("moto_id"))
 
     comprador = repositorios.obtener_persona_por_id(venta["comprador_id"]) or {}
     if not (comprador.get("nombre") or "").strip():
@@ -341,10 +426,7 @@ def generar_contrato(venta_id: int):
     if not (comprador.get("cedula") or "").strip():
         faltantes.append("la cédula del comprador")
 
-    if faltantes:
-        raise ErrorValidacion(
-            "No se puede generar el contrato. Falta: " + ", ".join(faltantes) + ".",
-            "datos_contrato")
+    _bloquear_si_falta(faltantes)
 
     pagos = [
         {"linea": _linea_de_pago(p), "monto": _formatear_pesos(p.get("monto"))}
@@ -352,34 +434,98 @@ def generar_contrato(venta_id: int):
     ]
 
     contexto = {
-        "fecha": datetime.now(HORA_COLOMBIA).strftime("%d/%m/%Y"),
+        "fecha": fecha_operacion(venta.get("created_at")),
+        "nit": current_app.config["NIT"],
         "comprador": comprador["nombre"].strip(),
         "cedula": comprador["cedula"].strip(),
         "telefono": comprador.get("telefono") or "",
-        "placa": datos.get("placa") or "",
-        "clase": datos.get("clase_vehiculo") or "",
-        "marca": datos.get("marca") or "",
-        "linea": datos.get("linea") or "",
-        "modelo": datos.get("modelo") or "",
-        "color": datos.get("color") or "",
-        "autoridad": datos.get("autoridad_transito") or "",
-        "tarjeta": datos.get("licencia_transito") or "",
-        "chasis": datos.get("numero_chasis") or "",
-        "motor": datos.get("numero_motor") or "",
-        "serie": datos.get("numero_serie") or "",
+        **_contexto_vehiculo(datos),
         "precio": _formatear_pesos(venta.get("precio_venta")),
         "traspaso": _formatear_pesos(venta.get("valor_traspaso")),
         "pagos": pagos,
     }
 
-    # autoescape: los valores vienen del RUNT y del formulario; un '&' o
-    # '<' sin escapar corrompería el XML del .docx.
-    documento = DocxTemplate(str(PLANTILLA_CONTRATO))
-    documento.render(contexto, autoescape=True)
+    salida, placa = _renderizar(PLANTILLA_CONTRATO, contexto, f"venta{venta_id}")
+    return salida, f"contrato_{placa}.docx"
 
-    salida = BytesIO()
-    documento.save(salida)
-    salida.seek(0)
 
-    placa_archivo = "".join(c for c in contexto["placa"] if c.isalnum()) or f"venta{venta_id}"
-    return salida, f"contrato_{placa_archivo}.docx"
+def caso_traspaso(valor_traspaso: int, traspaso_vendedor: int) -> str:
+    """
+    Quién asume el traspaso, para que la plantilla elija el texto de la
+    cláusula: 'vendedor' (todo, o el traspaso vale 0), 'empresa' (el
+    vendedor no pone nada) o 'compartido'.
+    """
+    if traspaso_vendedor == valor_traspaso:
+        return "vendedor"
+    if traspaso_vendedor == 0:
+        return "empresa"
+    return "compartido"
+
+
+def generar_contrato_compra(compra_id: int):
+    """
+    Genera el contrato de compra en Word: compra + vendedor (personas)
+    + datos_contrato + pagos. Devuelve (BytesIO, nombre_de_archivo).
+    Lanza ErrorValidacion si la compra no está en el alcance del usuario
+    o si falta algún obligatorio (indicando cuál).
+    """
+    # Import diferido: compras importa contratos (e inventario, que a su
+    # vez importa contratos); arriba sería un import circular.
+    from app.servicios import compras
+
+    compra = compras.compra_en_alcance(compra_id)
+    if not compra:
+        raise ErrorValidacion("La compra no existe o no pertenece a su sede.", "compra")
+
+    # Las compras históricas (antes del registro con RUNT) no tienen
+    # vendedor ni traspaso: no hay de dónde sacar el contrato.
+    if not compra.get("vendedor_id") or compra.get("valor_traspaso") is None:
+        raise ErrorValidacion(
+            "Esta compra es anterior al registro con contrato: no tiene vendedor "
+            "ni traspaso cargados.", "compra")
+
+    datos, faltantes = _datos_vehiculo(compra.get("moto_id"))
+
+    vendedor = repositorios.obtener_persona_por_id(compra["vendedor_id"]) or {}
+    if not (vendedor.get("nombre") or "").strip():
+        faltantes.append("el nombre del vendedor")
+    if not (vendedor.get("cedula") or "").strip():
+        faltantes.append("la cédula del vendedor")
+    if not (vendedor.get("telefono") or "").strip():
+        faltantes.append("el teléfono del vendedor")
+    if not (compra.get("propietario_registrado") or "").strip():
+        faltantes.append("el propietario registrado")
+    if not compra.get("precio_compra"):
+        faltantes.append("el precio de compra")
+
+    _bloquear_si_falta(faltantes)
+
+    valor_traspaso = compra["valor_traspaso"]
+    traspaso_vendedor = compra.get("traspaso_vendedor") or 0
+
+    pagos = [
+        {"linea": _linea_de_pago_compra(p, compras.METODOS_PAGO_COMPRA),
+         "monto": _formatear_pesos(p.get("monto"))}
+        for p in repositorios.obtener_pagos_de_compra(compra_id)
+    ]
+
+    contexto = {
+        "fecha": fecha_operacion(compra.get("created_at")),
+        "nit": current_app.config["NIT"],
+        "vendedor": vendedor["nombre"].strip(),
+        "cedula": vendedor["cedula"].strip(),
+        "telefono": vendedor["telefono"].strip(),
+        **_contexto_vehiculo(datos),
+        "propietario": compra["propietario_registrado"].strip(),
+        "manifiesto": datos.get("manifiesto_aduana") or "",
+        "fecha_manifiesto": datos.get("fecha_manifiesto") or "",
+        "precio": _formatear_pesos(compra["precio_compra"]),
+        "traspaso_vendedor": _formatear_pesos(traspaso_vendedor),
+        "traspaso_total": _formatear_pesos(valor_traspaso),
+        "traspaso_empresa": _formatear_pesos(valor_traspaso - traspaso_vendedor),
+        "caso_traspaso": caso_traspaso(valor_traspaso, traspaso_vendedor),
+        "pagos": pagos,
+    }
+
+    salida, placa = _renderizar(PLANTILLA_CONTRATO_COMPRA, contexto, f"compra{compra_id}")
+    return salida, f"contrato_compra_{placa}.docx"

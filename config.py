@@ -46,6 +46,12 @@ class Config:
     # UNA sola fuente de verdad, para no repetirlo en cada template.
     WHATSAPP_CONTACTO = os.environ.get("WHATSAPP_CONTACTO", "3042827795")
 
+    # --- Datos legales de la empresa (contratos de venta y compra) ---
+    # UNA sola fuente: las plantillas .docx los reciben como marcadores,
+    # nunca escritos a mano.
+    RAZON_SOCIAL = "UNIVERSAL MOTORS"
+    NIT = "1.000.618.204-4"
+
     # --- Admin del panel ---
     ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO")
     # Guardamos el HASH, nunca la contraseña en texto plano.
