@@ -319,6 +319,12 @@ def _formatear_pesos(valor) -> str:
     return f"{valor:,.0f}".replace(",", ".")
 
 
+def _pesos_si_hay(valor) -> str:
+    """Como _formatear_pesos, pero 0 o None -> "": en la plantilla, un
+    monto vacío es falso y permite {% if traspaso_comprador %}."""
+    return _formatear_pesos(valor) if valor else ""
+
+
 def _linea_de_pago(pago: dict) -> str:
     metodo = pago.get("metodo") or ""
     texto = METODOS_PRESENTABLES.get(metodo, metodo)
@@ -433,6 +439,10 @@ def generar_contrato(venta_id: int):
         for p in repositorios.obtener_pagos_de_venta(venta_id)
     ]
 
+    # Ventas anteriores a la migración 014 sin traspaso: None -> 0.
+    valor_traspaso = venta.get("valor_traspaso") or 0
+    traspaso_comprador = venta.get("traspaso_comprador") or 0
+
     contexto = {
         "fecha": fecha_operacion(venta.get("created_at")),
         "nit": current_app.config["NIT"],
@@ -441,7 +451,11 @@ def generar_contrato(venta_id: int):
         "telefono": comprador.get("telefono") or "",
         **_contexto_vehiculo(datos),
         "precio": _formatear_pesos(venta.get("precio_venta")),
-        "traspaso": _formatear_pesos(venta.get("valor_traspaso")),
+        # Vacíos cuando son 0, para los {% if %} de las cláusulas 2 y 6.
+        "traspaso_total": _pesos_si_hay(valor_traspaso),
+        "traspaso_comprador": _pesos_si_hay(traspaso_comprador),
+        "traspaso_empresa": _pesos_si_hay(valor_traspaso - traspaso_comprador),
+        "caso_traspaso": caso_traspaso(valor_traspaso, traspaso_comprador, "comprador"),
         "pagos": pagos,
     }
 
@@ -449,15 +463,19 @@ def generar_contrato(venta_id: int):
     return salida, f"contrato_{placa}.docx"
 
 
-def caso_traspaso(valor_traspaso: int, traspaso_vendedor: int) -> str:
+def caso_traspaso(valor_traspaso: int, parte_contraparte: int,
+                  contraparte: str = "vendedor") -> str:
     """
     Quién asume el traspaso, para que la plantilla elija el texto de la
-    cláusula: 'vendedor' (todo, o el traspaso vale 0), 'empresa' (el
-    vendedor no pone nada) o 'compartido'.
+    cláusula. contraparte es el particular de la operación: 'vendedor'
+    en una compra, 'comprador' en una venta. Devuelve:
+    - contraparte: la asume toda (o el traspaso vale 0);
+    - 'empresa': la contraparte no pone nada;
+    - 'compartido': cada uno una parte.
     """
-    if traspaso_vendedor == valor_traspaso:
-        return "vendedor"
-    if traspaso_vendedor == 0:
+    if parte_contraparte == valor_traspaso:
+        return contraparte
+    if parte_contraparte == 0:
         return "empresa"
     return "compartido"
 
