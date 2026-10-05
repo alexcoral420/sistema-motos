@@ -522,6 +522,44 @@ def registrar_compra_completa(moto: dict, datos_contrato: dict, compra: dict,
     return resultado.data
 
 
+def obtener_compra_por_id(compra_id: int):
+    """Devuelve la compra con ese id, o None si no existe."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("compras")
+                 .select("*")
+                 .eq("id", compra_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def compras_con_vendedor_de_sede(sede_id=None):
+    """
+    Compras registradas con vendedor (las del registro nuevo; las
+    históricas no tienen), más recientes primero, con el nombre del
+    vendedor. Si sede_id es None, trae las de todas las sedes. El
+    servicio decide la sede según el rol.
+    """
+    supabase = get_supabase_admin()
+    consulta = (supabase.table("compras")
+                .select("*, personas(nombre)")
+                .not_.is_("vendedor_id", "null"))
+    if sede_id is not None:
+        consulta = consulta.eq("sede_id", sede_id)
+    return consulta.order("created_at", desc=True).execute().data
+
+
+def obtener_pagos_de_compra(compra_id: int):
+    """Pagos de una compra, en el orden en que se cargaron."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("pagos")
+                 .select("*")
+                 .eq("compra_id", compra_id)
+                 .order("id")
+                 .execute())
+    return resultado.data
+
+
 def registrar_permuta(datos: dict):
     """Guarda el registro histórico de una permuta."""
     supabase = get_supabase_admin()

@@ -606,7 +606,57 @@ def compra_registrar():
     obtener_logger().info("%s registró la compra id=%s (moto id=%s).",
                           session.get("usuario_nombre"),
                           resultado["compra_id"], resultado["moto_id"])
-    return redirect(url_for("admin.detalle_moto_admin", id=resultado["moto_id"]))
+    return redirect(url_for("admin.compra_registrada", compra_id=resultado["compra_id"]))
+
+
+@admin_bp.route("/compra/<int:compra_id>/registrada")
+@requiere_rol(*ROLES_COMPRAS)
+def compra_registrada(compra_id):
+    """Confirmación tras registrar: descargar contrato e ir a la moto."""
+    from app.servicios import compras
+
+    compra = compras.compra_en_alcance(compra_id)
+    if not compra:
+        abort(403)
+    return render_template("compra_registrada.html", compra=compra)
+
+
+@admin_bp.route("/compras")
+@requiere_rol(*ROLES_COMPRAS)
+def compras_mi_sede():
+    """
+    Compras registradas con vendedor. El aislamiento por sede lo aplica
+    el servicio: gerencia/admin ven todas, el encargado solo las de su sede.
+    """
+    from app.servicios import compras
+    return render_template("compras_mi_sede.html",
+                           compras=compras.listar_compras_de_mi_sede(),
+                           contrato_error=request.args.get("contrato_error"))
+
+
+@admin_bp.route("/compra/<int:compra_id>/contrato")
+@requiere_rol(*ROLES_COMPRAS)
+def descargar_contrato_compra(compra_id):
+    """
+    Genera y descarga el contrato de compra en Word, igual que el de
+    venta: no se guarda, se regenera de los datos. Si falta algo, vuelve
+    a la lista de compras diciendo qué falta.
+    """
+    from app.servicios import contratos
+
+    try:
+        archivo, nombre = contratos.generar_contrato_compra(compra_id)
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.compras_mi_sede", contrato_error=e.mensaje))
+
+    obtener_logger().info("Contrato de compra generado para compra id=%s por %s.",
+                          compra_id, session.get("usuario_nombre"))
+    return send_file(
+        archivo,
+        as_attachment=True,
+        download_name=nombre,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
 
 
 # ============================================================
