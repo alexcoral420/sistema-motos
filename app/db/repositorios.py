@@ -445,39 +445,36 @@ def obtener_pagos_de_venta(venta_id: int):
     return resultado.data
 
 
-def insertar_pagos(pagos: list):
-    """Inserta varios pagos de una venta de una vez."""
-    supabase = get_supabase_admin()
-    resultado = supabase.table("pagos").insert(pagos).execute()
-    return resultado.data
+def guardar_detalle_venta_completo(venta_id: int, comprador_id: int, precio_venta: int,
+                                   valor_traspaso: int, traspaso_comprador: int,
+                                   pagos: list, usuario_id: int):
+    """
+    Llama a la función guardar_detalle_venta (migración 014): guarda el
+    detalle de la venta y reemplaza sus pagos y su gasto de traspaso en
+    UNA transacción, con la fila de la venta bloqueada.
 
-def borrar_pagos_de_venta(venta_id: int):
-    """
-    Borra los pagos de una venta. Se usa antes de reinsertar, para que
-    un reintento tras un fallo parcial no deje pagos duplicados.
-    """
-    supabase = get_supabase_admin()
-    supabase.table("pagos").delete().eq("venta_id", venta_id).execute()
-
-def completar_detalle_venta(venta_id: int, comprador_id: int, precio_venta: int,
-                            valor_traspaso=None):
-    """
-    Marca la venta con su comprador, precio, valor del traspaso
-    (opcional) y detalle_completo=true.
-    Se llama DESPUÉS de insertar los pagos: así, si los pagos fallan,
-    la venta sigue pendiente y se puede reintentar.
+    Mismo manejo de errores que registrar_compra_completa: si la función
+    rechaza los datos (raise exception, código P0001), su mensaje en
+    español pasa como ErrorValidacion; cualquier otro error se registra
+    y sigue subiendo tal cual.
     """
     supabase = get_supabase_admin()
-    resultado = (supabase.table("ventas")
-                 .update({
-                     "comprador_id": comprador_id,
-                     "precio_venta": precio_venta,
-                     "valor_traspaso": valor_traspaso,
-                     "detalle_completo": True,
-                 })
-                 .eq("id", venta_id)
-                 .execute())
-    return resultado.data
+    try:
+        supabase.rpc("guardar_detalle_venta", {
+            "p_venta_id": venta_id,
+            "p_comprador_id": comprador_id,
+            "p_precio_venta": precio_venta,
+            "p_valor_traspaso": valor_traspaso,
+            "p_traspaso_comprador": traspaso_comprador,
+            "p_pagos": pagos,
+            "p_usuario_id": usuario_id,
+        }).execute()
+    except APIError as e:
+        if e.code == "P0001":
+            raise ErrorValidacion(e.message) from e
+        obtener_logger().error("Error al llamar a guardar_detalle_venta: %s (código %s)",
+                               e.message, e.code)
+        raise
 
 
 def registrar_venta(datos: dict):

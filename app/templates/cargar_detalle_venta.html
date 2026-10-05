@@ -43,6 +43,8 @@
 
         .btn-guardar { background: var(--naranja); color: var(--barra-bg); border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
         .btn-guardar:hover { background: var(--naranja-hover); }
+        .btn-guardar:disabled { opacity: 0.6; cursor: wait; }
+        .ayuda { font-size: 13px; color: var(--texto-tenue); }
     </style>
 </head>
 <body>
@@ -63,7 +65,7 @@
             </div>
         </div>
 
-        <form method="POST">
+        <form method="POST" id="form-detalle">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- COMPRADOR -->
             <div class="bloque">
@@ -101,11 +103,21 @@
                            value="{{ datos.precio_venta if datos else '' }}"
                            oninput="recalcularSuma()">
                 </div>
-                <div class="campo">
-                    <label for="valor_traspaso">Valor del traspaso (opcional)</label>
-                    <input type="number" name="valor_traspaso" id="valor_traspaso" min="0"
-                           value="{{ datos.valor_traspaso if datos else '' }}">
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="valor_traspaso">Valor total del traspaso *</label>
+                        <input type="number" name="valor_traspaso" id="valor_traspaso" required min="0"
+                               value="{{ datos.valor_traspaso if datos else 0 }}"
+                               oninput="recalcularSuma()">
+                    </div>
+                    <div class="campo">
+                        <label for="traspaso_comprador">Traspaso que asume el comprador *</label>
+                        <input type="number" name="traspaso_comprador" id="traspaso_comprador" required min="0"
+                               value="{{ datos.traspaso_comprador if datos else 0 }}"
+                               oninput="recalcularSuma()">
+                    </div>
                 </div>
+                <p class="ayuda">El comprador paga el precio más su parte del traspaso. El resto del traspaso queda como gasto de la moto.</p>
             </div>
 
             <!-- PAGOS -->
@@ -117,12 +129,12 @@
                 <button type="button" class="btn-agregar" onclick="agregarPago()">+ Agregar forma de pago</button>
 
                 <div class="suma-caja">
-                    <span>Suma de pagos:</span>
-                    <span class="valor" id="suma-valor">$0</span>
+                    <span>Suma de pagos / debe sumar:</span>
+                    <span class="valor" id="suma-valor">$0 / $0</span>
                 </div>
             </div>
 
-            <button type="submit" class="btn-guardar">Guardar detalle</button>
+            <button type="submit" class="btn-guardar" id="btn-guardar">Guardar detalle</button>
         </form>
     </div>
 
@@ -197,10 +209,21 @@
                 if (!isNaN(v) && v > 0) suma += v;
             });
             const precio = parseInt(document.getElementById("precio_venta").value, 10) || 0;
+            const comprador = parseInt(document.getElementById("traspaso_comprador").value, 10) || 0;
+            const aPagar = precio + comprador;
             const el = document.getElementById("suma-valor");
-            el.textContent = "$" + suma.toLocaleString("es-CO");
-            el.className = "valor " + (suma === precio && precio > 0 ? "suma-ok" : "suma-desc");
+            el.textContent = "$" + suma.toLocaleString("es-CO") + " / $" + aPagar.toLocaleString("es-CO");
+            el.className = "valor " + (suma === aPagar && precio > 0 ? "suma-ok" : "suma-desc");
         }
+
+        // Un solo envío: el botón se deshabilita al primer clic. El evento
+        // submit solo ocurre si el navegador ya aceptó los campos requeridos.
+        // La base igual bloquea la venta mientras guarda.
+        document.getElementById("form-detalle").addEventListener("submit", () => {
+            const boton = document.getElementById("btn-guardar");
+            boton.disabled = true;
+            boton.textContent = "Guardando...";
+        });
 
         // Arrancar con una fila de pago
         agregarPago();

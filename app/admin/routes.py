@@ -14,8 +14,7 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import (Blueprint, request, render_template, redirect, url_for, session, abort,
-                   send_file, flash)
+from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file
 from app.servicios import inventario
 
 from app.servicios import sedes
@@ -242,16 +241,17 @@ def cargar_detalle_venta(venta_id):
             ]
             precio = request.form.get("precio_venta")
             traspaso = request.form.get("valor_traspaso")
+            traspaso_comprador = request.form.get("traspaso_comprador")
 
-            aviso = detalle_ventas.guardar_detalle(
-                venta_id, datos_comprador, lista_pagos, precio, traspaso
+            # Quién guarda sale de la SESIÓN, nunca del formulario.
+            detalle_ventas.guardar_detalle(
+                venta_id, datos_comprador, lista_pagos, precio, traspaso,
+                traspaso_comprador, session.get("usuario_id"),
             )
             obtener_logger().info("Detalle cargado para venta id=%s por %s.",
                                   venta_id, session.get("usuario_nombre"))
             # Post/Redirect/Get: recargar la página de destino no reenvía
-            # el formulario. El aviso viaja en la sesión (flash), no en la URL.
-            if aviso:
-                flash(aviso, "aviso_suma")
+            # el formulario.
             return redirect(url_for("admin.venta_completada", venta_id=venta_id))
 
         except ErrorValidacion as e:

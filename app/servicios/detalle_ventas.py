@@ -149,34 +149,42 @@ def _validar_pago(metodo, entidad, monto):
     return {"metodo": metodo, "entidad": entidad_limpia, "monto": monto}
 
 
-def _validar_traspaso(valor_traspaso):
-    """Valor del traspaso: opcional. Vacío -> None; si viene, entero >= 0."""
-    valor_traspaso = (str(valor_traspaso) if valor_traspaso is not None else "").strip()
-    if not valor_traspaso:
-        return None
+def _validar_monto_traspaso(valor, campo: str, etiqueta: str) -> int:
+    """Entero >= 0, obligatorio (la función de la base no acepta nulos)."""
+    texto = (str(valor) if valor is not None else "").strip()
+    if not texto:
+        raise ErrorValidacion(f"El {etiqueta} es obligatorio (0 si no aplica).", campo)
     try:
-        valor_traspaso = int(valor_traspaso)
+        numero = int(texto)
     except ValueError:
-        raise ErrorValidacion("Valor del traspaso inválido.", "valor_traspaso")
-    if valor_traspaso < 0:
-        raise ErrorValidacion("El valor del traspaso no puede ser negativo.", "valor_traspaso")
-    return valor_traspaso
+        raise ErrorValidacion(f"El {etiqueta} no es válido.", campo)
+    if numero < 0:
+        raise ErrorValidacion(f"El {etiqueta} no puede ser negativo.", campo)
+    return numero
+
+
+def _pesos(valor: int) -> str:
+    """8500000 -> '8.500.000'."""
+    return f"{valor:,}".replace(",", ".")
 
 
 def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta,
-                    valor_traspaso=None):
+                    valor_traspaso, traspaso_comprador, usuario_id):
     """
     Carga el detalle de una venta: comprador (reusa por cédula o crea),
-    pagos (validados), valor del traspaso (opcional) y marca la venta
-    como completa.
+    precio, traspaso (total y parte del comprador) y pagos.
+
+    Aquí se valida todo (formatos, métodos, entidades, que los pagos
+    sumen precio + traspaso del comprador) para dar mensajes claros
+    ANTES de tocar la base. El guardado es UNA llamada a la función
+    guardar_detalle_venta (migración 014): detalle, pagos y gasto de
+    traspaso en una transacción. Si se vuelve a guardar, se reemplazan.
 
     La ruta ya validó con venta_en_alcance() que el usuario puede operar
-    esta venta. Aquí se asume ese chequeo hecho.
-
-    Lanza ErrorValidacion si algo no cuadra. Devuelve aviso_suma (texto
-    si los pagos no suman el precio, None si cuadran).
+    esta venta. usuario_id viene de la sesión. Lanza ErrorValidacion si
+    algo no cuadra (incluidos los rechazos de la función en la base).
     """
-    # 1. Validar precio
+    # 1. Precio y traspaso
     try:
         precio_venta = int(precio_venta)
     except (ValueError, TypeError):
@@ -184,34 +192,35 @@ def guardar_detalle(venta_id, datos_comprador, lista_pagos, precio_venta,
     if precio_venta <= 0:
         raise ErrorValidacion("El precio de venta debe ser mayor a cero.", "precio_venta")
 
-    valor_traspaso = _validar_traspaso(valor_traspaso)
+    valor_traspaso = _validar_monto_traspaso(
+        valor_traspaso, "valor_traspaso", "valor del traspaso")
+    traspaso_comprador = _validar_monto_traspaso(
+        traspaso_comprador, "traspaso_comprador", "traspaso que asume el comprador")
+    if traspaso_comprador > valor_traspaso:
+        raise ErrorValidacion(
+            "El traspaso que asume el comprador no puede superar el valor total del traspaso.",
+            "traspaso_comprador")
 
-        # 2. Validar todos los pagos
-    pagos_limpios = []
-    for p in lista_pagos:
-        pagos_limpios.append(_validar_pago(p.get("metodo"), p.get("entidad"), p.get("monto")))
-
+    # 2. Pagos
+    pagos_limpios = [_validar_pago(p.get("metodo"), p.get("entidad"), p.get("monto"))
+                     for p in lista_pagos]
     if not pagos_limpios:
         raise ErrorValidacion("Debe registrar al menos un pago.", "pago")
 
-    # 3. Aviso si la suma no cuadra (NO bloquea)
+    # 3. La suma BLOQUEA: el comprador paga el precio más su parte del traspaso.
+    a_pagar = precio_venta + traspaso_comprador
     suma = sum(p["monto"] for p in pagos_limpios)
-    aviso_suma = None
-    if suma != precio_venta:
-        aviso_suma = (f"Los pagos suman ${suma:,} pero el precio es "
-                      f"${precio_venta:,} (diferencia ${abs(suma - precio_venta):,}).")
+    if suma != a_pagar:
+        raise ErrorValidacion(
+            f"Los pagos suman ${_pesos(suma)}, pero deben sumar ${_pesos(a_pagar)} "
+            f"(precio ${_pesos(precio_venta)} más traspaso del comprador "
+            f"${_pesos(traspaso_comprador)}). Diferencia: ${_pesos(abs(suma - a_pagar))}.",
+            "pago")
 
-    # 4. Comprador: la persona se reusa por cédula o se crea (sin
-    #    actualizar si existe). "Comprador" es su rol en esta venta.
+    # 4. Todo validado: recién ahora se toca la base. La persona se reusa
+    #    por cédula o se crea (sin actualizar si existe).
     comprador_id = personas.obtener_o_crear(datos_comprador)
 
-    # 5. Insertar pagos. Borra los previos por si es reintento (anti-duplicado).
-    for p in pagos_limpios:
-        p["venta_id"] = venta_id
-    repositorios.borrar_pagos_de_venta(venta_id)
-    repositorios.insertar_pagos(pagos_limpios)
-
-    # 6. Recién ahora marcar la venta como completa
-    repositorios.completar_detalle_venta(venta_id, comprador_id, precio_venta, valor_traspaso)
-
-    return aviso_suma
+    repositorios.guardar_detalle_venta_completo(
+        venta_id, comprador_id, precio_venta, valor_traspaso, traspaso_comprador,
+        pagos_limpios, usuario_id)

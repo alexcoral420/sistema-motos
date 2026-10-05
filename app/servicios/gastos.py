@@ -24,9 +24,10 @@ from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
 TIPOS_MANUALES = {"repuesto", "lavadero"}
 
 # Etiquetas para mostrar. Incluyen lo que no se carga a mano: 'taller'
-# viene de la sincronización, y 'traspaso' / origen 'compra' los crea
-# la función registrar_compra (migración 013) cuando la empresa asume
-# parte del traspaso. Un valor que no esté aquí se muestra tal cual.
+# viene de la sincronización; 'traspaso' con origen 'compra' o 'venta'
+# lo crean registrar_compra (migración 013) y guardar_detalle_venta
+# (migración 014) cuando la empresa asume parte del traspaso. Un valor
+# que no esté aquí se muestra tal cual.
 ETIQUETAS_TIPO = {
     "taller": "Taller",
     "repuesto": "Repuesto",
@@ -37,6 +38,7 @@ ETIQUETAS_ORIGEN = {
     "manual": "Manual",
     "taller": "Taller",
     "compra": "Compra",
+    "venta": "Venta",
 }
 
 
