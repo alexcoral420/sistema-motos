@@ -95,9 +95,9 @@
                     {% for g in gastos %}
                     <tr>
                         <td class="tenue">{{ g.fecha_gasto[:10] if g.fecha_gasto else '—' }}</td>
-                        <td><span class="etiqueta">{{ g.tipo }}</span></td>
+                        <td><span class="etiqueta">{{ etiquetas_tipo.get(g.tipo, g.tipo) }}</span></td>
                         <td>{{ g.concepto or '—' }}</td>
-                        <td class="tenue">{{ g.origen }}{{ ' #' ~ g.orden_taller if g.orden_taller else '' }}</td>
+                        <td class="tenue">{{ etiquetas_origen.get(g.origen, g.origen) }}{{ ' #' ~ g.orden_taller if g.orden_taller else '' }}</td>
                         <td>${{ g.monto | pesos }}</td>
                     </tr>
                     {% endfor %}

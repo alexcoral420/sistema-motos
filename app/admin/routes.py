@@ -332,6 +332,8 @@ def detalle_moto_admin(id):
         puede_cargar_contrato=puede_cargar_contrato,
         datos_contrato=datos_contrato,
         etiquetas_contrato=contratos.ETIQUETAS_VISIBLES,
+        # Las que no están aquí son manuales (manifiesto): vacías, "Sin cargar".
+        columnas_runt=contratos.COLUMNAS,
         contrato_guardado=request.args.get("contrato_guardado"),
         contrato_error=request.args.get("contrato_error"),
         puede_publicar=puede_publicar,
@@ -528,6 +530,86 @@ def descargar_contrato(venta_id):
 
 
 # ============================================================
+#  COMPRAS (registro por el encargado, a partir del RUNT)
+# ============================================================
+
+ROLES_COMPRAS = ("admin", "gerencia", "encargado_sede")
+
+
+def _formulario_compra(texto_runt, datos, pagos=None, error=None):
+    """
+    Pinta el formulario completo de compra. Los datos del RUNT se
+    muestran re-parseando el texto (solo lectura); si el texto no sirve
+    (por ejemplo, el campo oculto fue alterado), vuelve al paso 1.
+    """
+    from app.servicios import compras, contratos
+
+    try:
+        datos_runt = contratos.parsear_texto_runt(texto_runt)
+        contexto = compras.contexto_formulario()
+    except ErrorValidacion as e:
+        return render_template("compra_nueva.html", error=error or e.mensaje,
+                               texto_runt=texto_runt)
+
+    return render_template(
+        "compra_revisar.html",
+        texto_runt=texto_runt,
+        datos_runt=datos_runt,
+        etiquetas_runt=contratos.ETIQUETAS_VISIBLES,
+        columnas_runt=contratos.COLUMNAS,
+        datos=datos,
+        pagos=pagos or [],
+        metodos_pago=compras.METODOS_PAGO_COMPRA,
+        error=error,
+        **contexto,
+    )
+
+
+@admin_bp.route("/compras/nueva")
+@requiere_rol(*ROLES_COMPRAS)
+def compra_nueva():
+    """Paso 1: pegar la consulta RUNT de la moto que se compra."""
+    return render_template("compra_nueva.html")
+
+
+@admin_bp.route("/compras/nueva/revisar", methods=["POST"])
+@requiere_rol(*ROLES_COMPRAS)
+def compra_revisar():
+    """Paso 2: formulario completo, prellenado desde el RUNT."""
+    from app.servicios import contratos
+
+    texto_runt = request.form.get("texto_runt")
+    try:
+        datos_runt = contratos.parsear_texto_runt(texto_runt)
+    except ErrorValidacion as e:
+        return render_template("compra_nueva.html", error=e.mensaje, texto_runt=texto_runt)
+
+    return _formulario_compra(texto_runt, contratos.moto_desde_runt(datos_runt))
+
+
+@admin_bp.route("/compras/nueva/registrar", methods=["POST"])
+@requiere_rol(*ROLES_COMPRAS)
+def compra_registrar():
+    """
+    Paso 3: registra la compra. Quién registra sale de la SESIÓN. Si
+    algo no cuadra, vuelve al formulario con lo cargado y el error.
+    """
+    from app.servicios import compras
+
+    try:
+        resultado = compras.registrar_compra(request.form, session)
+    except ErrorValidacion as e:
+        return _formulario_compra(
+            request.form.get("texto_runt"), request.form,
+            pagos=compras.pagos_del_form(request.form), error=e.mensaje)
+
+    obtener_logger().info("%s registró la compra id=%s (moto id=%s).",
+                          session.get("usuario_nombre"),
+                          resultado["compra_id"], resultado["moto_id"])
+    return redirect(url_for("admin.detalle_moto_admin", id=resultado["moto_id"]))
+
+
+# ============================================================
 #  GASTOS (taller, repuestos, lavadero — por moto)
 # ============================================================
 
@@ -566,6 +648,8 @@ def ver_gastos():
         "gastos_moto.html",
         placa=placa, moto=moto, gastos=lista_gastos, total=total,
         error=error, aviso=aviso,
+        etiquetas_tipo=gastos.ETIQUETAS_TIPO,
+        etiquetas_origen=gastos.ETIQUETAS_ORIGEN,
     )
 
 

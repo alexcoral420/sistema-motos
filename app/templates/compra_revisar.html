@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar compra · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .contenedor { max-width: 760px; }
+
+        .bloque { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 20px; margin-bottom: 22px; }
+        .bloque h2 { font-size: 18px; color: var(--texto); margin-bottom: 16px; }
+        .ayuda { font-size: 13px; color: var(--texto-tenue); margin-top: -8px; margin-bottom: 14px; }
+
+        .campo { margin-bottom: 14px; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+        @media (max-width: 560px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+        /* Datos del RUNT (solo lectura) */
+        .runt-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .runt-tabla td { padding: 6px 8px; border-bottom: 1px solid var(--borde); }
+        .runt-tabla td:first-child { color: var(--texto-tenue); width: 45%; }
+        .runt-faltante { color: var(--texto-tenue); font-style: italic; }
+        .sede-fija { font-weight: 600; color: var(--texto); }
+
+        /* Filas de pago */
+        .pago-fila { display: grid; grid-template-columns: 1.2fr 1fr 1.8fr auto; gap: 10px; align-items: end; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--borde); }
+        .pago-fila:last-of-type { border-bottom: none; }
+        @media (max-width: 640px) { .pago-fila { grid-template-columns: 1fr; } }
+        .pago-fila .campo { margin-bottom: 0; }
+        .pago-descripcion.oculto { visibility: hidden; }
+        .btn-quitar { background: transparent; border: 1px solid var(--rojo); color: var(--rojo); padding: 10px 12px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; }
+        .btn-quitar:hover { background: #fdecee; }
+
+        .btn-agregar { background: var(--superficie); border: 1px dashed var(--borde); color: var(--texto-suave); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 14px; width: 100%; }
+        .btn-agregar:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        .suma-caja { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 12px 16px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: 8px; font-size: 15px; }
+        .suma-caja .valor { font-variant-numeric: tabular-nums; font-weight: 700; }
+        .suma-ok { color: var(--verde); }
+        .suma-desc { color: var(--naranja); }
+
+        .btn-guardar { background: var(--naranja); color: var(--barra-bg); border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
+        .btn-guardar:hover { background: var(--naranja-hover); }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Registrar <span>compra</span></h1>
+        <a href="{{ url_for('admin.compra_nueva') }}" class="btn-back">← Volver</a>
+    </div>
+
+    <div class="contenedor">
+        {% if error %}
+        <div class="aviso aviso-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('admin.compra_registrar') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <!-- El servidor vuelve a parsear este texto: los datos del contrato
+                 salen de aquí, no de campos editables. -->
+            <input type="hidden" name="texto_runt" value="{{ texto_runt }}">
+
+            <!-- RUNT (solo lectura) -->
+            <div class="bloque">
+                <h2>Datos del RUNT</h2>
+                <p class="ayuda">Así quedarán en el contrato. Si algo está mal, vuelva y pegue la consulta de nuevo.</p>
+                <table class="runt-tabla">
+                    {% for columna in columnas_runt %}
+                    <tr>
+                        <td>{{ etiquetas_runt[columna] }}</td>
+                        <td>
+                            {% if datos_runt[columna] %}{{ datos_runt[columna] }}
+                            {% else %}<span class="runt-faltante">No encontrado en el RUNT</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <!-- MOTO -->
+            <div class="bloque">
+                <h2>Moto</h2>
+                <p class="ayuda">Prellenado desde el RUNT. Es lo que se mostrará en el inventario.</p>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="marca">Marca *</label>
+                        <input type="text" name="marca" id="marca" required maxlength="50"
+                               value="{{ datos.get('marca') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="modelo">Modelo *</label>
+                        <input type="text" name="modelo" id="modelo" required maxlength="50"
+                               value="{{ datos.get('modelo') or '' }}">
+                    </div>
+                </div>
+                <div class="grid3">
+                    <div class="campo">
+                        <label for="anio">Año *</label>
+                        <input type="number" name="anio" id="anio" required min="1950" max="2100"
+                               value="{{ datos.get('anio') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="cilindraje">Cilindraje (cc) *</label>
+                        <input type="number" name="cilindraje" id="cilindraje" required min="90" max="1200"
+                               value="{{ datos.get('cilindraje') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="color">Color *</label>
+                        <input type="text" name="color" id="color" required maxlength="30"
+                               value="{{ datos.get('color') or '' }}">
+                    </div>
+                </div>
+                <div class="grid3">
+                    <div class="campo">
+                        <label for="placa">Placa *</label>
+                        <input type="text" name="placa" id="placa" required maxlength="10"
+                               value="{{ datos.get('placa') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="kilometraje">Kilometraje *</label>
+                        <input type="number" name="kilometraje" id="kilometraje" required min="0"
+                               value="{{ datos.get('kilometraje', '') }}">
+                    </div>
+                </div>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="soat">SOAT (vencimiento)</label>
+                        <input type="date" name="soat" id="soat" value="{{ datos.get('soat') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="tecno">Tecnomecánica (vencimiento)</label>
+                        <input type="date" name="tecno" id="tecno" value="{{ datos.get('tecno') or '' }}">
+                    </div>
+                </div>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="manifiesto_aduana">Manifiesto de aduana (solo importadas)</label>
+                        <input type="text" name="manifiesto_aduana" id="manifiesto_aduana" maxlength="50"
+                               value="{{ datos.get('manifiesto_aduana') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="fecha_manifiesto">Fecha del manifiesto</label>
+                        <input type="date" name="fecha_manifiesto" id="fecha_manifiesto"
+                               value="{{ datos.get('fecha_manifiesto') or '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEDE Y ASESOR -->
+            <div class="bloque">
+                <h2>Sede y asesor</h2>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="sede_id">Sede</label>
+                        {% if sede_fija %}
+                        <div class="sede-fija">{{ sede_fija.nombre }}</div>
+                        {% else %}
+                        <select name="sede_id" id="sede_id" required onchange="filtrarAsesores()">
+                            <option value="">— selecciona —</option>
+                            {% for s in sedes %}
+                            <option value="{{ s.id }}" {% if datos.get('sede_id')|string == s.id|string %}selected{% endif %}>{{ s.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+                    <div class="campo">
+                        <label for="asesor_id">Asesor que hizo el negocio *</label>
+                        <select name="asesor_id" id="asesor_id" required>
+                            <option value="">— selecciona —</option>
+                            {% for a in asesores %}
+                            <option value="{{ a.id }}" data-sede="{{ a.sede_id }}"
+                                    {% if datos.get('asesor_id')|string == a.id|string %}selected{% endif %}>{{ a.nombre_completo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VENDEDOR -->
+            <div class="bloque">
+                <h2>Vendedor</h2>
+                <div class="campo">
+                    <label for="vendedor_nombre">Nombre completo *</label>
+                    <input type="text" name="vendedor_nombre" id="vendedor_nombre" required maxlength="120"
+                           value="{{ datos.get('vendedor_nombre') or '' }}">
+                </div>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="vendedor_cedula">Cédula *</label>
+                        <input type="text" name="vendedor_cedula" id="vendedor_cedula" required
+                               value="{{ datos.get('vendedor_cedula') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="vendedor_telefono">Teléfono *</label>
+                        <input type="text" name="vendedor_telefono" id="vendedor_telefono" required
+                               value="{{ datos.get('vendedor_telefono') or '' }}">
+                    </div>
+                </div>
+                <div class="grid2">
+                    <div class="campo">
+                        <label for="vendedor_correo">Correo (opcional)</label>
+                        <input type="email" name="vendedor_correo" id="vendedor_correo"
+                               value="{{ datos.get('vendedor_correo') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="propietario_registrado">Propietario registrado *</label>
+                        <input type="text" name="propietario_registrado" id="propietario_registrado" required maxlength="120"
+                               value="{{ datos.get('propietario_registrado') or '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRECIO Y TRASPASO -->
+            <div class="bloque">
+                <h2>Precio y traspaso</h2>
+                <div class="grid3">
+                    <div class="campo">
+                        <label for="precio_compra">Precio de compra *</label>
+                        <input type="number" name="precio_compra" id="precio_compra" required min="1"
+                               value="{{ datos.get('precio_compra') or '' }}" oninput="recalcularSuma()">
+                    </div>
+                    <div class="campo">
+                        <label for="valor_traspaso">Valor total del traspaso *</label>
+                        <input type="number" name="valor_traspaso" id="valor_traspaso" required min="0"
+                               value="{{ datos.get('valor_traspaso') or 0 }}">
+                    </div>
+                    <div class="campo">
+                        <label for="traspaso_vendedor">Lo asume el vendedor *</label>
+                        <input type="number" name="traspaso_vendedor" id="traspaso_vendedor" required min="0"
+                               value="{{ datos.get('traspaso_vendedor') or 0 }}" oninput="recalcularSuma()">
+                    </div>
+                </div>
+                <p class="ayuda">Lo que asume el vendedor se le descuenta del pago. El resto del traspaso queda como gasto de la moto.</p>
+            </div>
+
+            <!-- PAGOS -->
+            <div class="bloque">
+                <h2>Pagos</h2>
+                <p class="ayuda">Al vendedor (efectivo, transferencia) o a terceros a su nombre (prenda, comparendo, impuesto, otro).</p>
+                <div id="pagos-lista">
+                    <!-- Las filas se generan con JS -->
+                </div>
+                <button type="button" class="btn-agregar" onclick="agregarPago()">+ Agregar pago</button>
+
+                <div class="suma-caja">
+                    <span>Suma de pagos / a pagar:</span>
+                    <span class="valor" id="suma-valor">$0 / $0</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-guardar">Registrar compra</button>
+        </form>
+    </div>
+
+    <script>
+        // Sale de METODOS_PAGO_COMPRA (servicio de compras): [valor, etiqueta, a_tercero].
+        const METODOS = [
+            {% for valor, m in metodos_pago.items() %}
+            [{{ valor|tojson }}, {{ m.etiqueta|tojson }}, {{ m.a_tercero|tojson }}],
+            {% endfor %}
+        ];
+        const A_TERCERO = new Set(METODOS.filter(m => m[2]).map(m => m[0]));
+        const PAGOS_PREVIOS = {{ pagos|tojson }};
+
+        const lista = document.getElementById("pagos-lista");
+
+        function agregarPago(previo) {
+            const fila = document.createElement("div");
+            fila.className = "pago-fila";
+
+            const optMetodos = METODOS.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+            fila.innerHTML = `
+                <div class="campo">
+                    <label>Método</label>
+                    <select name="pago_metodo" onchange="toggleDescripcion(this)">${optMetodos}</select>
+                </div>
+                <div class="campo">
+                    <label>Monto</label>
+                    <input type="number" name="pago_monto" min="1" oninput="recalcularSuma()">
+                </div>
+                <div class="campo pago-descripcion oculto">
+                    <label>Descripción</label>
+                    <input type="text" name="pago_descripcion" maxlength="200"
+                           placeholder="Ej: Comparendo 12345 Secretaría de Movilidad">
+                </div>
+                <button type="button" class="btn-quitar" onclick="quitarPago(this)">Quitar</button>
+            `;
+            // Valores previos (al volver con error): por propiedad, no en el HTML.
+            if (previo) {
+                fila.querySelector('[name="pago_metodo"]').value = previo.metodo || "efectivo";
+                fila.querySelector('[name="pago_monto"]').value = previo.monto || "";
+                fila.querySelector('[name="pago_descripcion"]').value = previo.descripcion || "";
+            }
+            lista.appendChild(fila);
+            toggleDescripcion(fila.querySelector('[name="pago_metodo"]'), true);
+        }
+
+        function quitarPago(boton) {
+            if (lista.querySelectorAll(".pago-fila").length > 1) {
+                boton.closest(".pago-fila").remove();
+                recalcularSuma();
+            }
+        }
+
+        // La descripción siempre se envía (para que las listas del form
+        // queden alineadas); solo se oculta cuando el pago es al vendedor.
+        function toggleDescripcion(selectMetodo, conservar) {
+            const campo = selectMetodo.closest(".pago-fila").querySelector(".pago-descripcion");
+            const input = campo.querySelector("input");
+            if (A_TERCERO.has(selectMetodo.value)) {
+                campo.classList.remove("oculto");
+                input.required = true;
+            } else {
+                campo.classList.add("oculto");
+                input.required = false;
+                if (!conservar) input.value = "";
+            }
+        }
+
+        function recalcularSuma() {
+            let suma = 0;
+            lista.querySelectorAll('input[name="pago_monto"]').forEach(inp => {
+                const v = parseInt(inp.value, 10);
+                if (!isNaN(v) && v > 0) suma += v;
+            });
+            const precio = parseInt(document.getElementById("precio_compra").value, 10) || 0;
+            const vendedor = parseInt(document.getElementById("traspaso_vendedor").value, 10) || 0;
+            const aPagar = precio - vendedor;
+            const el = document.getElementById("suma-valor");
+            el.textContent = "$" + suma.toLocaleString("es-CO") + " / $" + aPagar.toLocaleString("es-CO");
+            el.className = "valor " + (suma === aPagar && aPagar > 0 ? "suma-ok" : "suma-desc");
+        }
+
+        // Admin/gerencia: solo los asesores de la sede elegida.
+        // Es ayuda visual: el servidor valida asesor y sede igual.
+        function filtrarAsesores() {
+            const sede = document.getElementById("sede_id");
+            if (!sede) return;
+            const asesor = document.getElementById("asesor_id");
+            asesor.querySelectorAll("option[data-sede]").forEach(opt => {
+                const visible = sede.value && opt.dataset.sede === sede.value;
+                opt.hidden = !visible;
+                if (!visible && opt.selected) asesor.value = "";
+            });
+        }
+
+        if (PAGOS_PREVIOS.length) {
+            PAGOS_PREVIOS.forEach(p => agregarPago(p));
+        } else {
+            agregarPago();
+        }
+        filtrarAsesores();
+        recalcularSuma();
+    </script>
+</body>
+</html>

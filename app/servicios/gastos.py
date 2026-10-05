@@ -23,6 +23,22 @@ from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
 
 TIPOS_MANUALES = {"repuesto", "lavadero"}
 
+# Etiquetas para mostrar. Incluyen lo que no se carga a mano: 'taller'
+# viene de la sincronización, y 'traspaso' / origen 'compra' los crea
+# la función registrar_compra (migración 013) cuando la empresa asume
+# parte del traspaso. Un valor que no esté aquí se muestra tal cual.
+ETIQUETAS_TIPO = {
+    "taller": "Taller",
+    "repuesto": "Repuesto",
+    "lavadero": "Lavadero",
+    "traspaso": "Traspaso",
+}
+ETIQUETAS_ORIGEN = {
+    "manual": "Manual",
+    "taller": "Taller",
+    "compra": "Compra",
+}
+
 
 def moto_por_placa_en_alcance(placa: str):
     """
