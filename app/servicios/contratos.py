@@ -28,6 +28,7 @@ from io import BytesIO
 from pathlib import Path
 
 from docxtpl import DocxTemplate
+from flask import current_app
 
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
@@ -353,6 +354,7 @@ def generar_contrato(venta_id: int):
 
     contexto = {
         "fecha": datetime.now(HORA_COLOMBIA).strftime("%d/%m/%Y"),
+        "nit": current_app.config["NIT"],
         "comprador": comprador["nombre"].strip(),
         "cedula": comprador["cedula"].strip(),
         "telefono": comprador.get("telefono") or "",
