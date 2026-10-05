@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vender moto · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .contenedor { max-width: 560px; }
+        .tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-left: 3px solid var(--naranja); border-radius: var(--radio); padding: 24px; margin-top: 24px; }
+        .tarjeta h2 { font-size: 20px; color: var(--texto); margin-bottom: 6px; }
+        .tarjeta .meta { color: var(--texto-tenue); font-size: 14px; margin-bottom: 20px; }
+        .campo { margin-bottom: 16px; }
+        .acciones { display: flex; flex-direction: column; gap: 10px; }
+        .acciones .btn { text-align: center; padding: 13px 24px; font-size: 16px; }
+        .acciones .btn:disabled { opacity: 0.6; cursor: wait; }
+        .btn-secundario { background: transparent; color: var(--naranja); border: 1px solid var(--naranja); font-weight: 600; }
+        .btn-secundario:hover { background: var(--naranja); color: var(--barra-bg); }
+        .vacio { color: var(--texto-tenue); font-size: 14px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Vender <span>moto</span></h1>
+        <a href="{{ url_for('admin.index') }}" class="btn-back">← Volver</a>
+    </div>
+
+    <div class="contenedor">
+        {% if error %}
+        <div class="aviso aviso-error">{{ error }}</div>
+        {% endif %}
+
+        <div class="tarjeta">
+            <h2>{{ moto.marca }} {{ moto.modelo }} {{ moto.anio or '' }}</h2>
+            <div class="meta">
+                Placa: {{ moto.placa or '—' }}
+                · Sede: {{ moto.sedes.nombre if moto.sedes else '—' }}
+                {% if moto.precio %}· Precio: ${{ moto.precio | pesos }}{% endif %}
+            </div>
+
+            <form method="POST" id="form-vender">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                {% if not es_asesor %}
+                <div class="campo">
+                    <label for="asesor_id">¿Qué asesor la vendió? *</label>
+                    {% if asesores %}
+                    <select name="asesor_id" id="asesor_id" required>
+                        <option value="">— selecciona —</option>
+                        {% for a in asesores %}
+                        <option value="{{ a.id }}" {% if asesor_elegido|string == a.id|string %}selected{% endif %}>{{ a.nombre_completo }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <p class="vacio">No hay asesores activos en la sede de esta moto.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="acciones">
+                    <button type="submit" class="btn btn-success" id="btn-vender"
+                            {% if not es_asesor and not asesores %}disabled{% endif %}>Confirmar venta</button>
+                    <a href="{{ url_for('admin.index') }}" class="btn btn-secundario">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Un solo envío; la base igual bloquea la moto mientras vende.
+        document.getElementById("form-vender").addEventListener("submit", () => {
+            const boton = document.getElementById("btn-vender");
+            boton.disabled = true;
+            boton.textContent = "Registrando...";
+        });
+    </script>
+</body>
+</html>

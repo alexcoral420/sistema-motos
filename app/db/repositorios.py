@@ -477,10 +477,32 @@ def guardar_detalle_venta_completo(venta_id: int, comprador_id: int, precio_vent
         raise
 
 
-def registrar_venta(datos: dict):
-    """Guarda el registro histórico de una venta."""
+def registrar_venta_moto(moto_id: int, usuario_id: int, usuario_nombre: str,
+                         asesor_id: int, asesor_nombre: str) -> int:
+    """
+    Llama a la función registrar_venta_moto (migración 015): bloquea la
+    moto, verifica que esté disponible o reservada, la marca vendida y
+    crea la venta en UNA transacción. Devuelve el id de la venta.
+
+    Mismo manejo de errores que registrar_compra_completa: P0001 (raise
+    exception con mensaje en español) -> ErrorValidacion; cualquier otro
+    error se registra y sigue subiendo tal cual.
+    """
     supabase = get_supabase_admin()
-    resultado = supabase.table("ventas").insert(datos).execute()
+    try:
+        resultado = supabase.rpc("registrar_venta_moto", {
+            "p_moto_id": moto_id,
+            "p_usuario_id": usuario_id,
+            "p_usuario_nombre": usuario_nombre,
+            "p_asesor_id": asesor_id,
+            "p_asesor_nombre": asesor_nombre,
+        }).execute()
+    except APIError as e:
+        if e.code == "P0001":
+            raise ErrorValidacion(e.message) from e
+        obtener_logger().error("Error al llamar a registrar_venta_moto: %s (código %s)",
+                               e.message, e.code)
+        raise
     return resultado.data
 
 
@@ -680,7 +702,7 @@ def reporte_ventas_por_usuario(desde=None, hasta=None):
     el servicio las agrupa. desde/hasta ya saneados; hasta exclusivo.
     """
     supabase = get_supabase_admin()
-    consulta = supabase.table("ventas").select("usuario_nombre, created_at")
+    consulta = supabase.table("ventas").select("asesor_nombre, created_at")
     if desde:
         consulta = consulta.gte("created_at", desde)
     if hasta:
@@ -1077,7 +1099,7 @@ def reporte_ventas_detalle(desde=None, hasta=None, orden="fecha", limite=200):
     if hasta:
         consulta = consulta.lt("created_at", hasta)
     if orden == "asesor":
-        consulta = consulta.order("usuario_nombre").order("created_at", desc=True)
+        consulta = consulta.order("asesor_nombre").order("created_at", desc=True)
     else:
         consulta = consulta.order("created_at", desc=True)
     return consulta.limit(limite).execute().data

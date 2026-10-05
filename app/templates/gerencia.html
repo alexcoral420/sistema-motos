@@ -263,7 +263,7 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Vendedor</th>
+                                <th>Asesor</th>
                                 <th class="num">Ventas</th>
                                 <th>Última</th>
                             </tr>
@@ -271,7 +271,7 @@
                         <tbody>
                             {% for v in ventas_usuario %}
                             <tr>
-                                <td>{{ v.usuario_nombre }}</td>
+                                <td>{{ v.asesor_nombre or '—' }}</td>
                                 <td class="num">{{ v.total_ventas }}</td>
                                 <td class="tenue">{{ v.ultima_venta[:10] if v.ultima_venta else '—' }}</td>
                             </tr>
@@ -331,7 +331,7 @@
                         {% for v in ventas_detalle %}
                         <tr>
                             <td class="tenue">{{ v.created_at[:10] if v.created_at else '—' }}</td>
-                            <td>{{ v.usuario_nombre or '—' }}</td>
+                            <td>{{ v.asesor_nombre or '—' }}</td>
                             <td>{{ v.descripcion or '—' }}</td>
                             <td class="tenue">{{ v.placa or '—' }}</td>
                             <td>

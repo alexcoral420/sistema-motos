@@ -44,7 +44,7 @@
                     <th>Fecha</th>
                     <th>Moto</th>
                     <th>Placa</th>
-                    <th>Vendedor</th>
+                    <th>Asesor</th>
                     <th>Estado</th>
                     <th></th>
                 </tr>
@@ -55,7 +55,7 @@
                     <td class="tenue">{{ v.created_at[:10] if v.created_at else '—' }}</td>
                     <td>{{ v.descripcion or '—' }}</td>
                     <td class="tenue">{{ v.placa or '—' }}</td>
-                    <td>{{ v.usuario_nombre or '—' }}</td>
+                    <td>{{ v.asesor_nombre or '—' }}</td>
                     <td>
                         {% if not v.verificada %}
                         <span class="estado pendiente">Sin verificar</span>
