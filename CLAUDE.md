@@ -24,7 +24,13 @@ python scripts/crear_usuario.py
 gunicorn run:app --bind 0.0.0.0:$PORT
 ```
 
-There is no test suite (`tests/` is empty, no pytest config) and no configured linter — this is documented as known technical debt in the README, not an oversight. Verification is manual; when changing behavior, check it by running the app.
+```bash
+# Tests (pytest is not in requirements.txt — install it in the venv first)
+python -m pytest tests/                                   # from the repo root
+python -m pytest tests/test_personas.py -k normalizar     # single test / subset
+```
+
+Test coverage is minimal (only `tests/test_personas.py`, which monkeypatches the repository so it never touches Supabase — follow that pattern for new tests). There is no configured linter. Most verification is still manual: when changing behavior, check it by running the app.
 
 Required `.env` vars are listed in `.env.example`: `SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role), `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `CLAVE_CIFRADO` (Fernet key for sensitive fields — irrecoverable if lost, never commit it), `WHATSAPP_CONTACTO`, plus Twilio/Meta WhatsApp Cloud API credentials.
 
@@ -58,6 +64,12 @@ Respect this separation when adding features: a change to catalog filtering, for
 
 When adding a table, follow the existing pattern: enable RLS, revoke from `anon`, grant explicitly to `service_role`.
 
+Because the admin panel's client bypasses RLS, **per-sede isolation (which location's data a user may see) is enforced in the services**, not the database. The single rule lives in `app/servicios/detalle_ventas.py` (`_sede_del_alcance`, `venta_en_alcance`); other admin services (`gastos`, `contratos`, …) reuse it. New admin features touching sede-scoped data must go through it rather than writing a second "who sees which sede" rule.
+
+### Contracts
+
+`app/servicios/contratos.py` parses RUNT (vehicle registry) text pasted by staff into `datos_contrato` — stored verbatim, no number/date conversion, so the contract matches the official record — and fills the Word templates in `app/plantillas/*.docx` with `docxtpl`. The generated `.docx` is never stored; it's regenerated from data on demand.
+
 ### Auth and roles
 
 Session-based auth (`app/auth/`). Roles: `admin`, `asesor`, `gerencia`, `encargado_sede`. Enforced with `@requiere_rol("admin", "asesor", ...)` and `@requiere_login` from `app/auth/decorators.py`, applied per-route in `app/admin/routes.py`. No session → redirect to login (401-equivalent); wrong role → `403`. **Identity always comes from `session`, never from a submitted form field** — e.g. when recording a sale, the acting user is read from the session so one advisor can't attribute an action to another by editing the HTML. UI role-based hiding is cosmetic only; the real gate is server-side.
@@ -86,4 +98,4 @@ Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial sche
 
 ### Migrations
 
-SQL migrations live in `migraciones/`, numbered sequentially. **Note:** there are currently two files both numbered `005_` (`005_modulo_detalle_ventas.sql` and `005_normalizar_papeles_nuevos.sql`) — check existing numbering carefully before adding a new one to avoid a collision. Not all schema changes have historically been captured as migrations (some were applied directly against the database), which has caused at least one schema/code drift incident — when changing the schema, always add a migration file rather than applying changes out-of-band.
+SQL migrations live in `migraciones/`, numbered sequentially (`001_` … `015_`; the former duplicate `005_` pair is now `005a_`/`005b_`). Check the highest number before adding a new one. (`supabase/migrations/` exists but is empty — `migraciones/` is the real location.) Not all schema changes have historically been captured as migrations (some were applied directly against the database), which has caused at least one schema/code drift incident — when changing the schema, always add a migration file rather than applying changes out-of-band.
