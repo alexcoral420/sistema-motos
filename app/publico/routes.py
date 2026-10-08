@@ -16,7 +16,7 @@ from app.seguridad.logging_config import obtener_logger
 from app.servicios import catalogo
 from app.servicios import inventario
 from app.servicios import seo
-from config import BOTS_PREVIEW
+from config import BOTS_PREVIEW, MOTOS_CON_GIRO, GIRO_FRAMES
 from app.db import repositorios
 publico_bp = Blueprint("publico", __name__)
 
@@ -126,8 +126,10 @@ def detalle_moto(id):
     # El 95% de los visitantes mira una sola moto y se va: las similares
     # son la mejor oportunidad de que explore alguna mas.
     similares = inventario.obtener_similares(moto)
+    tiene_giro = (moto.get("placa") or "").upper() in MOTOS_CON_GIRO
     return render_template("detalle.html", moto=moto, fotos=fotos,
-                           similares=similares, es_admin=False)
+                           similares=similares, es_admin=False,
+                           tiene_giro=tiene_giro, giro_frames=GIRO_FRAMES)
 
 @publico_bp.route("/privacidad")
 def privacidad():
