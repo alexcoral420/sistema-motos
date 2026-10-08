@@ -291,6 +291,107 @@
             <a href="/catalogo" class="volver">← Volver al catálogo</a>
         {% endif %}
 
+        {% if tiene_giro %}
+        <div class="visor360" id="visor360" data-placa="{{ moto.placa | lower }}" data-frames="{{ giro_frames }}">
+            <img class="visor360-img" id="visor360-img" alt="Vista 360° {{ moto.marca }} {{ moto.modelo }}" draggable="false">
+            <div class="visor360-carga" id="visor360-carga">
+                <div class="visor360-barra"><span id="visor360-progreso"></span></div>
+                <p>Cargando vista 360°…</p>
+            </div>
+            <div class="visor360-hint" id="visor360-hint">↔ Arrastrá para girar</div>
+        </div>
+        <style>
+            .visor360 {
+                position: relative; width: 100%; height: 440px;
+                border-radius: 16px; background: #0f0f0f; overflow: hidden;
+                margin-bottom: 14px; cursor: grab; user-select: none; touch-action: pan-y;
+            }
+            .visor360.agarrando { cursor: grabbing; }
+            .visor360-img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+            .visor360-carga {
+                position: absolute; inset: 0; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; gap: 12px;
+                background: #0f0f0f; color: #aaa; font-size: 14px;
+            }
+            .visor360-barra { width: 180px; height: 4px; background: #2a2a2a; border-radius: 2px; overflow: hidden; }
+            .visor360-barra span { display: block; height: 100%; width: 0%; background: #ff7a00; transition: width .15s; }
+            .visor360-hint {
+                position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+                background: rgba(0,0,0,.6); color: #fff; padding: 6px 14px;
+                border-radius: 20px; font-size: 13px; pointer-events: none;
+                transition: opacity .4s; opacity: 0;
+            }
+            .visor360.listo .visor360-hint { opacity: 1; }
+            .visor360.usado .visor360-hint { opacity: 0; }
+            @media (max-width: 600px) { .visor360 { height: 280px; } }
+        </style>
+        <script>
+        (function () {
+            const visor = document.getElementById('visor360');
+            if (!visor) return;
+            const img = document.getElementById('visor360-img');
+            const carga = document.getElementById('visor360-carga');
+            const progreso = document.getElementById('visor360-progreso');
+            const placa = visor.dataset.placa;
+            const total = parseInt(visor.dataset.frames, 10);
+
+            // Base pública del bucket "motos" (mismo bucket que las demás
+            // fotos), armada con SUPABASE_URL de la config de Flask.
+            const BASE = "{{ config.SUPABASE_URL }}/storage/v1/object/public/motos/giro/" + placa + "/";
+
+            const frames = [];
+            let cargados = 0;
+            let indice = 0;
+
+            function url(n) { return BASE + String(n).padStart(3, '0') + '.webp'; }
+
+            // Precarga: bajamos los frames antes de habilitar el giro, así no titila.
+            for (let i = 1; i <= total; i++) {
+                const im = new Image();
+                im.onload = im.onerror = function () {
+                    cargados++;
+                    progreso.style.width = Math.round(cargados / total * 100) + '%';
+                    if (cargados === total) {
+                        carga.style.display = 'none';
+                        img.src = frames[0].src;
+                        visor.classList.add('listo');
+                    }
+                };
+                im.src = url(i);
+                frames[i - 1] = im;
+            }
+
+            function mostrar(i) {
+                indice = ((i % total) + total) % total;  // envolver 0..total-1
+                img.src = frames[indice].src;
+            }
+
+            // Arrastre (mouse + touch). Cada ~12px de desplazamiento = 1 frame.
+            let activo = false, xInicial = 0, indiceInicial = 0;
+            const PX_POR_FRAME = 12;
+
+            function inicio(x) {
+                activo = true; xInicial = x; indiceInicial = indice;
+                visor.classList.add('agarrando', 'usado');
+            }
+            function mover(x) {
+                if (!activo) return;
+                const delta = Math.round((x - xInicial) / PX_POR_FRAME);
+                mostrar(indiceInicial + delta);
+            }
+            function fin() { activo = false; visor.classList.remove('agarrando'); }
+
+            visor.addEventListener('mousedown', e => inicio(e.clientX));
+            window.addEventListener('mousemove', e => mover(e.clientX));
+            window.addEventListener('mouseup', fin);
+
+            visor.addEventListener('touchstart', e => inicio(e.touches[0].clientX), { passive: true });
+            visor.addEventListener('touchmove', e => mover(e.touches[0].clientX), { passive: true });
+            visor.addEventListener('touchend', fin);
+        })();
+        </script>
+        {% endif %}
+
         <!-- Galería como carrusel deslizable. La PORTADA (moto.foto_url) es
              la primera diapositiva; luego la galería. El admin conserva la
              grilla de gestión más abajo. -->

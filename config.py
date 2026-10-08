@@ -107,3 +107,7 @@ BOTS_PREVIEW = (
     "whatsapp", "facebookexternalhit", "facebot", "twitterbot",
     "telegrambot", "discordbot", "slackbot", "linkedinbot",
 )
+# Piloto giro 360°: placas (en mayúsculas) cuyas fotos de giro están
+# en el bucket, en motos/giro/<placa en minúsculas>/001.webp ... 024.webp
+MOTOS_CON_GIRO = {"MYG73H"}
+GIRO_FRAMES = 24
