@@ -11,3 +11,6 @@ Thumbs.db
 .DS_Store
 supabase/.temp/
 esquema_actual.sql
+giro_original/
+giro_listo/
+comprimir_giro.py
