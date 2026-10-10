@@ -107,7 +107,6 @@ BOTS_PREVIEW = (
     "whatsapp", "facebookexternalhit", "facebot", "twitterbot",
     "telegrambot", "discordbot", "slackbot", "linkedinbot",
 )
-# Piloto giro 360°: placas (en mayúsculas) cuyas fotos de giro están
-# en el bucket, en motos/giro/<placa en minúsculas>/001.webp ... 024.webp
-MOTOS_CON_GIRO = {"MYG73H"}
+# Giro 360°: fotos en el bucket, en motos/giro/<id de la moto>/001.webp ... 024.webp
+# Qué motos tienen giro lo marca la columna motos.tiene_giro (migración 016).
 GIRO_FRAMES = 24
