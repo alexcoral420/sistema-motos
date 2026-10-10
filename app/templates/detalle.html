@@ -299,7 +299,7 @@
             <!-- Botón flotante 360: arriba-derecha sobre la galería. Al tocarlo
                  se abre el overlay y RECIÉN AHÍ se cargan los frames. -->
             <button type="button" class="giro-boton" id="giro-boton"
-                    data-placa="{{ moto.placa | lower }}" data-frames="{{ giro_frames }}">
+                    data-id="{{ moto.id }}" data-frames="{{ giro_frames }}">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3l3 3-3 3"/>
                 </svg>
@@ -403,11 +403,11 @@
             const img = document.getElementById('visor360-img');
             const carga = document.getElementById('visor360-carga');
             const progreso = document.getElementById('visor360-progreso');
-            const placa = boton.dataset.placa;
+            const id = boton.dataset.id;
             const total = parseInt(boton.dataset.frames, 10);
 
             // Base pública del bucket "motos" (mismo bucket que las demás fotos).
-            const BASE = "{{ config.SUPABASE_URL }}/storage/v1/object/public/motos/giro/" + placa + "/";
+            const BASE = "{{ config.SUPABASE_URL }}/storage/v1/object/public/motos/giro/" + id + "/";
             const frames = [];
             let cargados = 0, indice = 0, yaCargado = false;
 
