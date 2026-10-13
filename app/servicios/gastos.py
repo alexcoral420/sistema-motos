@@ -21,7 +21,7 @@ from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
 from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
 
-TIPOS_MANUALES = {"repuesto", "lavadero"}
+TIPOS_MANUALES = {"repuesto", "lavadero", "compra_soat", "compra_tecno"}
 
 # Etiquetas para mostrar. Incluyen lo que no se carga a mano: 'taller'
 # viene de la sincronización; 'traspaso' con origen 'compra' o 'venta'
@@ -32,6 +32,8 @@ ETIQUETAS_TIPO = {
     "taller": "Taller",
     "repuesto": "Repuesto",
     "lavadero": "Lavadero",
+    "compra_soat": "Compra SOAT",
+    "compra_tecno": "Compra Tecnomecánica",
     "traspaso": "Traspaso",
 }
 ETIQUETAS_ORIGEN = {
