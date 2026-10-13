@@ -1331,6 +1331,26 @@ def listar_gastos_de_moto(moto_id: int):
                  .execute())
     return resultado.data
 
+
+def listar_gastos_recientes(sede_id, desde_iso, hasta_iso):
+    """
+    Gastos filtrados por sede y rango de fechas, más recientes primero,
+    con el nombre de quien registró y de la sede (joins por FK).
+    sede_id = None -> todas las sedes (gerencia/admin).
+    hasta_iso ya viene con +1 día desde el validador: se filtra con < (no <=).
+    """
+    supabase = get_supabase_admin()
+    consulta = (supabase.table("gastos")
+                .select("*, usuarios(nombre_completo), sedes(nombre)"))
+    if sede_id is not None:
+        consulta = consulta.eq("sede_id", sede_id)
+    if desde_iso:
+        consulta = consulta.gte("fecha_gasto", desde_iso)
+    if hasta_iso:
+        consulta = consulta.lt("fecha_gasto", hasta_iso)
+    resultado = consulta.order("fecha_gasto", desc=True).execute()
+    return resultado.data or []
+
 # ============================================================
 #  DATOS DE CONTRATO (capturados desde el RUNT — uno por moto)
 # ============================================================

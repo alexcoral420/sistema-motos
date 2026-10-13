@@ -781,6 +781,23 @@ def guardar_gasto_manual():
         return redirect(url_for("admin.ver_gastos", placa=placa, error=e.mensaje))
 
 
+@admin_bp.route("/gastos/recientes")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def gastos_recientes():
+    """Gastos recientes de la sede del usuario, con filtro de fechas."""
+    from app.servicios import gastos
+
+    lista, total, desde_usado, hasta_usado = gastos.gastos_recientes(
+        request.args.get("desde"), request.args.get("hasta"))
+
+    return render_template(
+        "gastos_recientes.html",
+        gastos=lista, total=total,
+        desde=desde_usado, hasta=hasta_usado,
+        etiquetas_tipo=gastos.ETIQUETAS_TIPO,
+    )
+
+
 @admin_bp.route("/gastos/sincronizar", methods=["POST"])
 @requiere_rol("admin", "gerencia", "encargado_sede")
 def sincronizar_gastos_taller():

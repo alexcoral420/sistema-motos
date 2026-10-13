@@ -228,7 +228,7 @@
                 {% if session.rol in ['admin', 'gerencia', 'encargado_sede'] %}
                 <a href="{{ url_for('admin.ventas_mi_sede') }}" class="nav-item {% if nav_activo == 'ventas' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Ventas</a>
                 <a href="{{ url_for('admin.compras_mi_sede') }}" class="nav-item {% if nav_activo == 'compras' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-caja"/></svg> Compras</a>
-                <a href="{{ url_for('admin.ver_gastos') }}" class="nav-item {% if nav_activo == 'gastos' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Gastos</a>
+                <a href="{{ url_for('admin.gastos_recientes') }}" class="nav-item {% if nav_activo == 'gastos' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Gastos</a>
                 {% endif %}
                 {% if session.rol in ['admin', 'gerencia'] %}
                 <a href="{{ url_for('admin.panel_gerencia') }}" class="nav-item {% if nav_activo == 'gerencia' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
@@ -246,6 +246,7 @@
             <div class="sidebar-grupo">
                 <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Registrar</div>
                 <a href="{{ url_for('admin.compra_nueva') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg></span> Nueva compra</a>
+                <a href="{{ url_for('admin.ver_gastos') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg></span> Agregar gasto</a>
                 {% if session.rol == 'admin' %}
                 <a href="{{ url_for('admin.agregar') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg></span> Agregar moto</a>
                 {% endif %}
