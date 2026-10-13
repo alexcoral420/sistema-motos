@@ -122,8 +122,8 @@
                                value="{{ datos.get('placa') or '' }}">
                     </div>
                     <div class="campo">
-                        <label for="kilometraje">Kilometraje *</label>
-                        <input type="number" name="kilometraje" id="kilometraje" required min="0"
+                        <label for="kilometraje">Kilometraje</label>
+                        <input type="number" name="kilometraje" id="kilometraje" min="0"
                                value="{{ datos.get('kilometraje', '') }}">
                     </div>
                 </div>
@@ -136,6 +136,11 @@
                         <label for="tecno">Tecnomecánica (vencimiento)</label>
                         <input type="date" name="tecno" id="tecno" value="{{ datos.get('tecno') or '' }}">
                     </div>
+                </div>
+                <div class="campo">
+                    <label for="propietario_registrado">Propietario registrado *</label>
+                    <input type="text" name="propietario_registrado" id="propietario_registrado" required maxlength="120"
+                           value="{{ datos.get('propietario_registrado') or '' }}">
                 </div>
                 <div class="grid2">
                     <div class="campo">
@@ -206,11 +211,6 @@
                         <label for="vendedor_correo">Correo (opcional)</label>
                         <input type="email" name="vendedor_correo" id="vendedor_correo"
                                value="{{ datos.get('vendedor_correo') or '' }}">
-                    </div>
-                    <div class="campo">
-                        <label for="propietario_registrado">Propietario registrado *</label>
-                        <input type="text" name="propietario_registrado" id="propietario_registrado" required maxlength="120"
-                               value="{{ datos.get('propietario_registrado') or '' }}">
                     </div>
                 </div>
             </div>

@@ -222,7 +222,8 @@ def registrar_compra(form, sesion) -> dict:
     #    sede ya decidida, no la que venga en el form.
     sede_id = _sede_de_la_compra(form)
     moto = inventario.validar_datos_moto(
-        {**form.to_dict(), "sede_id": sede_id}, "por_publicar", exigir_precio=False)
+        {**form.to_dict(), "sede_id": sede_id}, "por_publicar",
+        exigir_precio=False, exigir_kilometraje=False)
 
     placa_runt = contratos._placa_comparable(datos_runt.get("placa"))
     if not placa_runt:
@@ -267,7 +268,8 @@ def registrar_compra(form, sesion) -> dict:
             f"${pesos(traspaso_vendedor)}). Diferencia: ${pesos(abs(suma - a_pagar))}.",
             "pago")
 
-    propietario = validadores.validar_texto(
+    # Dato del vehículo (RUNT), no de la transacción: va con el contrato.
+    datos_contrato["propietario_registrado"] = validadores.validar_texto(
         form.get("propietario_registrado"), "propietario registrado", min_len=3, max_len=120)
 
     # 6. Todo validado: recién ahora se toca la base.
@@ -283,7 +285,6 @@ def registrar_compra(form, sesion) -> dict:
         "precio_compra": precio_compra,
         "valor_traspaso": valor_traspaso,
         "traspaso_vendedor": traspaso_vendedor,
-        "propietario_registrado": propietario,
     }
     resultado = repositorios.registrar_compra_completa(moto, datos_contrato, compra, pagos)
     return {"moto_id": resultado["moto_id"], "compra_id": resultado["compra_id"]}
