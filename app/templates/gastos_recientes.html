@@ -1,0 +1,76 @@
+{% extends "base_operativa.html" %}
+{% set nav_activo = "gastos" %}
+
+{% block titulo %}Gastos recientes{% endblock %}
+
+{% block estilos %}
+        .filtro-fechas { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+            background: var(--superficie); border: 1px solid var(--borde);
+            padding: 16px; border-radius: 12px; margin-bottom: 20px; box-shadow: var(--sombra); }
+        .filtro-fechas .campo { display: flex; flex-direction: column; gap: 5px; margin-bottom: 0; }
+        .filtro-fechas label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--texto-tenue); font-weight: 600; }
+        .filtro-fechas input { height: 44px; padding: 0 12px; background: var(--bg); color: var(--texto); border: 1px solid var(--borde); border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 14px; }
+        .filtro-fechas input:focus { border-color: var(--naranja); outline: none; }
+        .filtro-fechas .btn { height: 44px; }
+        .tabla-gastos { width: 100%; border-collapse: collapse; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; box-shadow: var(--sombra); }
+        .tabla-gastos thead th { background: var(--superficie-2); color: var(--texto-suave); text-align: left; padding: 12px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+        .tabla-gastos tbody td { padding: 12px 14px; border-top: 1px solid var(--borde); font-size: 14px; }
+        .tabla-gastos tbody tr:hover { background: var(--superficie-2); }
+        .tabla-gastos .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tabla-gastos .etiqueta { display: inline-block; padding: 3px 10px; border-radius: 20px; background: var(--superficie-2); border: 1px solid var(--borde); font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .total-gastos { margin-top: 16px; text-align: right; font-size: 18px; font-weight: 800; font-family: 'Barlow Condensed', sans-serif; }
+        .total-gastos span { color: var(--naranja); }
+        .sin-gastos { text-align: center; padding: 40px 20px; color: var(--texto-tenue); }
+        .tabla-wrap { overflow-x: auto; }
+{% endblock %}
+
+{% block contenido %}
+        <div class="seccion-titulo">Gastos recientes</div>
+
+        <form method="GET" action="{{ url_for('admin.gastos_recientes') }}" class="filtro-fechas">
+            <div class="campo">
+                <label for="desde">Desde</label>
+                <input type="date" name="desde" id="desde" value="{{ desde or '' }}">
+            </div>
+            <div class="campo">
+                <label for="hasta">Hasta</label>
+                <input type="date" name="hasta" id="hasta" value="{{ hasta or '' }}">
+            </div>
+            <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Filtrar</button>
+            <a href="{{ url_for('admin.gastos_recientes') }}" class="btn btn-ghost">Últimos 15 días</a>
+        </form>
+
+        {% if gastos %}
+        <div class="tabla-wrap">
+            <table class="tabla-gastos">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Placa</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        {% if session.rol in ['admin', 'gerencia'] %}<th>Sede</th>{% endif %}
+                        <th>Registró</th>
+                        <th class="num">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in gastos %}
+                    <tr>
+                        <td>{{ g.fecha_gasto[:10] if g.fecha_gasto else '—' }}</td>
+                        <td>{{ g.placa or '—' }}</td>
+                        <td><span class="etiqueta">{{ etiquetas_tipo.get(g.tipo, g.tipo) }}</span></td>
+                        <td>{{ g.concepto or '—' }}</td>
+                        {% if session.rol in ['admin', 'gerencia'] %}<td>{{ g.sede_nombre or '—' }}</td>{% endif %}
+                        <td>{{ g.usuario_nombre or '—' }}</td>
+                        <td class="num">${{ "{:,}".format(g.monto) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="total-gastos">Total del periodo: <span>${{ "{:,}".format(total) }}</span></div>
+        {% else %}
+        <div class="sin-gastos">No hay gastos registrados en este periodo.</div>
+        {% endif %}
+{% endblock %}

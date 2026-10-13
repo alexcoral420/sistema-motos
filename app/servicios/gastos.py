@@ -20,6 +20,9 @@ from flask import current_app
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
 from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
+# Deuda menor: es privado de reportes; pasa a un módulo común cuando lo
+# use un tercer módulo.
+from app.servicios.reportes import _rango_fechas_valido
 
 TIPOS_MANUALES = {"repuesto", "lavadero", "compra_soat", "compra_tecno"}
 
@@ -76,6 +79,44 @@ def listar_gastos(moto_id: int):
     gastos = repositorios.listar_gastos_de_moto(moto_id)
     total = sum(g["monto"] for g in gastos)
     return gastos, total
+
+
+DIAS_RECIENTES = 15
+
+
+def gastos_recientes(desde=None, hasta=None):
+    """
+    Gastos recientes dentro del alcance de sede del usuario, en un rango
+    de fechas. Sin fechas válidas (vacías, mal formadas o el rango al
+    revés), usa los últimos DIAS_RECIENTES días: nunca cae a "todo".
+    Devuelve (lista, total, desde_usado, hasta_usado) para que el
+    formulario muestre las fechas que de verdad se aplicaron.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    alcance = _sede_del_alcance()
+    if alcance is None:
+        return [], 0, None, None
+
+    desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
+    if not desde_iso and not hasta_iso:
+        hoy = datetime.now(timezone.utc).date()
+        desde = (hoy - timedelta(days=DIAS_RECIENTES)).strftime("%Y-%m-%d")
+        hasta = hoy.strftime("%Y-%m-%d")
+        desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
+
+    sede_id = None if alcance is TODAS_LAS_SEDES else alcance
+    gastos = repositorios.listar_gastos_recientes(sede_id, desde_iso, hasta_iso)
+    for g in gastos:
+        g["usuario_nombre"] = (g.pop("usuarios", None) or {}).get("nombre_completo")
+        g["sede_nombre"] = (g.pop("sedes", None) or {}).get("nombre")
+    total = sum(g["monto"] for g in gastos)
+    # Solo se devuelve una fecha si pasó la validación (formato
+    # YYYY-MM-DD); una inválida vuelve como None, no como texto crudo.
+    return (gastos, total,
+            desde if desde_iso else None,
+            hasta if hasta_iso else None)
+
 
 
 def crear_gasto_manual(placa: str, tipo: str, concepto: str, monto, fecha_gasto: str,
