@@ -1,0 +1,59 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "documentos" %}
+
+{% macro celda_vencimiento(dias, fecha) %}
+    {% if dias is none %}
+        <span class="venc-normal">—</span>
+    {% elif dias < 0 %}
+        <span class="venc-vencido">Vencido</span>
+    {% elif dias <= 7 %}
+        <span class="venc-urgente">En {{ dias }} {{ 'día' if dias == 1 else 'días' }}</span>
+    {% elif dias <= 45 %}
+        <span class="venc-pronto">En {{ dias }} días</span>
+    {% else %}
+        <span class="venc-normal">{{ fecha }}</span>
+    {% endif %}
+{% endmacro %}
+
+{% block titulo %}Documentos por vencer{% endblock %}
+
+{% block estilos %}
+        .venc-vencido { color: var(--rojo); font-weight: 700; }
+        .venc-urgente { color: var(--rojo); font-weight: 600; }
+        .venc-pronto  { color: var(--ambar); font-weight: 600; }
+        .venc-normal  { color: var(--texto-suave); }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Documentos por vencer</div>
+            <div class="vista-sub">Motos disponibles con SOAT o tecnomecánica próximos a vencer</div>
+        </div>
+
+        {% if documentos_vencer %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Moto</th>
+                        <th>Placa</th>
+                        <th>SOAT</th>
+                        <th>Tecnomecánica</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in documentos_vencer %}
+                    <tr>
+                        <td>{{ m.marca }} {{ m.modelo }}</td>
+                        <td class="tenue">{{ m.placa or '—' }}</td>
+                        <td>{{ celda_vencimiento(m.dias_soat, m.vence_soat) }}</td>
+                        <td>{{ celda_vencimiento(m.dias_tecno, m.vence_tecno) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">No hay documentos próximos a vencer.</div>
+        {% endif %}
+{% endblock %}

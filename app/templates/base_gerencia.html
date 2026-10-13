@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+{#
+  Base del panel de gerencia (solo lectura): barra superior + sidebar
+  de métricas agrupadas (Comercial / Interés / Alertas) + panel derecho
+  con la vista elegida. Propia de gerencia: no comparte con
+  base_operativa.html.
+
+  Cada vista hereda con {% extends "base_gerencia.html" %} y define:
+    {% set metrica_activa = "ventas_vendedor" %}  -> resalta su métrica
+    {% block titulo %}     -> <title> de la pestaña
+    {% block estilos %}    -> CSS propio, al final del <style> común
+    {% block contenido %}  -> la vista
+
+  Métricas sin ruta todavía: se dibujan como .proximamente (sin href),
+  porque url_for a una ruta inexistente rompería la página entera.
+  Al construir una, se cambia su item por un link real.
+#}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo %}Gerencia{% endblock %} — Gerencia · Universal Motors</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        /* Los colores salen de admin.css. --sombra no existe allí: se
+           define aquí, igual que en base_operativa. */
+        :root {
+            --sombra: 0 1px 2px rgba(28,31,38,.06), 0 2px 8px rgba(28,31,38,.04);
+            --alto-barra: 70px;
+        }
+
+        h1, h2, h3, .btn, .stat-card h3, .sidebar-titulo, .vista-titulo {
+            font-family: 'Barlow Condensed', 'Barlow', sans-serif;
+            letter-spacing: .3px;
+        }
+
+        /* ===== Barra superior ===== */
+        .barra {
+            position: sticky; top: 0; z-index: 50;
+            min-height: var(--alto-barra);
+            flex-wrap: nowrap; gap: 16px; padding: 14px 22px;
+        }
+        .barra h1 { font-weight: 800; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+        .barra h1 span.m { color: var(--naranja); }
+        .barra h1 .ico { width: 24px; height: 24px; color: var(--naranja); }
+        .barra .kicker { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: var(--naranja); text-transform: uppercase; margin-left: 4px; }
+        .barra-derecha { display: flex; align-items: center; gap: 14px; }
+        .barra-usuario { font-size: 13px; color: #c3cad6; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3; }
+        .barra-usuario strong { color: var(--barra-texto); font-weight: 600; }
+        .barra-rol { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--naranja); font-weight: 700; }
+        .toggle-sidebar {
+            background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
+            color: var(--barra-texto); width: 40px; height: 40px; border-radius: 10px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background .15s;
+        }
+        .toggle-sidebar:hover { background: rgba(255,255,255,.16); }
+        .toggle-sidebar .ico { width: 20px; height: 20px; }
+
+        /* ===== Estructura de dos columnas (sidebar IZQUIERDA) ===== */
+        .layout { display: grid; grid-template-columns: 260px 1fr; align-items: start; transition: grid-template-columns .22s ease; }
+        .layout.sidebar-oculto { grid-template-columns: 0px 1fr; }
+
+        /* ===== Sidebar de métricas ===== */
+        .sidebar { position: sticky; top: var(--alto-barra); height: calc(100vh - var(--alto-barra)); overflow-y: auto; background: var(--superficie); border-right: 1px solid var(--borde); padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 22px; }
+        /* visibility: además de ocultarlo, saca sus links del orden de tabulación. */
+        .layout.sidebar-oculto .sidebar { opacity: 0; pointer-events: none; visibility: hidden; }
+        .sidebar-grupo { display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-titulo { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--texto-tenue); font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+        .sidebar-titulo .ico { width: 15px; height: 15px; color: var(--naranja); }
+        .metrica-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--texto-suave); text-decoration: none; font-size: 14px; font-weight: 500; transition: background .14s, color .14s; }
+        .metrica-item .ico { width: 17px; height: 17px; flex-shrink: 0; color: var(--texto-tenue); }
+        a.metrica-item:hover { background: var(--superficie-2); color: var(--texto); }
+        .metrica-item.activo { background: var(--naranja-suave); color: var(--naranja); font-weight: 700; }
+        .metrica-item.activo .ico { color: var(--naranja); }
+        /* Métrica aún no construida en el piloto: atenuada, no clickeable */
+        .metrica-item.proximamente { opacity: .4; cursor: default; }
+
+        /* ===== Panel derecho ===== */
+        .contenido { min-width: 0; padding: 26px 26px 60px; max-width: 1000px; }
+        .vista-cabecera { margin-bottom: 20px; }
+        .vista-titulo { font-size: 26px; font-weight: 800; text-transform: uppercase; line-height: 1.1; }
+        .vista-sub { color: var(--texto-tenue); font-size: 14px; margin-top: 4px; }
+
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+        .stat-card { background: var(--superficie); border: 1px solid var(--borde); padding: 16px 18px; border-radius: 12px; box-shadow: var(--sombra); }
+        .stat-card h3 { font-size: 28px; color: var(--naranja); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+        .stat-card p { color: var(--texto-tenue); font-size: 11px; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+        /* ===== Filtro de fechas ===== */
+        .filtro-fechas { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; background: var(--superficie); border: 1px solid var(--borde); padding: 14px 16px; border-radius: 12px; margin-bottom: 20px; box-shadow: var(--sombra); }
+        .filtro-fechas .campo { display: flex; flex-direction: column; gap: 5px; margin-bottom: 0; }
+        .filtro-fechas label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--texto-tenue); font-weight: 600; margin-bottom: 0; }
+        .filtro-fechas input { height: 42px; padding: 0 12px; background: var(--bg); color: var(--texto); border: 1px solid var(--borde); border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 14px; }
+        .filtro-fechas input:focus { border-color: var(--naranja); outline: none; }
+
+        /* ===== Botones ===== */
+        .btn { height: 42px; padding: 0 18px; border-radius: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; background: var(--superficie-2); color: var(--texto); }
+        .btn .ico { width: 15px; height: 15px; }
+        .btn-primary { background: var(--naranja); color: #fff; }
+        .btn-primary:hover { background: var(--naranja); filter: brightness(1.05); }
+        .btn-ghost { background: transparent; border: 1px solid var(--borde); color: var(--texto-suave); }
+        .btn-ghost:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        /* ===== Tablas ===== */
+        .tabla-wrap { overflow-x: auto; }
+        table { border-radius: 12px; box-shadow: var(--sombra); }
+        thead th { padding: 12px 14px; letter-spacing: .5px; }
+        thead th.num { text-align: right; }
+        tbody td { padding: 12px 14px; font-size: 14px; }
+        tbody td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+        .tenue { color: var(--texto-tenue); }
+
+        /* Estado vacío */
+        .vacio { background: var(--superficie); border: 1px dashed var(--borde); border-radius: 12px; padding: 30px; text-align: center; color: var(--texto-tenue); font-size: 15px; }
+
+        /* Ranking: posición (la primera, resaltada) */
+        .pos { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; border-radius: 6px; background: var(--superficie-2); border: 1px solid var(--borde); font-size: 13px; font-weight: 700; color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+        tbody tr:first-child .pos { background: var(--naranja); color: #fff; border-color: var(--naranja); }
+
+        @media (max-width: 820px) {
+            .layout, .layout.sidebar-oculto { grid-template-columns: 1fr; }
+            .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--borde); }
+            .layout.sidebar-oculto .sidebar { display: none; }
+            .stats { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .barra { padding: 12px 16px; }
+            .barra h1 { font-size: 18px; }
+            .barra-usuario { display: none; }
+            .contenido { padding: 20px 16px 48px; }
+        }
+
+        {% block estilos %}{% endblock %}
+    </style>
+</head>
+<body>
+
+    <!-- Sprite de iconos SVG (reutilizables con <use>) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="ico-grafico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+        <symbol id="ico-flechas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5l-7 7 7 7M18 5l-7 7 7 7"/></symbol>
+        <symbol id="ico-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></symbol>
+        <symbol id="ico-dinero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9a2.5 2 0 0 1 2.5-1.5c1.4 0 2.5.7 2.5 1.8s-1 1.5-2.5 1.7-2.5.6-2.5 1.7.9 1.8 2.5 1.8a2.5 2 0 0 0 2.5-1.5"/></symbol>
+        <symbol id="ico-cambio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
+        <symbol id="ico-lista" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+        <symbol id="ico-pulso" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 7 4-14 3 7h4"/></symbol>
+        <symbol id="ico-ojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="ico-marca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="7.5" r="1.3"/></symbol>
+        <symbol id="ico-alerta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 9v5M12 17h.01"/></symbol>
+        <symbol id="ico-moto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="16" r="3.2"/><circle cx="18.5" cy="16" r="3.2"/><path d="M8.7 16h4.1l2.7-4.8h-4l-1-1.7H7.8"/><path d="M15.5 11.2 17 8.4h2.3"/><path d="M4 11h3.5"/></symbol>
+        <symbol id="ico-usuarios" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6M17.5 20a5.5 5.5 0 0 0-2.3-4.5"/></symbol>
+        <symbol id="ico-salir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></symbol>
+    </svg>
+
+    {% set nombres_rol = {'admin': 'Administrador', 'gerencia': 'Gerencia'} %}
+    {% set metrica_activa = metrica_activa | default('') %}
+
+    {# Una métrica: link real si tiene ruta; si no, item atenuado sin href. #}
+    {% macro metrica(clave, endpoint, icono, texto) %}
+        {% if endpoint %}
+        <a href="{{ url_for(endpoint) }}" class="metrica-item {% if metrica_activa == clave %}activo{% endif %}"{% if metrica_activa == clave %} aria-current="page"{% endif %}><svg class="ico" aria-hidden="true"><use href="#{{ icono }}"/></svg> {{ texto }}</a>
+        {% else %}
+        <span class="metrica-item proximamente" title="Próximamente" aria-disabled="true"><svg class="ico" aria-hidden="true"><use href="#{{ icono }}"/></svg> {{ texto }}</span>
+        {% endif %}
+    {% endmacro %}
+
+    <header class="barra">
+        <h1><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Universal <span class="m">Motors</span> <span class="kicker">Gerencia</span></h1>
+        <div class="barra-derecha">
+            <div class="barra-usuario">
+                <strong>{{ session.usuario_nombre }}</strong>
+                <span class="barra-rol">{{ nombres_rol.get(session.rol, session.rol) }}</span>
+            </div>
+            <button type="button" class="toggle-sidebar" id="toggle-sidebar"
+                    aria-controls="sidebar" aria-expanded="true"
+                    aria-label="Ocultar / mostrar panel lateral" title="Ocultar / mostrar panel">
+                <svg class="ico" aria-hidden="true"><use href="#ico-flechas"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="layout" id="layout">
+        <script>
+            // Antes de pintar: aplicar la preferencia guardada, sin animación.
+            // Clave propia: colapsar aquí no colapsa el panel operativo.
+            // Si localStorage falla (modo privado, bloqueado), arranca visible.
+            try {
+                if (localStorage.getItem('gerencia-sidebar-oculto') === '1') {
+                    document.getElementById('layout').classList.add('sidebar-oculto');
+                }
+            } catch (e) {}
+        </script>
+
+        <aside class="sidebar" id="sidebar">
+            <nav class="sidebar-grupo" aria-label="Métricas comerciales">
+                <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Comercial</div>
+                {{ metrica("ventas_vendedor", "admin.gerencia_ventas_vendedor", "ico-dinero", "Ventas por vendedor") }}
+                {{ metrica("compras_vendedor", None, "ico-dinero", "Compras por vendedor") }}
+                {{ metrica("detalle_ventas", None, "ico-lista", "Detalle de ventas") }}
+                {{ metrica("detalle_compras", None, "ico-lista", "Detalle de compras") }}
+                {{ metrica("permutas", "admin.gerencia_permutas", "ico-cambio", "Permutas por asesor") }}
+                {{ metrica("ritmo", None, "ico-pulso", "Ritmo de ventas") }}
+            </nav>
+            <nav class="sidebar-grupo" aria-label="Métricas de interés">
+                <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-ojo"/></svg> Interés</div>
+                {{ metrica("consultas", "admin.gerencia_consultas", "ico-ojo", "Motos más consultadas") }}
+                {{ metrica("marcas", None, "ico-marca", "Interés por marca") }}
+                {{ metrica("modelos_permutados", None, "ico-cambio", "Modelos más permutados") }}
+            </nav>
+            <nav class="sidebar-grupo" aria-label="Alertas">
+                <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-alerta"/></svg> Alertas</div>
+                {{ metrica("documentos", "admin.gerencia_documentos", "ico-alerta", "Documentos por vencer") }}
+            </nav>
+            <!-- Salidas del panel (las tenía el gerencia.html anterior) -->
+            <nav class="sidebar-grupo" aria-label="Ir a">
+                <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-salir"/></svg> Ir a</div>
+                <a href="{{ url_for('admin.index') }}" class="metrica-item"><svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg> Inventario</a>
+                <a href="{{ url_for('admin.gestion_usuarios') }}" class="metrica-item"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
+            </nav>
+        </aside>
+
+        <main class="contenido">
+            {% block contenido %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        (function () {
+            var layout = document.getElementById('layout');
+            var toggle = document.getElementById('toggle-sidebar');
+            function sincronizar() {
+                toggle.setAttribute('aria-expanded', String(!layout.classList.contains('sidebar-oculto')));
+            }
+            sincronizar();
+            toggle.addEventListener('click', function () {
+                var oculto = layout.classList.toggle('sidebar-oculto');
+                sincronizar();
+                try { localStorage.setItem('gerencia-sidebar-oculto', oculto ? '1' : '0'); } catch (e) {}
+            });
+        })();
+    </script>
+</body>
+</html>
