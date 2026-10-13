@@ -318,7 +318,11 @@ def vender(id):
             )
             obtener_logger().info("%s registró la venta id=%s (moto id=%s).",
                                   session.get("usuario_nombre"), venta_id, id)
-            return redirect(url_for("admin.index"))
+            # Quien puede verificar sigue la cadena en su listado de ventas;
+            # el asesor no tiene acceso a esa vista y vuelve al inventario.
+            if session.get("rol") == "asesor":
+                return redirect(url_for("admin.index"))
+            return redirect(url_for("admin.ventas_mi_sede"))
         except ErrorValidacion as e:
             # Asesor inválido, o la base rechazó (p. ej. otra persona la
             # vendió entre el GET y el POST): se muestra, no es un ataque.
@@ -815,10 +819,11 @@ def verificar_venta(venta_id):
     obtener_logger().info("%s verifico la venta id=%s.",
                           session.get("usuario_nombre"), venta_id)
 
-    # El encargado no tiene acceso al panel de gerencia: vuelve a su vista.
+    # Desde el listado de ventas (y siempre para el encargado, que no tiene
+    # panel de gerencia) se sigue directo al formulario de detalle.
     # "origen" solo elige entre dos destinos fijos, nunca una URL libre.
     if session.get("rol") == "encargado_sede" or request.form.get("origen") == "ventas":
-        return redirect(url_for("admin.ventas_mi_sede"))
+        return redirect(url_for("admin.cargar_detalle_venta", venta_id=venta_id))
     return redirect(url_for("admin.panel_gerencia"))
 
 @admin_bp.route("/gerencia/verificar-compra/<int:compra_id>", methods=["POST"])
