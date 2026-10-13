@@ -62,7 +62,7 @@ def agregar():
             # Validamos y limpiamos CADA campo antes de tocar nada.
             # Si cualquiera falla, se lanza ErrorValidacion y saltamos
             # directo al except, sin construir datos a medias.
-            datos = inventario.validar_datos_moto(request.form, "disponible")
+            datos = inventario.validar_datos_moto(request.form, "por_publicar")
 
             inventario.agregar_moto(datos)
             obtener_logger().info(
@@ -129,7 +129,7 @@ def permuta():
         try:
             # Datos de la moto ENTRANTE (la del cliente): misma validación
             # que comprar/agregar, cada campo limpio antes de tocar nada.
-            datos = inventario.validar_datos_moto(request.form, "disponible")
+            datos = inventario.validar_datos_moto(request.form, "por_publicar")
 
             # DIFERENCIA 1: la placa de la moto SALIENTE (la del inventario
             # que se lleva el cliente). Es obligatoria: sin ella no hay permuta.
