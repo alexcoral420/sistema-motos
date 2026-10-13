@@ -511,7 +511,7 @@ def generar_contrato_compra(compra_id: int):
         faltantes.append("la cédula del vendedor")
     if not (vendedor.get("telefono") or "").strip():
         faltantes.append("el teléfono del vendedor")
-    if not (compra.get("propietario_registrado") or "").strip():
+    if not (datos.get("propietario_registrado") or "").strip():
         faltantes.append("el propietario registrado")
     if not compra.get("precio_compra"):
         faltantes.append("el precio de compra")
@@ -534,7 +534,7 @@ def generar_contrato_compra(compra_id: int):
         "cedula": vendedor["cedula"].strip(),
         "telefono": vendedor["telefono"].strip(),
         **_contexto_vehiculo(datos),
-        "propietario": compra["propietario_registrado"].strip(),
+        "propietario": (datos.get("propietario_registrado") or "").strip(),
         "manifiesto": datos.get("manifiesto_aduana") or "",
         "fecha_manifiesto": datos.get("fecha_manifiesto") or "",
         "precio": _formatear_pesos(compra["precio_compra"]),

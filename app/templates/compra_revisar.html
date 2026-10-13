@@ -137,6 +137,11 @@
                         <input type="date" name="tecno" id="tecno" value="{{ datos.get('tecno') or '' }}">
                     </div>
                 </div>
+                <div class="campo">
+                    <label for="propietario_registrado">Propietario registrado *</label>
+                    <input type="text" name="propietario_registrado" id="propietario_registrado" required maxlength="120"
+                           value="{{ datos.get('propietario_registrado') or '' }}">
+                </div>
                 <div class="grid2">
                     <div class="campo">
                         <label for="manifiesto_aduana">Manifiesto de aduana (solo importadas)</label>
@@ -206,11 +211,6 @@
                         <label for="vendedor_correo">Correo (opcional)</label>
                         <input type="email" name="vendedor_correo" id="vendedor_correo"
                                value="{{ datos.get('vendedor_correo') or '' }}">
-                    </div>
-                    <div class="campo">
-                        <label for="propietario_registrado">Propietario registrado *</label>
-                        <input type="text" name="propietario_registrado" id="propietario_registrado" required maxlength="120"
-                               value="{{ datos.get('propietario_registrado') or '' }}">
                     </div>
                 </div>
             </div>
