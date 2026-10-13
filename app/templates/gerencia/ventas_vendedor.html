@@ -1,0 +1,60 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "ventas_vendedor" %}
+
+{% block titulo %}Ventas por vendedor{% endblock %}
+
+{% block estilos %}
+        /* Dos indicadores: ventas_por_usuario no trae montos. */
+        .stats { grid-template-columns: repeat(2, 1fr); }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Ventas por vendedor</div>
+            <div class="vista-sub">Motos vendidas por persona en el periodo</div>
+        </div>
+
+        <!-- Filtro: escribe desde/hasta en la URL; lo valida el servidor. -->
+        <form method="GET" action="{{ url_for('admin.gerencia_ventas_vendedor') }}" class="filtro-fechas">
+            <div class="campo">
+                <label for="desde">Desde</label>
+                <input type="date" name="desde" id="desde" value="{{ desde or '' }}">
+            </div>
+            <div class="campo">
+                <label for="hasta">Hasta</label>
+                <input type="date" name="hasta" id="hasta" value="{{ hasta or '' }}">
+            </div>
+            <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Filtrar</button>
+            <a href="{{ url_for('admin.gerencia_ventas_vendedor') }}" class="btn btn-ghost">Limpiar</a>
+        </form>
+
+        <div class="stats">
+            <div class="stat-card"><h3>{{ ventas_usuario | sum(attribute='total_ventas') }}</h3><p>Ventas en el periodo</p></div>
+            <div class="stat-card"><h3>{{ ventas_usuario | length }}</h3><p>Vendedores activos</p></div>
+        </div>
+
+        {% if ventas_usuario %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Asesor</th>
+                        <th class="num">Ventas</th>
+                        <th>Última</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in ventas_usuario %}
+                    <tr>
+                        <td>{{ v.asesor_nombre or '—' }}</td>
+                        <td class="num">{{ v.total_ventas }}</td>
+                        <td class="tenue">{{ v.ultima_venta[:10] if v.ultima_venta else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">Sin ventas en este periodo.</div>
+        {% endif %}
+{% endblock %}

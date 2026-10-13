@@ -1,0 +1,36 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "permutas" %}
+
+{% block titulo %}Permutas por asesor{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Permutas por asesor</div>
+            <div class="vista-sub">Cuántas permutas ha cerrado cada asesor</div>
+        </div>
+
+        {% if permutas_usuario %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Asesor</th>
+                        <th class="num">Permutas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in permutas_usuario %}
+                    <tr>
+                        <td><span class="pos">{{ loop.index }}</span></td>
+                        <td>{{ p.usuario_nombre }}</td>
+                        <td class="num">{{ p.total_permutas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">Aún no hay permutas registradas.</div>
+        {% endif %}
+{% endblock %}

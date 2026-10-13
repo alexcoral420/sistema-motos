@@ -1,0 +1,46 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "consultas" %}
+
+{% block titulo %}Motos más consultadas{% endblock %}
+
+{% block estilos %}
+        .vendido { color: var(--verde); font-weight: 600; }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Motos más consultadas</div>
+            <div class="vista-sub">Las que más interés generan al pulsar "Preguntar por esta moto"</div>
+        </div>
+
+        {% if motos_consultadas %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Moto</th>
+                        <th>Estado</th>
+                        <th class="num">Consultas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in motos_consultadas %}
+                    <tr>
+                        <td><span class="pos">{{ loop.index }}</span></td>
+                        <td>
+                            {% if m.marca %}{{ m.marca }} {{ m.modelo }} {{ m.anio }}{% else %}<span class="tenue">Moto retirada del inventario</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if m.estado == 'vendido' %}<span class="vendido">vendida</span>{% else %}{{ m.estado or '—' }}{% endif %}
+                        </td>
+                        <td class="num">{{ m.consultas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">Aún no hay consultas registradas.</div>
+        {% endif %}
+{% endblock %}

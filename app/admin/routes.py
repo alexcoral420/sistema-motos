@@ -502,34 +502,47 @@ def hacer_portada_moto(id, foto_id):
 @admin_bp.route("/gerencia")
 @requiere_rol("admin", "gerencia")
 def panel_gerencia():
-    """Panel de métricas del negocio. Solo admin y gerencia."""
-    return render_template(
-        "gerencia.html",
-        ventas_usuario=reportes.ventas_por_usuario(
-            desde=request.args.get("desde"),
-            hasta=request.args.get("hasta"),
-        ),
-        ventas_semana=reportes.ventas_por_semana(),
-        ventas_detalle=reportes.ventas_detalle(
-            desde=request.args.get("desde"),
-            hasta=request.args.get("hasta"),
-            orden=request.args.get("orden"),
-        ),
-        compras_usuario=reportes.compras_por_usuario(
-            desde=request.args.get("desde"),
-            hasta=request.args.get("hasta"),
-        ),
-        compras_detalle=reportes.compras_detalle(
-            desde=request.args.get("desde"),
-            hasta=request.args.get("hasta"),
-            orden=request.args.get("orden"),
-        ),
-        documentos_vencer=reportes.documentos_por_vencer(),
-        motos_consultadas=reportes.motos_mas_consultadas(),
-        consultas_marca=reportes.consultas_por_marca(),
-        permutas_usuario=reportes.permutas_por_usuario(),
-        modelos_permutados=reportes.modelos_permutados(),
-    )
+    """
+    Entrada al panel de gerencia: lleva a la primera vista del panel
+    nuevo (sidebar de métricas -> vista). El gerencia.html monolítico
+    queda en el repo, sin usar, para poder revertir.
+    """
+    return redirect(url_for("admin.gerencia_ventas_vendedor"))
+
+
+@admin_bp.route("/gerencia/ventas-vendedor")
+@requiere_rol("admin", "gerencia")
+def gerencia_ventas_vendedor():
+    """Ventas por vendedor, con filtro de fechas (lo valida reportes)."""
+    desde = request.args.get("desde")
+    hasta = request.args.get("hasta")
+    return render_template("gerencia/ventas_vendedor.html",
+                           ventas_usuario=reportes.ventas_por_usuario(desde=desde, hasta=hasta),
+                           desde=desde, hasta=hasta)
+
+
+@admin_bp.route("/gerencia/permutas")
+@requiere_rol("admin", "gerencia")
+def gerencia_permutas():
+    """Permutas cerradas por asesor (histórico: la función no filtra fechas)."""
+    return render_template("gerencia/permutas.html",
+                           permutas_usuario=reportes.permutas_por_usuario())
+
+
+@admin_bp.route("/gerencia/documentos")
+@requiere_rol("admin", "gerencia")
+def gerencia_documentos():
+    """Motos con SOAT o tecnomecánica próximos a vencer."""
+    return render_template("gerencia/documentos.html",
+                           documentos_vencer=reportes.documentos_por_vencer())
+
+
+@admin_bp.route("/gerencia/consultas")
+@requiere_rol("admin", "gerencia")
+def gerencia_consultas():
+    """Ranking de motos por consultas desde el catálogo."""
+    return render_template("gerencia/consultas.html",
+                           motos_consultadas=reportes.motos_mas_consultadas())
 
 @admin_bp.route("/ventas/pendientes-detalle")
 @requiere_rol("admin", "gerencia", "encargado_sede")
