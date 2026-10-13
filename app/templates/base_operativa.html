@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 {#
   Base de los paneles operativos: barra superior + sidebar izquierdo
-  colapsable (navegación, registrar, filtros) + contenido central.
+  colapsable (navegación, registrar) + contenido central.
 
   Cada panel hereda con {% extends "base_operativa.html" %} y define:
     {% set nav_activo = "inventario" %}  -> resalta su item en el sidebar
     {% block titulo %}       -> <title> de la pestaña
     {% block head_extra %}   -> meta tags propios (opcional)
     {% block estilos %}      -> CSS propio, al final del <style> común
-    {% block filtros %}      -> filtros del panel (si no define, no hay sección)
     {% block contenido %}    -> el cuerpo del panel
 
   Los items del sidebar se filtran por rol solo por comodidad: la
@@ -253,14 +252,6 @@
             </div>
             {% endif %}
 
-            <!-- Filtros: los aporta cada panel. Sin filtros, no hay sección
-                 (ni título huérfano). -->
-            {% if self.filtros() | trim %}
-            <div class="sidebar-grupo">
-                <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-filtro"/></svg> Filtros</div>
-                {% block filtros %}{% endblock %}
-            </div>
-            {% endif %}
         </aside>
 
         <main class="contenido">

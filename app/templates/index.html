@@ -14,47 +14,24 @@
         .empty .ico { width: 64px; height: 64px; color: var(--borde); }
         .empty p { margin-top: 12px; font-size: 18px; }
         .empty .btn { margin-top: 16px; }
-{% endblock %}
 
-{% block filtros %}
-            <!-- Búsqueda del panel. GET a propósito: los filtros quedan en la
-                 URL, así el resultado es compartible y recargable. Al ser una
-                 lectura, no lleva token CSRF. Los name (id, placa, estado, sede)
-                 son contrato con el servidor: no cambiar. -->
-            <form method="GET" action="{{ url_for('admin.index') }}" class="sidebar-form" role="search">
-                <div class="filtro-campo">
-                    <label for="f-id">ID</label>
-                    <input type="number" name="id" id="f-id" placeholder="Buscar por ID"
-                           value="{{ filtros.id if filtros.id else '' }}" min="1">
-                </div>
-                <div class="filtro-campo">
-                    <label for="f-placa">Placa</label>
-                    <input type="text" name="placa" id="f-placa" placeholder="Buscar por placa"
-                           value="{{ filtros.placa or '' }}" maxlength="10">
-                </div>
-                <div class="filtro-campo">
-                    <label for="f-estado">Estado</label>
-                    <select name="estado" id="f-estado">
-                        <option value="">Todos los estados</option>
-                        <option value="disponible" {% if filtros.estado == 'disponible' %}selected{% endif %}>Disponible</option>
-                        <option value="reservado"  {% if filtros.estado == 'reservado'  %}selected{% endif %}>Reservado</option>
-                        <option value="vendido"    {% if filtros.estado == 'vendido'    %}selected{% endif %}>Vendido</option>
-                    </select>
-                </div>
-                <div class="filtro-campo">
-                    <label for="f-sede">Sede</label>
-                    <select name="sede" id="f-sede">
-                        <option value="">Todas las sedes</option>
-                        {% for sede in sedes %}
-                        <option value="{{ sede.id }}" {% if filtros.sede == sede.id|string %}selected{% endif %}>{{ sede.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filtro-acciones">
-                    <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Buscar</button>
-                    <a href="{{ url_for('admin.index') }}" class="btn btn-ghost">Limpiar</a>
-                </div>
-            </form>
+        /* ===== Barra de filtros del inventario (horizontal) ===== */
+        .busqueda-inv {
+            display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch;
+            background: var(--superficie); border: 1px solid var(--borde);
+            padding: 16px; border-radius: 12px; margin-bottom: 24px;
+            box-shadow: var(--sombra);
+        }
+        .busqueda-inv input, .busqueda-inv select {
+            height: 44px; padding: 0 14px; box-sizing: border-box;
+            flex: 1 1 160px; min-width: 140px;
+            background: var(--bg); color: var(--texto);
+            border: 1px solid var(--borde); border-radius: 8px;
+            font-family: 'Barlow', sans-serif; font-size: 14px; outline: none;
+            transition: border-color .15s;
+        }
+        .busqueda-inv input:focus, .busqueda-inv select:focus { border-color: var(--naranja); }
+        .busqueda-inv .btn { height: 44px; padding: 0 20px; flex: 0 0 auto; }
 {% endblock %}
 
 {% block contenido %}
@@ -77,6 +54,31 @@
                 <p>Reservadas</p>
             </div>
         </div>
+
+        <!-- Búsqueda del panel. GET a propósito: los filtros quedan en la
+             URL, así el resultado es compartible y recargable. Al ser una
+             lectura, no lleva token CSRF. Los name (id, placa, estado, sede)
+             son contrato con el servidor: no cambiar. -->
+        <form method="GET" action="{{ url_for('admin.index') }}" class="busqueda-inv" role="search">
+            <input type="number" name="id" placeholder="ID"
+                   value="{{ filtros.id if filtros.id else '' }}" min="1" aria-label="Buscar por ID">
+            <input type="text" name="placa" placeholder="Placa"
+                   value="{{ filtros.placa or '' }}" maxlength="10" aria-label="Buscar por placa">
+            <select name="estado" aria-label="Filtrar por estado">
+                <option value="">Todos los estados</option>
+                <option value="disponible" {% if filtros.estado == 'disponible' %}selected{% endif %}>Disponible</option>
+                <option value="reservado"  {% if filtros.estado == 'reservado'  %}selected{% endif %}>Reservado</option>
+                <option value="vendido"    {% if filtros.estado == 'vendido'    %}selected{% endif %}>Vendido</option>
+            </select>
+            <select name="sede" aria-label="Filtrar por sede">
+                <option value="">Todas las sedes</option>
+                {% for sede in sedes %}
+                <option value="{{ sede.id }}" {% if filtros.sede == sede.id|string %}selected{% endif %}>{{ sede.nombre }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Buscar</button>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-ghost">Limpiar</a>
+        </form>
 
         <div class="seccion-titulo">Inventario</div>
 
