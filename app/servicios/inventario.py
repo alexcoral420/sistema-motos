@@ -66,7 +66,8 @@ def obtener_galeria(moto_id: int):
 #  ESCRITURA
 # ============================================================
 
-def validar_datos_moto(form, estado: str, exigir_precio: bool = True) -> dict:
+def validar_datos_moto(form, estado: str, exigir_precio: bool = True,
+                       exigir_kilometraje: bool = True) -> dict:
     """
     Valida y normaliza los datos de una moto que llegan de un formulario
     (agregar, comprar, permuta, editar). Fuente única de las reglas.
@@ -77,6 +78,8 @@ def validar_datos_moto(form, estado: str, exigir_precio: bool = True) -> dict:
 
     exigir_precio=False: el precio es opcional (en una compra todavía
     no hay precio de venta; se define al publicar).
+    exigir_kilometraje=False: el kilometraje es opcional (en una compra
+    puede no conocerse aún; se completa al editar la moto).
     """
     datos = {
         "marca": validadores.validar_texto(
@@ -93,7 +96,8 @@ def validar_datos_moto(form, estado: str, exigir_precio: bool = True) -> dict:
             form.get("precio"), "precio", minimo=0, maximo=999999999,
             obligatorio=exigir_precio),
         "kilometraje": validadores.validar_entero(
-            form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999),
+            form.get("kilometraje"), "kilometraje", minimo=0, maximo=9999999,
+            obligatorio=exigir_kilometraje),
         "estado": estado,
         "sede_id": validadores.validar_entero(
             form.get("sede_id"), "sede", minimo=1),

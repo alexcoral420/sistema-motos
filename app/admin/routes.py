@@ -90,7 +90,7 @@ def comprar():
     if request.method == "POST":
         try:
             # Misma validación que 'agregar': cada campo se limpia antes de tocar nada.
-            datos = inventario.validar_datos_moto(request.form, "disponible")
+            datos = inventario.validar_datos_moto(request.form, "disponible", exigir_kilometraje=False)
 
             # DIFERENCIA CLAVE vs agregar: un solo paso que agrega la moto
             # Y registra la compra. La identidad sale de la SESIÓN, nunca

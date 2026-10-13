@@ -222,7 +222,8 @@ def registrar_compra(form, sesion) -> dict:
     #    sede ya decidida, no la que venga en el form.
     sede_id = _sede_de_la_compra(form)
     moto = inventario.validar_datos_moto(
-        {**form.to_dict(), "sede_id": sede_id}, "por_publicar", exigir_precio=False)
+        {**form.to_dict(), "sede_id": sede_id}, "por_publicar",
+        exigir_precio=False, exigir_kilometraje=False)
 
     placa_runt = contratos._placa_comparable(datos_runt.get("placa"))
     if not placa_runt:
