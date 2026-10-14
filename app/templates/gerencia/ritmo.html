@@ -1,0 +1,34 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "ritmo" %}
+
+{% block titulo %}Ritmo de ventas{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Ritmo de ventas</div>
+            <div class="vista-sub">Motos vendidas semana a semana</div>
+        </div>
+
+        {% if ventas_semana %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Semana del</th>
+                        <th class="num">Ventas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in ventas_semana %}
+                    <tr>
+                        <td>{{ s.semana }}</td>
+                        <td class="num">{{ s.ventas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">Aún no hay ventas registradas.</div>
+        {% endif %}
+{% endblock %}

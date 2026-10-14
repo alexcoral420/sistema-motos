@@ -567,6 +567,30 @@ def gerencia_permutas():
                            desde=desde, hasta=hasta)
 
 
+@admin_bp.route("/gerencia/ritmo")
+@requiere_rol("admin", "gerencia")
+def gerencia_ritmo():
+    """Ventas semana a semana (histórico, sin filtro de fechas)."""
+    return render_template("gerencia/ritmo.html",
+                           ventas_semana=reportes.ventas_por_semana())
+
+
+@admin_bp.route("/gerencia/interes-marca")
+@requiere_rol("admin", "gerencia")
+def gerencia_interes_marca():
+    """Consultas por marca (histórico): guía para decidir qué comprar."""
+    return render_template("gerencia/interes_marca.html",
+                           consultas_marca=reportes.consultas_por_marca())
+
+
+@admin_bp.route("/gerencia/modelos-permutados")
+@requiere_rol("admin", "gerencia")
+def gerencia_modelos_permutados():
+    """Modelos que más se mueven en permutas, entrantes y salientes (histórico)."""
+    return render_template("gerencia/modelos_permutados.html",
+                           modelos_permutados=reportes.modelos_permutados())
+
+
 @admin_bp.route("/gerencia/documentos")
 @requiere_rol("admin", "gerencia")
 def gerencia_documentos():
