@@ -1,0 +1,72 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "detalle_ventas" %}
+
+{% block titulo %}Detalle de ventas{% endblock %}
+
+{% block estilos %}
+        .verificada { color: var(--verde); font-weight: 600; }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Detalle de ventas</div>
+            <div class="vista-sub">Qué moto vendió cada asesor y cuándo</div>
+        </div>
+
+        <!-- Filtro + orden: todo va en la URL; lo valida el servidor. -->
+        <form method="GET" action="{{ url_for('admin.gerencia_detalle_ventas') }}" class="filtro-fechas">
+            <div class="campo">
+                <label for="desde">Desde</label>
+                <input type="date" name="desde" id="desde" value="{{ desde or '' }}">
+            </div>
+            <div class="campo">
+                <label for="hasta">Hasta</label>
+                <input type="date" name="hasta" id="hasta" value="{{ hasta or '' }}">
+            </div>
+            <div class="campo">
+                <label for="orden">Orden</label>
+                <select name="orden" id="orden">
+                    <option value="fecha" {% if orden != 'asesor' %}selected{% endif %}>Más recientes</option>
+                    <option value="asesor" {% if orden == 'asesor' %}selected{% endif %}>Agrupado por asesor</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Filtrar</button>
+            <a href="{{ url_for('admin.gerencia_detalle_ventas') }}" class="btn btn-ghost">Limpiar</a>
+        </form>
+
+        {% if ventas_detalle %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Asesor</th>
+                        <th>Moto</th>
+                        <th>Placa</th>
+                        <th>Verificada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in ventas_detalle %}
+                    <tr>
+                        <td class="tenue">{{ v.created_at[:10] if v.created_at else '—' }}</td>
+                        <td>{{ v.asesor_nombre or '—' }}</td>
+                        <td>{{ v.descripcion or '—' }}</td>
+                        <td class="tenue">{{ v.placa or '—' }}</td>
+                        {# Solo lectura: la verificación la hace el encargado de sede. #}
+                        <td>
+                            {% if v.verificada %}
+                            <span class="verificada">✓ {{ v.verificada_por or 'sí' }}</span>
+                            {% else %}
+                            <span class="tenue">Pendiente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">Sin ventas en este periodo.</div>
+        {% endif %}
+{% endblock %}

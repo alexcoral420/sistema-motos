@@ -521,6 +521,41 @@ def gerencia_ventas_vendedor():
                            desde=desde, hasta=hasta)
 
 
+@admin_bp.route("/gerencia/compras-vendedor")
+@requiere_rol("admin", "gerencia")
+def gerencia_compras_vendedor():
+    """Compras por vendedor, con filtro de fechas (default: últimos 15 días)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
+    return render_template("gerencia/compras_vendedor.html",
+                           compras_usuario=reportes.compras_por_usuario(desde=desde, hasta=hasta),
+                           desde=desde, hasta=hasta)
+
+
+@admin_bp.route("/gerencia/detalle-ventas")
+@requiere_rol("admin", "gerencia")
+def gerencia_detalle_ventas():
+    """Cada venta del periodo, solo lectura (la verificación es del encargado)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
+    orden = request.args.get("orden", "fecha")
+    return render_template("gerencia/detalle_ventas.html",
+                           ventas_detalle=reportes.ventas_detalle(desde=desde, hasta=hasta, orden=orden),
+                           desde=desde, hasta=hasta, orden=orden)
+
+
+@admin_bp.route("/gerencia/detalle-compras")
+@requiere_rol("admin", "gerencia")
+def gerencia_detalle_compras():
+    """Cada compra del periodo, solo lectura (la verificación es del encargado)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
+    orden = request.args.get("orden", "fecha")
+    return render_template("gerencia/detalle_compras.html",
+                           compras_detalle=reportes.compras_detalle(desde=desde, hasta=hasta, orden=orden),
+                           desde=desde, hasta=hasta, orden=orden)
+
+
 @admin_bp.route("/gerencia/permutas")
 @requiere_rol("admin", "gerencia")
 def gerencia_permutas():
