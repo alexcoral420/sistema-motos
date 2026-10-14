@@ -55,14 +55,42 @@ def consultas_por_marca():
     """Qué marcas generan más interés (guía de compra de inventario)."""
     return repositorios.reporte_consultas_por_marca()
 
-def permutas_por_usuario():
-    """Cuántas permutas ha cerrado cada asesor."""
-    return repositorios.reporte_permutas_por_usuario()
+def permutas_por_usuario(desde=None, hasta=None):
+    """
+    Cuántas permutas cerró cada asesor en el rango dado. Se cuenta en
+    Python (no en una vista) para poder filtrar por fecha, igual que
+    ventas_por_usuario. Forma: usuario_nombre, total_permutas. Orden desc.
+    """
+    desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
+    filas = repositorios.reporte_permutas_por_usuario(desde=desde_iso, hasta=hasta_iso)
+
+    agregado = {}
+    for f in filas:
+        nombre = f["usuario_nombre"]
+        if nombre not in agregado:
+            agregado[nombre] = {"usuario_nombre": nombre, "total_permutas": 0}
+        agregado[nombre]["total_permutas"] += 1
+
+    return sorted(agregado.values(), key=lambda x: x["total_permutas"], reverse=True)
 
 
 def modelos_permutados():
     """Qué modelos se mueven más en permutas (entrantes + salientes)."""
     return repositorios.reporte_modelos_permutados()
+
+def _rango_por_defecto(desde, hasta, dias=15):
+    """
+    Rango por defecto de los paneles de gerencia: si no llegan fechas,
+    usa los últimos 'dias' días. Centralizado aquí para que todas las
+    vistas de gerencia con filtro de fecha abran con el mismo rango.
+    Devuelve (desde, hasta) como strings 'YYYY-MM-DD'.
+    """
+    from datetime import datetime, timedelta, timezone
+    if not desde and not hasta:
+        hoy = datetime.now(timezone.utc).date()
+        desde = (hoy - timedelta(days=dias)).strftime("%Y-%m-%d")
+        hasta = hoy.strftime("%Y-%m-%d")
+    return desde, hasta
 
 def _rango_fechas_valido(desde=None, hasta=None):
     """

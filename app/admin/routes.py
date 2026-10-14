@@ -513,9 +513,9 @@ def panel_gerencia():
 @admin_bp.route("/gerencia/ventas-vendedor")
 @requiere_rol("admin", "gerencia")
 def gerencia_ventas_vendedor():
-    """Ventas por vendedor, con filtro de fechas (lo valida reportes)."""
-    desde = request.args.get("desde")
-    hasta = request.args.get("hasta")
+    """Ventas por vendedor, con filtro de fechas (default: últimos 15 días)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
     return render_template("gerencia/ventas_vendedor.html",
                            ventas_usuario=reportes.ventas_por_usuario(desde=desde, hasta=hasta),
                            desde=desde, hasta=hasta)
@@ -524,9 +524,12 @@ def gerencia_ventas_vendedor():
 @admin_bp.route("/gerencia/permutas")
 @requiere_rol("admin", "gerencia")
 def gerencia_permutas():
-    """Permutas cerradas por asesor (histórico: la función no filtra fechas)."""
+    """Permutas cerradas por asesor, con filtro de fechas (default: últimos 15 días)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
     return render_template("gerencia/permutas.html",
-                           permutas_usuario=reportes.permutas_por_usuario())
+                           permutas_usuario=reportes.permutas_por_usuario(desde=desde, hasta=hasta),
+                           desde=desde, hasta=hasta)
 
 
 @admin_bp.route("/gerencia/documentos")

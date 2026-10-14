@@ -712,8 +712,18 @@ def reporte_ventas_por_usuario(desde=None, hasta=None):
 def reporte_ventas_por_semana():
     return get_supabase_admin().table("reporte_ventas_por_semana").select("*").execute().data
 
-def reporte_permutas_por_usuario():
-    return get_supabase_admin().table("reporte_permutas_por_usuario").select("*").execute().data
+def reporte_permutas_por_usuario(desde=None, hasta=None):
+    """
+    Filas crudas de permutas (una por permuta) en el rango dado, para
+    agregar en Python. Antes leía una vista pre-agregada que no permitía
+    filtrar por fecha. hasta ya viene con +1 día: se filtra con < (lt).
+    """
+    consulta = get_supabase_admin().table("permutas").select("usuario_nombre, created_at")
+    if desde:
+        consulta = consulta.gte("created_at", desde)
+    if hasta:
+        consulta = consulta.lt("created_at", hasta)
+    return consulta.execute().data or []
 
 
 def reporte_modelos_permutados():
