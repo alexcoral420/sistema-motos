@@ -1,0 +1,50 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "interes_marca" %}
+
+{% block titulo %}Interés por marca{% endblock %}
+
+{% block estilos %}
+        /* Barra de proporción: relativa a la marca más consultada (la primera). */
+        .barra-dato { display: flex; align-items: center; gap: 10px; }
+        .barra-dato .track { flex: 1; height: 7px; background: var(--superficie-2); border-radius: 4px; overflow: hidden; }
+        .barra-dato .fill { height: 100%; background: linear-gradient(90deg, var(--naranja-hover), var(--naranja)); border-radius: 4px; }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Interés por marca</div>
+            <div class="vista-sub">Qué marcas buscan más tus clientes — guía para decidir qué comprar</div>
+        </div>
+
+        {% if consultas_marca %}
+        {% set max_marca = consultas_marca[0].consultas %}
+        <div class="tabla-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Marca</th>
+                        <th style="width:45%">Proporción</th>
+                        <th class="num">Consultas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in consultas_marca %}
+                    <tr>
+                        <td>{{ c.marca }}</td>
+                        <td>
+                            <div class="barra-dato">
+                                <div class="track">
+                                    <div class="fill" style="width: {{ (c.consultas / max_marca * 100) | round }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="num">{{ c.consultas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio">Aún no hay consultas registradas.</div>
+        {% endif %}
+{% endblock %}
