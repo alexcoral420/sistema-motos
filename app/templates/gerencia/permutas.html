@@ -6,8 +6,22 @@
 {% block contenido %}
         <div class="vista-cabecera">
             <div class="vista-titulo">Permutas por asesor</div>
-            <div class="vista-sub">Cuántas permutas ha cerrado cada asesor</div>
+            <div class="vista-sub">Cuántas permutas ha cerrado cada asesor en el periodo</div>
         </div>
+
+        <!-- Filtro: escribe desde/hasta en la URL; lo valida el servidor. -->
+        <form method="GET" action="{{ url_for('admin.gerencia_permutas') }}" class="filtro-fechas">
+            <div class="campo">
+                <label for="desde">Desde</label>
+                <input type="date" name="desde" id="desde" value="{{ desde or '' }}">
+            </div>
+            <div class="campo">
+                <label for="hasta">Hasta</label>
+                <input type="date" name="hasta" id="hasta" value="{{ hasta or '' }}">
+            </div>
+            <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Filtrar</button>
+            <a href="{{ url_for('admin.gerencia_permutas') }}" class="btn btn-ghost">Limpiar</a>
+        </form>
 
         {% if permutas_usuario %}
         <div class="tabla-wrap">
@@ -31,6 +45,6 @@
             </table>
         </div>
         {% else %}
-        <div class="vacio">Aún no hay permutas registradas.</div>
+        <div class="vacio">Sin permutas en este periodo.</div>
         {% endif %}
 {% endblock %}

@@ -55,9 +55,23 @@ def consultas_por_marca():
     """Qué marcas generan más interés (guía de compra de inventario)."""
     return repositorios.reporte_consultas_por_marca()
 
-def permutas_por_usuario():
-    """Cuántas permutas ha cerrado cada asesor."""
-    return repositorios.reporte_permutas_por_usuario()
+def permutas_por_usuario(desde=None, hasta=None):
+    """
+    Cuántas permutas cerró cada asesor en el rango dado. Se cuenta en
+    Python (no en una vista) para poder filtrar por fecha, igual que
+    ventas_por_usuario. Forma: usuario_nombre, total_permutas. Orden desc.
+    """
+    desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
+    filas = repositorios.reporte_permutas_por_usuario(desde=desde_iso, hasta=hasta_iso)
+
+    agregado = {}
+    for f in filas:
+        nombre = f["usuario_nombre"]
+        if nombre not in agregado:
+            agregado[nombre] = {"usuario_nombre": nombre, "total_permutas": 0}
+        agregado[nombre]["total_permutas"] += 1
+
+    return sorted(agregado.values(), key=lambda x: x["total_permutas"], reverse=True)
 
 
 def modelos_permutados():
