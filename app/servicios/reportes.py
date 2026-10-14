@@ -78,6 +78,20 @@ def modelos_permutados():
     """Qué modelos se mueven más en permutas (entrantes + salientes)."""
     return repositorios.reporte_modelos_permutados()
 
+def _rango_por_defecto(desde, hasta, dias=15):
+    """
+    Rango por defecto de los paneles de gerencia: si no llegan fechas,
+    usa los últimos 'dias' días. Centralizado aquí para que todas las
+    vistas de gerencia con filtro de fecha abran con el mismo rango.
+    Devuelve (desde, hasta) como strings 'YYYY-MM-DD'.
+    """
+    from datetime import datetime, timedelta, timezone
+    if not desde and not hasta:
+        hoy = datetime.now(timezone.utc).date()
+        desde = (hoy - timedelta(days=dias)).strftime("%Y-%m-%d")
+        hasta = hoy.strftime("%Y-%m-%d")
+    return desde, hasta
+
 def _rango_fechas_valido(desde=None, hasta=None):
     """
     Normaliza y valida un rango de fechas que llega de la URL.
