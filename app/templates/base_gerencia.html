@@ -96,8 +96,8 @@
         .filtro-fechas { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; background: var(--superficie); border: 1px solid var(--borde); padding: 14px 16px; border-radius: 12px; margin-bottom: 20px; box-shadow: var(--sombra); }
         .filtro-fechas .campo { display: flex; flex-direction: column; gap: 5px; margin-bottom: 0; }
         .filtro-fechas label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--texto-tenue); font-weight: 600; margin-bottom: 0; }
-        .filtro-fechas input { height: 42px; padding: 0 12px; background: var(--bg); color: var(--texto); border: 1px solid var(--borde); border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 14px; }
-        .filtro-fechas input:focus { border-color: var(--naranja); outline: none; }
+        .filtro-fechas input, .filtro-fechas select { height: 42px; padding: 0 12px; background: var(--bg); color: var(--texto); border: 1px solid var(--borde); border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 14px; }
+        .filtro-fechas input:focus, .filtro-fechas select:focus { border-color: var(--naranja); outline: none; }
 
         /* ===== Botones ===== */
         .btn { height: 42px; padding: 0 18px; border-radius: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; background: var(--superficie-2); color: var(--texto); }
@@ -201,9 +201,9 @@
             <nav class="sidebar-grupo" aria-label="Métricas comerciales">
                 <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Comercial</div>
                 {{ metrica("ventas_vendedor", "admin.gerencia_ventas_vendedor", "ico-dinero", "Ventas por vendedor") }}
-                {{ metrica("compras_vendedor", None, "ico-dinero", "Compras por vendedor") }}
-                {{ metrica("detalle_ventas", None, "ico-lista", "Detalle de ventas") }}
-                {{ metrica("detalle_compras", None, "ico-lista", "Detalle de compras") }}
+                {{ metrica("compras_vendedor", "admin.gerencia_compras_vendedor", "ico-dinero", "Compras por vendedor") }}
+                {{ metrica("detalle_ventas", "admin.gerencia_detalle_ventas", "ico-lista", "Detalle de ventas") }}
+                {{ metrica("detalle_compras", "admin.gerencia_detalle_compras", "ico-lista", "Detalle de compras") }}
                 {{ metrica("permutas", "admin.gerencia_permutas", "ico-cambio", "Permutas por asesor") }}
                 {{ metrica("ritmo", None, "ico-pulso", "Ritmo de ventas") }}
             </nav>
