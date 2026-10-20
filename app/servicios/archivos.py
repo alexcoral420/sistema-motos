@@ -19,8 +19,7 @@ from PIL import Image, ImageOps
 
 from app.seguridad.validadores import ErrorValidacion
 
-MAX_MB = 15
-MAX_BYTES = MAX_MB * 1024 * 1024
+MAX_BYTES = 10 * 1024 * 1024
 
 # Defensa contra BOMBAS DE DESCOMPRESIÓN: un PNG de 10 KB puede declarar
 # 50.000 x 50.000 píxeles y, al abrirlo, agotar toda la RAM del servidor.
@@ -97,8 +96,7 @@ def validar_imagen(archivo) -> dict:
 
     if len(contenido) > MAX_BYTES:
         raise ErrorValidacion(
-            f"La imagen supera el tamaño máximo permitido ({MAX_MB} MB).",
-            "foto")
+            "La imagen supera el tamaño máximo permitido (10 MB).", "foto")
 
     # Capa 1: magic bytes. ¿Es realmente una imagen permitida?
     if _detectar_tipo(contenido) is None:
