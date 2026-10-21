@@ -14,32 +14,28 @@
         </div>
 
         {% if motos_consultadas %}
-        <div class="tabla-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Moto</th>
-                        <th>Estado</th>
-                        <th class="num">Consultas</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in motos_consultadas %}
-                    <tr>
-                        <td><span class="pos">{{ loop.index }}</span></td>
-                        <td>
-                            {% if m.marca %}{{ m.marca }} {{ m.modelo }} {{ m.anio }}{% else %}<span class="tenue">Moto retirada del inventario</span>{% endif %}
-                        </td>
-                        <td>
-                            {% if m.estado == 'vendido' %}<span class="vendido">vendida</span>{% else %}{{ m.estado or '—' }}{% endif %}
-                        </td>
-                        <td class="num">{{ m.consultas }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <canvas id="grafico-consultas"></canvas>
+
+        <script>
+            const datos = {{ motos_consultadas | tojson }};
+            const top10 = datos.slice(0, 10);
+            // Una moto retirada del inventario llega sin marca ni modelo.
+            const etiquetas = top10.map(m => m.marca ? m.marca + " " + m.modelo : "Moto retirada del inventario");
+            const valores = top10.map(m => m.consultas);
+            const lienzo = document.getElementById("grafico-consultas");
+            new Chart(lienzo, {
+                type: "bar",
+                data: {
+                    labels: etiquetas,
+                    datasets: [{
+                        label: "Consultas",
+                        data: valores,
+                        backgroundColor: "#e56a00"
+                    }]
+                },
+                options: { indexAxis: "y" }
+            });
+        </script>
         {% else %}
         <div class="vacio">Aún no hay consultas registradas.</div>
         {% endif %}
