@@ -839,5 +839,68 @@
     {% if not session.rol %}
     {% include 'chat.html' %}
     {% endif %}
+    {% if session.rol == 'admin' %}
+    <script>
+    // Achica las fotos en el navegador antes de enviarlas: una foto de
+    // celular de varios MB tardaba tanto en subir que el worker de gunicorn
+    // daba WORKER TIMEOUT. El servidor igual valida y recomprime todo.
+    function comprimirImagen(archivo) {
+        return new Promise((resolve) => {
+            const lector = new FileReader();
+            lector.onload = (evento) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxLado = 1600;
+                    let ancho = img.width;
+                    let alto = img.height;
+                    if (ancho > alto && ancho > maxLado) {
+                        alto = alto * (maxLado / ancho);
+                        ancho = maxLado;
+                    } else if (alto > maxLado) {
+                        ancho = ancho * (maxLado / alto);
+                        alto = maxLado;
+                    }
+                    const canvas = document.createElement("canvas");
+                    canvas.width = ancho;
+                    canvas.height = alto;
+                    canvas.getContext("2d").drawImage(img, 0, 0, ancho, alto);
+                    canvas.toBlob(
+                        (blob) => {
+                            // Si el navegador no pudo generar la imagen, se envía la original.
+                            if (!blob) { resolve(archivo); return; }
+                            const comprimido = new File([blob], archivo.name, { type: blob.type });
+                            resolve(comprimido);
+                        },
+                        "image/webp",
+                        0.82
+                    );
+                };
+                // Si el navegador no puede leerla, se envía tal cual y la valida el servidor.
+                img.onerror = () => resolve(archivo);
+                img.src = evento.target.result;
+            };
+            lector.onerror = () => resolve(archivo);
+            lector.readAsDataURL(archivo);
+        });
+    }
+
+    // Se ancla al input de fotos (id único): hay varias .upload-card en la
+    // página y querySelector tomaba la primera, la de datos del contrato.
+    const input = document.getElementById("fotos-nuevas");
+    const formulario = input.form;
+    let yaComprimido = false;
+    formulario.addEventListener("submit", async (evento) => {
+        if (yaComprimido) return;
+        evento.preventDefault();
+        const archivos = Array.from(input.files);
+        const comprimidas = await Promise.all(archivos.map(archivo => comprimirImagen(archivo)));
+        const transferencia = new DataTransfer();
+        comprimidas.forEach(archivo => transferencia.items.add(archivo));
+        input.files = transferencia.files;
+        yaComprimido = true;
+        formulario.submit();
+    });
+    </script>
+    {% endif %}
 </body>
 </html>
