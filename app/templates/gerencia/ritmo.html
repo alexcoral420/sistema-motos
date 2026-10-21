@@ -10,24 +10,22 @@
         </div>
 
         {% if ventas_semana %}
-        <div class="tabla-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Semana del</th>
-                        <th class="num">Ventas</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in ventas_semana %}
-                    <tr>
-                        <td>{{ s.semana }}</td>
-                        <td class="num">{{ s.ventas }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <canvas id="grafico-ritmo"></canvas>
+
+        <script>
+            const datos = {{ ventas_semana | tojson }};
+            const ordenadas = datos.slice().reverse();
+            const etiquetas = ordenadas.map(v => v.semana);
+            const valores = ordenadas.map(v => v.ventas);
+            const lienzo = document.getElementById("grafico-ritmo");
+            new Chart(lienzo, {
+                type: "line",
+                data: {
+                    labels: etiquetas,
+                    datasets: [{ label: "Ventas por semana", data: valores, borderColor: "#e56a00", tension: 0.3 }]
+                }
+            });
+        </script>
         {% else %}
         <div class="vacio">Aún no hay ventas registradas.</div>
         {% endif %}
