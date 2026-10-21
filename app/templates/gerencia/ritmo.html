@@ -3,6 +3,11 @@
 
 {% block titulo %}Ritmo de ventas{% endblock %}
 
+{% block estilos %}
+        .grafico { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px 18px; margin-bottom: 22px; }
+        .grafico-titulo { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-suave); font-weight: 700; margin-bottom: 12px; }
+{% endblock %}
+
 {% block contenido %}
         <div class="vista-cabecera">
             <div class="vista-titulo">Ritmo de ventas</div>
@@ -10,20 +15,35 @@
         </div>
 
         {% if ventas_semana %}
-        <canvas id="grafico-ritmo"></canvas>
+        <section class="grafico">
+            <h2 class="grafico-titulo">Ritmo semanal</h2>
+            <canvas id="grafico-ritmo"></canvas>
+        </section>
+
+        <section class="grafico">
+            <h2 class="grafico-titulo">Ventas acumuladas</h2>
+            <canvas id="grafico-acumulado"></canvas>
+        </section>
 
         <script>
             const datos = {{ ventas_semana | tojson }};
             const ordenadas = datos.slice().reverse();
             const etiquetas = ordenadas.map(v => v.semana);
             const valores = ordenadas.map(v => v.ventas);
-            const lienzo = document.getElementById("grafico-ritmo");
-            new Chart(lienzo, {
+
+            new Chart(document.getElementById("grafico-ritmo"), {
                 type: "line",
-                data: {
-                    labels: etiquetas,
-                    datasets: [{ label: "Ventas por semana", data: valores, borderColor: "#e56a00", tension: 0.3 }]
-                }
+                data: { labels: etiquetas, datasets: [{ label: "Ventas por semana", data: valores, borderColor: "#e56a00", tension: 0.3 }] },
+                options: { scales: { y: { beginAtZero: true } } }
+            });
+
+            let suma = 0;
+            const acumuladas = valores.map(v => { suma = suma + v; return suma; });
+
+            new Chart(document.getElementById("grafico-acumulado"), {
+                type: "line",
+                data: { labels: etiquetas, datasets: [{ label: "Ventas acumuladas", data: acumuladas, borderColor: "#2563eb", tension: 0.3 }] },
+                options: { scales: { y: { beginAtZero: true } } }
             });
         </script>
         {% else %}
