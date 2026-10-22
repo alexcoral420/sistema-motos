@@ -231,6 +231,22 @@ def _placa_comparable(placa) -> str:
     return "".join((placa or "").upper().split()).replace("-", "")
 
 
+def validar_runt_para_placa(texto_runt: str, placa) -> dict:
+    """
+    Parsea el RUNT y verifica que sea de la moto con esa placa, con la
+    misma regla de procesar_y_guardar (solo se compara si ambos tienen
+    placa). Para validar ANTES de crear la moto. Devuelve lo parseado.
+    """
+    datos = parsear_texto_runt(texto_runt)
+    placa_runt = _placa_comparable(datos.get("placa"))
+    placa_moto = _placa_comparable(placa)
+    if placa_runt and placa_moto and placa_runt != placa_moto:
+        raise ErrorValidacion(
+            f"La placa del RUNT ({datos['placa']}) no coincide con la del formulario "
+            f"({placa}).", "placa")
+    return datos
+
+
 def procesar_y_guardar(moto_id: int, texto_runt: str) -> dict:
     """
     Valida alcance, parsea el texto del RUNT y guarda (upsert) los datos

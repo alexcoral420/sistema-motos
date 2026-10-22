@@ -56,17 +56,32 @@ def index():
 @admin_bp.route("/agregar", methods=["GET", "POST"])
 @requiere_rol("admin")
 def agregar():
-    """Formulario para agregar una moto nueva, con validación de entrada."""
+    """
+    Formulario para agregar una moto nueva, con validación de entrada.
+    El RUNT es opcional: si llegó por el campo oculto, se guarda como
+    datos de contrato de la moto recién creada.
+    """
+    from app.servicios import contratos
+
     if request.method == "POST":
+        texto_runt = (request.form.get("texto_runt") or "").strip()
         try:
             # Validamos y limpiamos CADA campo antes de tocar nada.
             # Si cualquiera falla, se lanza ErrorValidacion y saltamos
             # directo al except, sin construir datos a medias.
             datos = inventario.validar_datos_moto(request.form, "por_publicar")
+            # El RUNT también se valida ANTES de insertar: guardarlo es un
+            # segundo paso, y si fallara ahí la moto quedaría sin contrato.
+            if texto_runt:
+                contratos.validar_runt_para_placa(texto_runt, datos.get("placa"))
 
-            inventario.agregar_moto(datos)
+            resultado = inventario.agregar_moto(datos)
+            moto_id = resultado[0]["id"]
+            if texto_runt:
+                contratos.procesar_y_guardar(moto_id, texto_runt)
             obtener_logger().info(
-                "Admin: moto agregada (%s %s).", datos["marca"], datos["modelo"])
+                "Admin: moto agregada (%s %s, id=%s, RUNT: %s).",
+                datos["marca"], datos["modelo"], moto_id, "sí" if texto_runt else "no")
             return redirect(url_for("admin.index"))
 
         except ErrorValidacion as e:
@@ -74,10 +89,32 @@ def agregar():
                 "agregar.html",
                 error=e.mensaje,
                 datos=request.form,
+                texto_runt=texto_runt,
                 sedes=sedes.listar_sedes(),
+                anio_max=inventario.anio_maximo(),
             )
 
-    return render_template("agregar.html", sedes=sedes.listar_sedes())
+    return render_template("agregar.html", sedes=sedes.listar_sedes(),
+                           anio_max=inventario.anio_maximo())
+
+
+@admin_bp.route("/agregar/desde-runt", methods=["POST"])
+@requiere_rol("admin")
+def agregar_desde_runt():
+    """Prellena el formulario de agregar con los datos de una consulta RUNT."""
+    from app.servicios import contratos
+
+    texto_runt = request.form.get("texto_runt", "")
+    try:
+        datos_runt = contratos.parsear_texto_runt(texto_runt)
+    except ErrorValidacion as e:
+        return render_template("agregar.html", error=e.mensaje, texto_runt=texto_runt,
+                               sedes=sedes.listar_sedes(),
+                               anio_max=inventario.anio_maximo())
+
+    return render_template("agregar.html", datos=contratos.moto_desde_runt(datos_runt),
+                           texto_runt=texto_runt, sedes=sedes.listar_sedes(),
+                           anio_max=inventario.anio_maximo())
 
 @admin_bp.route("/comprar", methods=["GET", "POST"])
 @requiere_rol("asesor")   # PROVISIONAL: en el Paso 5 lo dejamos solo "asesor"
