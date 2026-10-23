@@ -42,7 +42,7 @@
                           placeholder="Pegue aquí el texto de la consulta RUNT...">{{ texto_runt or '' }}</textarea>
                 <button type="submit" class="btn btn-full">📋 Cargar del RUNT</button>
             </form>
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('admin.agregar') }}" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- Viaja al guardado: el servidor lo vuelve a parsear y lo guarda como datos de contrato. -->
                 <input type="hidden" name="texto_runt" value="{{ texto_runt or '' }}">
