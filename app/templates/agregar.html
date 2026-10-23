@@ -18,6 +18,8 @@
         .btn-full { width: 100%; padding: 14px; font-size: 16px; margin-top: 8px; }
         .row { display: flex; gap: 12px; }
         .row .campo { flex: 1; }
+        .runt-form { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--borde); }
+        .runt-textarea { width: 100%; min-height: 140px; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; resize: vertical; }
     </style>
 </head>
 <body>
@@ -32,36 +34,46 @@
                     ⚠️ {{ error }}
                 </div>
                 {% endif %}
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('admin.agregar_desde_runt') }}" class="runt-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label>Consulta RUNT (opcional)</label>
+                <p class="nota">Pegue la consulta de la placa para prellenar el formulario y guardar los datos del contrato.</p>
+                <textarea name="texto_runt" class="runt-textarea"
+                          placeholder="Pegue aquí el texto de la consulta RUNT...">{{ texto_runt or '' }}</textarea>
+                <button type="submit" class="btn btn-full">📋 Cargar del RUNT</button>
+            </form>
+            <form method="POST" action="{{ url_for('admin.agregar') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- Viaja al guardado: el servidor lo vuelve a parsear y lo guarda como datos de contrato. -->
+                <input type="hidden" name="texto_runt" value="{{ texto_runt or '' }}">
                 <div class="row">
                     <div class="campo">
                         <label>Marca *</label>
-                       <input type="text" name="marca" placeholder="Yamaha, Honda..." value="{{ datos.marca if datos else '' }}" required>
+                       <input type="text" name="marca" placeholder="Yamaha, Honda..." value="{{ datos.get('marca') or '' if datos else '' }}" required>
                     </div>
                     <div class="campo">
                         <label>Modelo *</label>
-                        <input type="text" name="modelo" placeholder="FZ, CB125..." value="{{ datos.modelo if datos else '' }}" required>
+                        <input type="text" name="modelo" placeholder="FZ, CB125..." value="{{ datos.get('modelo') or '' if datos else '' }}" required>
                     </div>
                 </div>
                 <div class="row">
                     <div class="campo">
                         <label>Año *</label>
-                        <input type="number" name="anio" placeholder="2022" min="1990" max="2026" value="{{ datos.anio if datos else '' }}" required>
+                        <input type="number" name="anio" placeholder="2022" min="1990" max="{{ anio_max }}" value="{{ datos.get('anio') or '' if datos else '' }}" required>
                     </div>
                     <div class="campo">
                         <label>Cilindraje (cc) *</label>
-                        <input type="number" name="cilindraje" placeholder="150" min="90" max="1200" value="{{ datos.cilindraje if datos else '' }}" required>
+                        <input type="number" name="cilindraje" placeholder="150" min="90" max="1200" value="{{ datos.get('cilindraje') or '' if datos else '' }}" required>
                     </div>
                     <div class="campo">
                         <label>Color *</label>
-                        <input type="text" name="color" placeholder="Rojo, Negro..." value="{{ datos.color if datos else '' }}" required>
+                        <input type="text" name="color" placeholder="Rojo, Negro..." value="{{ datos.get('color') or '' if datos else '' }}" required>
                     </div>
                 </div>
                     <div class="row">
                     <div class="campo">
                     <label>Placa</label>
-                     <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase" value="{{ datos.placa if datos else '' }}">
+                     <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase" value="{{ datos.get('placa') or '' if datos else '' }}">
                      </div>
                         </div>
                         <div class="row">

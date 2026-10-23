@@ -29,6 +29,11 @@ ESTADOS_VISIBLES_PUBLICO = ("disponible", "reservado", "vendido")
 ESTADOS_EDITABLES = ("disponible", "reservado", "vendido")
 
 
+def anio_maximo() -> int:
+    """Tope del año en los formularios: año actual + 1 (modelos del año siguiente)."""
+    return datetime.now(timezone.utc).year + 1
+
+
 # ============================================================
 #  LECTURA
 # ============================================================
