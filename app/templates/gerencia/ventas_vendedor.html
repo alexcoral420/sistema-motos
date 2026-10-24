@@ -6,6 +6,8 @@
 {% block estilos %}
         /* Dos indicadores: ventas_por_usuario no trae montos. */
         .stats { grid-template-columns: repeat(2, 1fr); }
+        .grafico { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px 18px; margin-bottom: 22px; }
+        .grafico-titulo { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-suave); font-weight: 700; margin-bottom: 12px; }
 {% endblock %}
 
 {% block contenido %}
@@ -32,6 +34,49 @@
             <div class="stat-card"><h3>{{ ventas_usuario | sum(attribute='total_ventas') }}</h3><p>Ventas en el periodo</p></div>
             <div class="stat-card"><h3>{{ ventas_usuario | length }}</h3><p>Vendedores activos</p></div>
         </div>
+
+        <section class="grafico">
+            <h2 class="grafico-titulo">Ventas por vendedor</h2>
+            <canvas id="grafico-ventas"></canvas>
+        </section>
+
+        <script>
+            // El gráfico arranca con los datos del servidor y se refresca vía
+            // fetch al cambiar las fechas, sin recargar. El botón Filtrar sigue
+            // recargando la página (tabla y stat cards salen del servidor).
+            (function () {
+                const urlDatos = "{{ url_for('admin.gerencia_ventas_vendedor_datos') }}";
+                const inputDesde = document.getElementById("desde");
+                const inputHasta = document.getElementById("hasta");
+
+                const grafico = new Chart(document.getElementById("grafico-ventas"), {
+                    type: "bar",
+                    data: { labels: [], datasets: [{ label: "Ventas", data: [], backgroundColor: "#e56a00" }] },
+                    options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+                });
+
+                function pintar(datos) {
+                    grafico.data.labels = datos.map(v => v.asesor_nombre || "—");
+                    grafico.data.datasets[0].data = datos.map(v => v.total_ventas);
+                    grafico.update();
+                }
+
+                let enCurso = null;
+                function actualizar() {
+                    if (enCurso) enCurso.abort();  // solo cuenta la última petición
+                    enCurso = new AbortController();
+                    const params = new URLSearchParams({ desde: inputDesde.value, hasta: inputHasta.value });
+                    fetch(urlDatos + "?" + params, { signal: enCurso.signal, credentials: "same-origin" })
+                        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                        .then(pintar)
+                        .catch(e => { if (e.name !== "AbortError") console.error("Gráfico de ventas:", e); });
+                }
+
+                pintar({{ ventas_usuario | tojson }});
+                inputDesde.addEventListener("change", actualizar);
+                inputHasta.addEventListener("change", actualizar);
+            })();
+        </script>
 
         {% if ventas_usuario %}
         <div class="tabla-wrap">
