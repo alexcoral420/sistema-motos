@@ -6,6 +6,9 @@
     <title>Catálogo de Motos Usadas en Bogotá | Precios y Financiación</title>
     <meta name="description" content="Explora nuestro catálogo de motos usadas en Bogotá. Filtra por marca y precio, todas con papeles al día. Financiación disponible. ¡Encuentra la tuya!">
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+    <!-- El hero es un fondo CSS: el navegador lo descubre tarde. El preload lo
+         pide de inmediato y con prioridad alta (está arriba del pliegue). -->
+    <link rel="preload" as="image" href="/static/hero-hall.webp" type="image/webp" fetchpriority="high">
     <!-- Tipografías de marca (mismas que el home) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -133,7 +136,7 @@
                sin importar como salga la imagen, y la moto se vea a la derecha. */
             background-image:
                 linear-gradient(to right, rgba(13,13,10,0.94) 0%, rgba(13,13,10,0.55) 45%, rgba(13,13,10,0.15) 100%),
-                url('/static/hero-hall.png');
+                url('/static/hero-hall.webp');
             background-size: cover;
             background-position: center right;
             background-color: var(--negro-900);
