@@ -41,9 +41,27 @@ def ventas_por_usuario(desde=None, hasta=None):
     return sorted(agregado.values(), key=lambda x: x["total_ventas"], reverse=True)
 
 
-def ventas_por_semana():
-    """Ritmo de ventas semana a semana."""
-    return repositorios.reporte_ventas_por_semana()
+def ventas_por_semana(desde=None, hasta=None):
+    """
+    Ritmo de ventas semana a semana, opcionalmente acotado a [desde, hasta]
+    por el lunes de cada semana ('semana' es 'YYYY-MM-DD'). Se filtra en
+    Python comparando texto ISO; una fecha mal formada se ignora.
+    """
+    from datetime import datetime
+
+    def valida(v):
+        try:
+            return datetime.strptime(v, "%Y-%m-%d").strftime("%Y-%m-%d") if v else None
+        except (ValueError, TypeError):
+            return None
+
+    desde, hasta = valida(desde), valida(hasta)
+    filas = repositorios.reporte_ventas_por_semana()
+    if desde:
+        filas = [f for f in filas if f["semana"] >= desde]
+    if hasta:
+        filas = [f for f in filas if f["semana"] <= hasta]
+    return filas
 
 
 def motos_mas_consultadas():

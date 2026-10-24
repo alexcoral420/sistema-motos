@@ -630,6 +630,14 @@ def gerencia_ritmo():
                            ventas_semana=reportes.ventas_por_semana())
 
 
+@admin_bp.route("/gerencia/ritmo/datos")
+@requiere_rol("admin", "gerencia")
+def gerencia_ritmo_datos():
+    """Semanas en JSON para el gráfico (fetch). Sin rango por defecto: sin fechas, todas."""
+    return jsonify(reportes.ventas_por_semana(
+        desde=request.args.get("desde"), hasta=request.args.get("hasta")))
+
+
 @admin_bp.route("/gerencia/interes-marca")
 @requiere_rol("admin", "gerencia")
 def gerencia_interes_marca():

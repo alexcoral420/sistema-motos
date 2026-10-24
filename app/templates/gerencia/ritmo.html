@@ -15,6 +15,19 @@
         </div>
 
         {% if ventas_semana %}
+        <!-- Filtro: no se envía; el script pide los datos vía fetch y el servidor los valida.
+             Sin fechas se muestran todas las semanas. -->
+        <form method="GET" action="{{ url_for('admin.gerencia_ritmo') }}" class="filtro-fechas" id="filtro-fechas">
+            <div class="campo">
+                <label for="desde">Desde</label>
+                <input type="date" name="desde" id="desde">
+            </div>
+            <div class="campo">
+                <label for="hasta">Hasta</label>
+                <input type="date" name="hasta" id="hasta">
+            </div>
+        </form>
+
         <section class="grafico">
             <h2 class="grafico-titulo">Ritmo semanal</h2>
             <canvas id="grafico-ritmo"></canvas>
@@ -26,25 +39,63 @@
         </section>
 
         <script>
-            const datos = {{ ventas_semana | tojson }};
-            const ordenadas = datos.slice().reverse();
-            const etiquetas = ordenadas.map(v => v.semana);
-            const valores = ordenadas.map(v => v.ventas);
+            // Los dos gráficos arrancan con todas las semanas y se refrescan vía
+            // fetch al cambiar las fechas, sin recargar.
+            (function () {
+                const urlDatos = "{{ url_for('admin.gerencia_ritmo_datos') }}";
+                const inputDesde = document.getElementById("desde");
+                const inputHasta = document.getElementById("hasta");
 
-            new Chart(document.getElementById("grafico-ritmo"), {
-                type: "line",
-                data: { labels: etiquetas, datasets: [{ label: "Ventas por semana", data: valores, borderColor: "#e56a00", tension: 0.3 }] },
-                options: { scales: { y: { beginAtZero: true } } }
-            });
+                const graficoRitmo = new Chart(document.getElementById("grafico-ritmo"), {
+                    type: "line",
+                    data: { labels: [], datasets: [{ label: "Ventas por semana", data: [], borderColor: "#e56a00", tension: 0.3 }] },
+                    options: { scales: { y: { beginAtZero: true } } }
+                });
 
-            let suma = 0;
-            const acumuladas = valores.map(v => { suma = suma + v; return suma; });
+                const graficoAcumulado = new Chart(document.getElementById("grafico-acumulado"), {
+                    type: "line",
+                    data: { labels: [], datasets: [{ label: "Ventas acumuladas", data: [], borderColor: "#2563eb", tension: 0.3 }] },
+                    options: { scales: { y: { beginAtZero: true } } }
+                });
 
-            new Chart(document.getElementById("grafico-acumulado"), {
-                type: "line",
-                data: { labels: etiquetas, datasets: [{ label: "Ventas acumuladas", data: acumuladas, borderColor: "#2563eb", tension: 0.3 }] },
-                options: { scales: { y: { beginAtZero: true } } }
-            });
+                function pintar(datos) {
+                    const ordenadas = datos.slice().reverse();         // la vista viene desc -> cronológico
+                    const etiquetas = ordenadas.map(v => v.semana);
+                    const valores   = ordenadas.map(v => v.ventas);
+                    let suma = 0;
+                    const acumuladas = valores.map(v => { suma += v; return suma; });  // acumulado del rango
+
+                    graficoRitmo.data.labels = etiquetas;
+                    graficoRitmo.data.datasets[0].data = valores;
+                    graficoRitmo.update();
+
+                    graficoAcumulado.data.labels = etiquetas;
+                    graficoAcumulado.data.datasets[0].data = acumuladas;
+                    graficoAcumulado.update();
+                }
+
+                let enCurso = null;
+                function actualizar() {
+                    if (enCurso) enCurso.abort();  // solo cuenta la última petición
+                    enCurso = new AbortController();
+                    const params = new URLSearchParams({ desde: inputDesde.value, hasta: inputHasta.value });
+                    fetch(urlDatos + "?" + params, { signal: enCurso.signal, credentials: "same-origin" })
+                        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                        .then(pintar)
+                        .catch(e => { if (e.name !== "AbortError") console.error("Gráfico de ritmo:", e); });
+                }
+
+                pintar({{ ventas_semana | tojson }});
+                inputDesde.addEventListener("change", actualizar);
+                inputHasta.addEventListener("change", actualizar);
+
+                // Guardia: si algo dispara el submit (p. ej. Enter), no recargar;
+                // refrescar los gráficos en su lugar.
+                document.getElementById("filtro-fechas").addEventListener("submit", e => {
+                    e.preventDefault();
+                    actualizar();
+                });
+            })();
         </script>
         {% else %}
         <div class="vacio">Aún no hay ventas registradas.</div>
