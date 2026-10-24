@@ -6,6 +6,13 @@
 {% block estilos %}
         .grafico { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px 18px; margin-bottom: 22px; }
         .grafico-titulo { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-suave); font-weight: 700; margin-bottom: 12px; }
+        /* Alto relativo a la pantalla para que el gráfico no pida scroll en pantallas bajas.
+           position: relative lo exige Chart.js para medir el contenedor. */
+        .grafico-caja {
+            position: relative;
+            height: 65vh;          /* ocupa 65% del alto visible, se adapta a cada pantalla */
+            min-height: 260px;     /* pero nunca tan chico que sea ilegible */
+        }
 {% endblock %}
 
 {% block contenido %}
@@ -28,7 +35,9 @@
 
         <section class="grafico">
             <h2 class="grafico-titulo">Ventas por asesor</h2>
-            <canvas id="grafico-ventas"></canvas>
+            <div class="grafico-caja">
+                <canvas id="grafico-ventas"></canvas>
+            </div>
         </section>
 
         <script>
@@ -42,7 +51,10 @@
                 const grafico = new Chart(document.getElementById("grafico-ventas"), {
                     type: "bar",
                     data: { labels: [], datasets: [{ label: "Ventas", data: [], backgroundColor: "#e56a00" }] },
-                    options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
                 });
 
                 function pintar(datos) {
