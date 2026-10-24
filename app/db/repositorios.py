@@ -144,19 +144,24 @@ def eliminar_moto(moto_id: int) -> bool:
 
     # 3. Juntar los paths que existan.
     paths = []
+    fotos = []  # solo fotos: el video no tiene miniatura
     if moto.data:
         fila = moto.data[0]
         if fila.get("foto_path"):
-            paths.append(fila["foto_path"])
+            fotos.append(fila["foto_path"])
         if fila.get("video_path"):
             paths.append(fila["video_path"])
     for foto in galeria.data:
         if foto.get("foto_path"):
-            paths.append(foto["foto_path"])
+            fotos.append(foto["foto_path"])
+    paths += fotos
 
     # 4. Borrar los archivos del bucket, si hay.
     if paths:
         supabase.storage.from_("motos").remove(paths)
+
+    # 4b. Y sus miniaturas, sin que un fallo corte el borrado de la moto.
+    _borrar_miniaturas(supabase, ["thumbs/" + p for p in fotos])
 
     # 5. Borrar la moto (el cascade limpia fotos_motos).
     supabase.table("motos")\
@@ -363,6 +368,21 @@ def borrar_archivo(path: str):
         return
     supabase = get_supabase_admin()
     supabase.storage.from_("motos").remove([path])
+    _borrar_miniaturas(supabase, ["thumbs/" + path])
+
+
+def _borrar_miniaturas(supabase, paths):
+    """
+    Borra miniaturas (thumbs/...) del bucket, siempre DESPUÉS de la
+    original y sin propagar errores: una foto vieja puede no tener
+    miniatura, y eso nunca debe cortar el borrado de la original.
+    """
+    if not paths:
+        return
+    try:
+        supabase.storage.from_("motos").remove(paths)
+    except Exception:
+        obtener_logger().warning("No se pudieron borrar miniaturas %s", paths, exc_info=True)
 
 
 def eliminar_foto_galeria(foto_id: int):

@@ -303,6 +303,17 @@ def subir_fotos_moto(moto_id: int, lista_archivos: list) -> dict:
             url = repositorios.subir_archivo(
                 path, datos["contenido"], datos["content_type"])
 
+            # 3b. Miniatura en thumbs/<path>, para todas (cualquier foto de
+            #     galería puede pasar a portada). Si falla no se rechaza la
+            #     foto: las tarjetas caen a la original.
+            try:
+                repositorios.subir_archivo(
+                    archivos.PREFIJO_MINIATURA + path, datos["miniatura"], datos["content_type"])
+            except Exception:
+                obtener_logger().exception(
+                    "No se pudo subir la miniatura de %s (moto id=%s); "
+                    "las tarjetas usarán la original.", path, moto_id)
+
             # 4. Registrar según sea principal o galería.
             if not tiene_principal:
                 repositorios.actualizar_moto(
