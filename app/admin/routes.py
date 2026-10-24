@@ -578,6 +578,15 @@ def gerencia_compras_vendedor():
                            desde=desde, hasta=hasta)
 
 
+@admin_bp.route("/gerencia/compras-vendedor/datos")
+@requiere_rol("admin", "gerencia")
+def gerencia_compras_vendedor_datos():
+    """Mismos datos que gerencia_compras_vendedor, en JSON, para el gráfico (fetch)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
+    return jsonify(reportes.compras_por_usuario(desde=desde, hasta=hasta))
+
+
 @admin_bp.route("/gerencia/detalle-ventas")
 @requiere_rol("admin", "gerencia")
 def gerencia_detalle_ventas():
