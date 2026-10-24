@@ -14,7 +14,7 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file
+from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file, jsonify
 from app.servicios import inventario
 
 from app.servicios import sedes
@@ -556,6 +556,15 @@ def gerencia_ventas_vendedor():
     return render_template("gerencia/ventas_vendedor.html",
                            ventas_usuario=reportes.ventas_por_usuario(desde=desde, hasta=hasta),
                            desde=desde, hasta=hasta)
+
+
+@admin_bp.route("/gerencia/ventas-vendedor/datos")
+@requiere_rol("admin", "gerencia")
+def gerencia_ventas_vendedor_datos():
+    """Mismos datos que gerencia_ventas_vendedor, en JSON, para el gráfico (fetch)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"))
+    return jsonify(reportes.ventas_por_usuario(desde=desde, hasta=hasta))
 
 
 @admin_bp.route("/gerencia/compras-vendedor")
