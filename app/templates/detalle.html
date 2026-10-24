@@ -688,7 +688,7 @@
             {% for s in similares %}
             <a href="{{ url_for('publico.detalle_moto', id=s.id) }}" class="card-similar">
                 {% if s.foto_url %}
-                <img src="{{ s.foto_url }}" alt="{{ s.marca }} {{ s.modelo }}" loading="lazy">
+                <img src="{{ s.foto_url | miniatura }}" data-original="{{ s.foto_url }}" onerror="this.onerror=null; this.src=this.dataset.original" alt="{{ s.marca }} {{ s.modelo }}" loading="lazy">
                 {% else %}
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="Sin foto" loading="lazy">
                 {% endif %}

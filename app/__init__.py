@@ -73,6 +73,11 @@ def create_app(nombre_config=None):
             return ''
         return f"{v:,.0f}".replace(",", ".")
 
+    # Filtro de plantilla: URL de la miniatura (thumbs/) de una foto del
+    # bucket. La convención vive en archivos.url_miniatura.
+    from app.servicios.archivos import url_miniatura
+    app.add_template_filter(url_miniatura, 'miniatura')
+
     # Inyecta el número de WhatsApp en TODOS los templates como {{ whatsapp }}.
     # Así el número vive en un solo lugar (config) y no hardcodeado en cada HTML.
     @app.context_processor

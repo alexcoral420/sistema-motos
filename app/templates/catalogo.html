@@ -704,7 +704,7 @@
             <div class="card">
                 <a href="/moto/{{ moto.id }}">
                     {% if moto.foto_url %}
-                        <img src="{{ moto.foto_url }}" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
+                        <img src="{{ moto.foto_url | miniatura }}" data-original="{{ moto.foto_url }}" onerror="this.onerror=null; this.src=this.dataset.original" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
                     {% else %}
                         <div class="card-no-img"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
                     {% endif %}
