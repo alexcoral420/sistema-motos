@@ -682,9 +682,20 @@ def gerencia_documentos():
 @admin_bp.route("/gerencia/consultas")
 @requiere_rol("admin", "gerencia")
 def gerencia_consultas():
-    """Ranking de motos por consultas desde el catálogo."""
+    """Modelos más consultados desde el catálogo (default: últimos 30 días)."""
+    desde, hasta = reportes._rango_por_defecto(
+        request.args.get("desde"), request.args.get("hasta"), dias=30)
     return render_template("gerencia/consultas.html",
-                           motos_consultadas=reportes.motos_mas_consultadas())
+                           motos_consultadas=reportes.motos_mas_consultadas(desde=desde, hasta=hasta),
+                           desde=desde, hasta=hasta)
+
+
+@admin_bp.route("/gerencia/consultas/datos")
+@requiere_rol("admin", "gerencia")
+def gerencia_consultas_datos():
+    """Mismos datos que gerencia_consultas, en JSON, para el gráfico (fetch)."""
+    return jsonify(reportes.motos_mas_consultadas(
+        desde=request.args.get("desde"), hasta=request.args.get("hasta")))
 
 @admin_bp.route("/ventas/pendientes-detalle")
 @requiere_rol("admin", "gerencia", "encargado_sede")
