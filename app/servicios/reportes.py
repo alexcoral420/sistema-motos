@@ -227,12 +227,14 @@ def interes_por_rango_precio(desde=None, hasta=None):
       tasa      = clics / moto_dias * 30
 
     Meses en hora de Colombia (como ventas_por_semana). desde/hasta son
-    'YYYY-MM-DD', hasta inclusivo; sin fechas (o inválidas), los últimos
-    6 meses. Los meses de los bordes se recortan a la ventana pedida, para
-    que clics y moto_dias midan el mismo período.
+    'YYYY-MM-DD', hasta inclusivo; sin desde (o inválido), los 6 meses
+    hasta 'hasta' (o hasta hoy). Los meses de los bordes se recortan a la
+    ventana pedida, para que clics y moto_dias midan el mismo período; los
+    meses iniciales sin moto_dias en ningún rango se omiten.
 
-    Forma: {"meses": ["YYYY-MM", ...], "series": [{"rango", "tasas",
-    "clics", "moto_dias"}, ...]}, una serie por rango, en orden de precio.
+    Forma: {"desde", "hasta" (ventana efectiva), "meses": ["YYYY-MM", ...],
+    "series": [{"rango", "tasas", "clics", "moto_dias"}, ...]}, una serie
+    por rango, en orden de precio.
     """
     from datetime import datetime, timedelta
     from app.servicios.contratos import HORA_COLOMBIA
@@ -246,18 +248,27 @@ def interes_por_rango_precio(desde=None, hasta=None):
     def fecha(iso):
         return datetime.fromisoformat(iso)
 
+    def seis_meses_antes(f):
+        # El 1 del mes de hace 5 meses: 6 meses de calendario hasta f.
+        m = f.year * 12 + f.month - 1 - 5
+        return f.replace(year=m // 12, month=m % 12 + 1, day=1,
+                         hour=0, minute=0, second=0, microsecond=0)
+
     ahora = datetime.now(HORA_COLOMBIA)
     inicio, fin = parsear(desde), parsear(hasta)
     fin = fin + timedelta(days=1) if fin else None  # hasta inclusivo
-    if not inicio or (fin and fin <= inicio):
-        # Por defecto: desde el 1 del mes de hace 5 meses = 6 meses de calendario.
-        m = ahora.year * 12 + ahora.month - 1 - 5
-        inicio = ahora.replace(year=m // 12, month=m % 12 + 1, day=1,
-                               hour=0, minute=0, second=0, microsecond=0)
-        fin = None
+    if inicio and fin and fin <= inicio:
+        inicio, fin = None, None  # rango al revés: se descarta entero
+    if not inicio:
+        inicio = seis_meses_antes(min(fin, ahora) if fin else ahora)
     fin = min(fin or ahora, ahora)  # no hay exposición ni clics en el futuro
+
+    # Ventana efectiva ('YYYY-MM-DD', hasta inclusivo), para que la vista
+    # muestre en los inputs las fechas que realmente se usaron.
+    ventana = {"desde": inicio.strftime("%Y-%m-%d"),
+               "hasta": (fin - timedelta(microseconds=1)).strftime("%Y-%m-%d")}
     if fin <= inicio:
-        return {"meses": [], "series": [
+        return {**ventana, "meses": [], "series": [
             {"rango": r[0], "tasas": [], "clics": [], "moto_dias": []} for r in RANGOS_PRECIO]}
 
     # Meses de la ventana, recortados a [inicio, fin).
@@ -314,15 +325,21 @@ def interes_por_rango_precio(desde=None, hasta=None):
                 clics[exposicion[i["moto_id"]][0]][j] += 1
                 break
 
+    # Recortar los meses iniciales sin exposición en ningún rango (antes de
+    # la migración 009 no hay publicada_en): el gráfico arranca donde hay datos.
+    primero = next((j for j in range(n_meses)
+                    if any(moto_dias[r][j] > 0 for r in range(n_rangos))), n_meses)
+
     series = []
     for r, (etiqueta, _, _) in enumerate(RANGOS_PRECIO):
+        c_r, d_r = clics[r][primero:], moto_dias[r][primero:]
         series.append({
             "rango": etiqueta,
-            "tasas": [round(c / d * 30, 2) if d else 0 for c, d in zip(clics[r], moto_dias[r])],
-            "clics": clics[r],
-            "moto_dias": [round(d, 1) for d in moto_dias[r]],
+            "tasas": [round(c / d * 30, 2) if d else 0 for c, d in zip(c_r, d_r)],
+            "clics": c_r,
+            "moto_dias": [round(d, 1) for d in d_r],
         })
-    return {"meses": [m[0] for m in meses], "series": series}
+    return {**ventana, "meses": [m[0] for m in meses[primero:]], "series": series}
 
 
 def documentos_por_vencer():
