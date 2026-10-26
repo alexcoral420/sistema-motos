@@ -638,6 +638,14 @@ def gerencia_ritmo_datos():
         desde=request.args.get("desde"), hasta=request.args.get("hasta")))
 
 
+@admin_bp.route("/gerencia/interes-precio/datos")
+@requiere_rol("admin", "gerencia")
+def gerencia_interes_precio_datos():
+    """Tasa de clics por rango de precio, mes a mes, en JSON para el gráfico (fetch)."""
+    return jsonify(reportes.interes_por_rango_precio(
+        request.args.get("desde"), request.args.get("hasta")))
+
+
 @admin_bp.route("/gerencia/interes-marca")
 @requiere_rol("admin", "gerencia")
 def gerencia_interes_marca():

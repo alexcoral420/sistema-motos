@@ -755,6 +755,56 @@ def reporte_motos_consultadas():
 def reporte_consultas_por_marca():
     return get_supabase_admin().table("reporte_consultas_por_marca").select("*").execute().data
 
+
+def _traer_todas(construir_consulta, tamano=1000):
+    """
+    Todas las filas de una consulta, en páginas. Supabase corta cada
+    respuesta en 1000 filas sin avisar: sin paginar, un reporte sobre
+    intenciones se quedaría corto en silencio. construir_consulta debe
+    devolver una consulta NUEVA y ordenada (orden estable entre páginas).
+    """
+    filas, desde = [], 0
+    while True:
+        pagina = construir_consulta().range(desde, desde + tamano - 1).execute().data or []
+        filas.extend(pagina)
+        if len(pagina) < tamano:
+            return filas
+        desde += tamano
+
+
+def motos_para_interes_por_precio():
+    """
+    Motos disponibles o vendidas, ya publicadas y con precio: las que
+    tuvieron una ventana de exposición en el catálogo.
+    """
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("motos")
+                        .select("id, precio, estado, publicada_en")
+                        .in_("estado", ["disponible", "vendido"])
+                        .not_.is_("publicada_en", "null")
+                        .not_.is_("precio", "null")
+                        .order("id"))
+
+
+def fechas_de_venta_activas():
+    """moto_id y fecha de cada venta no anulada (para cerrar la exposición)."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("ventas")
+                        .select("moto_id, created_at")
+                        .neq("estado", "anulada")
+                        .not_.is_("moto_id", "null")
+                        .order("id"))
+
+
+def intenciones_en_rango(desde, hasta):
+    """Intenciones (moto_id, created_at) en [desde, hasta). Fechas ISO ya saneadas."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("intenciones")
+                        .select("moto_id, created_at")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
     # ============================================================
 #  GESTIÓN DE USUARIOS (crear, listar, desactivar)
 # ============================================================
