@@ -1,0 +1,142 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "interes_precio" %}
+
+{% block titulo %}Interés por precio{% endblock %}
+
+{% block estilos %}
+        .grafico { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px 18px; margin-bottom: 22px; }
+        .grafico-titulo { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-suave); font-weight: 700; margin-bottom: 0; }
+        /* Título a la izquierda, filtro de fechas a la derecha; en pantallas
+           angostas el filtro baja debajo del título. */
+        .grafico-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        /* Dentro del encabezado el filtro va sin caja propia: ya está en la tarjeta. */
+        .grafico-header .filtro-fechas { background: none; border: none; box-shadow: none; padding: 0; margin-bottom: 0; }
+        /* Alto relativo a la pantalla para que el gráfico no pida scroll en pantallas bajas.
+           position: relative lo exige Chart.js para medir el contenedor. */
+        .grafico-caja {
+            position: relative;
+            height: 65vh;          /* ocupa 65% del alto visible, se adapta a cada pantalla */
+            min-height: 260px;     /* pero nunca tan chico que sea ilegible */
+        }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Interés por rango de precio</div>
+            <div class="vista-sub">Clics en "Preguntar por esta moto" por cada moto publicada, cada 30 días, mes a mes</div>
+        </div>
+
+        <section class="grafico">
+            <div class="grafico-header">
+                <h2 class="grafico-titulo">Clics por moto / 30 días</h2>
+                <!-- Filtro: no se envía; el script pide los datos vía fetch y el servidor los valida. -->
+                <form method="GET" action="{{ url_for('admin.gerencia_interes_precio') }}" class="filtro-fechas" id="filtro-fechas">
+                    <div class="campo">
+                        <label for="desde">Desde</label>
+                        <input type="date" name="desde" id="desde" value="{{ datos.desde }}">
+                    </div>
+                    <div class="campo">
+                        <label for="hasta">Hasta</label>
+                        <input type="date" name="hasta" id="hasta" value="{{ datos.hasta }}">
+                    </div>
+                </form>
+            </div>
+            <div class="grafico-caja">
+                <canvas id="grafico-interes"></canvas>
+            </div>
+        </section>
+
+        <script>
+            // El gráfico arranca con los datos del servidor y se refresca vía
+            // fetch al cambiar las fechas, sin recargar.
+            (function () {
+                const urlDatos = "{{ url_for('admin.gerencia_interes_precio_datos') }}";
+                const inputDesde = document.getElementById("desde");
+                const inputHasta = document.getElementById("hasta");
+
+                // Un color y una forma de punto por rango, en el orden de
+                // RANGOS_PRECIO (el color sigue al rango, no a su posición).
+                // La forma distingue las líneas aunque el color no alcance.
+                const estilos = [
+                    { color: "#2a78d6", punto: "circle" },
+                    { color: "#eb6834", punto: "rect" },
+                    { color: "#1baf7a", punto: "triangle" },
+                    { color: "#eda100", punto: "rectRot" },
+                ];
+                const numero = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
+
+                const grafico = new Chart(document.getElementById("grafico-interes"), {
+                    type: "line",
+                    data: { labels: [], datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        // Hover por mes: el tooltip muestra los 4 rangos juntos.
+                        interaction: { mode: "index", intersect: false },
+                        scales: {
+                            y: { beginAtZero: true,
+                                 title: { display: true, text: "Clics por moto / 30 días" } }
+                        },
+                        plugins: {
+                            legend: { labels: { usePointStyle: true } },
+                            tooltip: {
+                                usePointStyle: true,
+                                callbacks: {
+                                    // "Hasta $6M: 19,7 (512 clics / 781 moto-días)"
+                                    label: ctx => {
+                                        const ds = ctx.dataset, i = ctx.dataIndex;
+                                        return `${ds.label}: ${numero.format(ctx.parsed.y)} ` +
+                                               `(${numero.format(ds.clics[i])} clics / ` +
+                                               `${numero.format(ds.motoDias[i])} moto-días)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                function pintar(datos) {
+                    grafico.data.labels = datos.meses;
+                    datos.series.forEach((serie, i) => {
+                        let ds = grafico.data.datasets[i];
+                        if (!ds) {
+                            const e = estilos[i % estilos.length];
+                            ds = grafico.data.datasets[i] = {
+                                borderColor: e.color, backgroundColor: e.color,
+                                pointStyle: e.punto, pointRadius: 5, pointHoverRadius: 7,
+                                borderWidth: 2, tension: 0.3,
+                            };
+                        }
+                        ds.label = serie.rango;
+                        ds.data = serie.tasas;
+                        // Crudos para el tooltip (propiedades extra del dataset).
+                        ds.clics = serie.clics;
+                        ds.motoDias = serie.moto_dias;
+                    });
+                    grafico.update();
+                }
+
+                let enCurso = null;
+                function actualizar() {
+                    if (enCurso) enCurso.abort();  // solo cuenta la última petición
+                    enCurso = new AbortController();
+                    const params = new URLSearchParams({ desde: inputDesde.value, hasta: inputHasta.value });
+                    fetch(urlDatos + "?" + params, { signal: enCurso.signal, credentials: "same-origin" })
+                        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                        .then(pintar)
+                        .catch(e => { if (e.name !== "AbortError") console.error("Gráfico de interés por precio:", e); });
+                }
+
+                pintar({{ datos | tojson }});
+                inputDesde.addEventListener("change", actualizar);
+                inputHasta.addEventListener("change", actualizar);
+
+                // Guardia: si algo dispara el submit (p. ej. Enter), no recargar;
+                // refrescar el gráfico en su lugar.
+                document.getElementById("filtro-fechas").addEventListener("submit", e => {
+                    e.preventDefault();
+                    actualizar();
+                });
+            })();
+        </script>
+{% endblock %}
