@@ -796,6 +796,24 @@ def fechas_de_venta_activas():
                         .order("id"))
 
 
+def intenciones_con_moto(desde=None, hasta=None):
+    """
+    Intenciones en [desde, hasta) con la marca y el modelo de su moto
+    (embebidos por la FK moto_id). Fechas ISO ya saneadas; hasta exclusivo.
+    """
+    supabase = get_supabase_admin()
+
+    def consulta():
+        c = supabase.table("intenciones").select("motos(marca, modelo)")
+        if desde:
+            c = c.gte("created_at", desde)
+        if hasta:
+            c = c.lt("created_at", hasta)
+        return c.order("id")
+
+    return _traer_todas(consulta)
+
+
 def intenciones_en_rango(desde, hasta):
     """Intenciones (moto_id, created_at) en [desde, hasta). Fechas ISO ya saneadas."""
     supabase = get_supabase_admin()

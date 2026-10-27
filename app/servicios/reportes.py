@@ -64,9 +64,31 @@ def ventas_por_semana(desde=None, hasta=None):
     return filas
 
 
-def motos_mas_consultadas():
-    """Ranking de motos por número de consultas (interés)."""
-    return repositorios.reporte_motos_consultadas()
+def motos_mas_consultadas(desde=None, hasta=None, limite=10):
+    """
+    Modelos más consultados (clics en 'Preguntar por esta moto') en el
+    rango dado; sin fechas, los últimos 30 días. Agrupa por marca+modelo:
+    varias unidades del mismo modelo suman en una sola entrada. Clics
+    crudos (no personas). Forma: [{marca, modelo, consultas}], desc.
+    """
+    desde, hasta = _rango_por_defecto(desde, hasta, dias=30)
+    desde_iso, hasta_iso = _rango_fechas_valido(desde, hasta)
+    filas = repositorios.intenciones_con_moto(desde=desde_iso, hasta=hasta_iso)
+
+    agregado = {}
+    for f in filas:
+        moto = f.get("motos") or {}
+        marca = " ".join((moto.get("marca") or "").split())
+        modelo = " ".join((moto.get("modelo") or "").split())
+        if not marca and not modelo:
+            continue  # moto retirada del inventario: no hay modelo al que atribuirla
+        # Clave sin mayúsculas: 'Nkd 125' y 'NKD 125' son el mismo modelo.
+        clave = (marca.upper(), modelo.upper())
+        if clave not in agregado:
+            agregado[clave] = {"marca": marca, "modelo": modelo, "consultas": 0}
+        agregado[clave]["consultas"] += 1
+
+    return sorted(agregado.values(), key=lambda x: x["consultas"], reverse=True)[:limite]
 
 
 def consultas_por_marca():

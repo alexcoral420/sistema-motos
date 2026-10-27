@@ -4,39 +4,124 @@
 {% block titulo %}Motos más consultadas{% endblock %}
 
 {% block estilos %}
-        .vendido { color: var(--verde); font-weight: 600; }
+        .grafico { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px 18px; margin-bottom: 22px; }
+        .grafico-titulo { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-suave); font-weight: 700; margin-bottom: 0; }
+        /* Título a la izquierda, filtro de fechas a la derecha; en pantallas
+           angostas el filtro baja debajo del título. */
+        .grafico-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        /* Dentro del encabezado el filtro va sin caja propia: ya está en la tarjeta. */
+        .grafico-header .filtro-fechas { background: none; border: none; box-shadow: none; padding: 0; margin-bottom: 0; }
+        /* Alto relativo a la pantalla para que el gráfico no pida scroll en pantallas bajas.
+           position: relative lo exige Chart.js para medir el contenedor. */
+        .grafico-caja {
+            position: relative;
+            height: 65vh;          /* ocupa 65% del alto visible, se adapta a cada pantalla */
+            min-height: 260px;     /* pero nunca tan chico que sea ilegible */
+        }
+        .grafico-nota { color: var(--texto-tenue); font-size: 13px; margin-top: 10px; }
 {% endblock %}
 
 {% block contenido %}
         <div class="vista-cabecera">
             <div class="vista-titulo">Motos más consultadas</div>
-            <div class="vista-sub">Las que más interés generan al pulsar "Preguntar por esta moto"</div>
+            <div class="vista-sub">Los modelos que más interés generan al pulsar "Preguntar por esta moto"</div>
         </div>
 
-        {% if motos_consultadas %}
-        <canvas id="grafico-consultas"></canvas>
+        <section class="grafico">
+            <div class="grafico-header">
+                <h2 class="grafico-titulo">Consultas por modelo</h2>
+                <!-- Filtro: no se envía; el script pide los datos vía fetch y el servidor los valida. -->
+                <form method="GET" action="{{ url_for('admin.gerencia_consultas') }}" class="filtro-fechas" id="filtro-fechas">
+                    <div class="campo">
+                        <label for="desde">Desde</label>
+                        <input type="date" name="desde" id="desde" value="{{ desde or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="hasta">Hasta</label>
+                        <input type="date" name="hasta" id="hasta" value="{{ hasta or '' }}">
+                    </div>
+                </form>
+            </div>
+            <div class="grafico-caja">
+                <canvas id="grafico-consultas"></canvas>
+            </div>
+            <p class="grafico-nota">Clic en una barra para ver ese modelo en el catálogo.</p>
+        </section>
 
         <script>
-            const datos = {{ motos_consultadas | tojson }};
-            const top10 = datos.slice(0, 10);
-            // Una moto retirada del inventario llega sin marca ni modelo.
-            const etiquetas = top10.map(m => m.marca ? m.marca + " " + m.modelo : "Moto retirada del inventario");
-            const valores = top10.map(m => m.consultas);
-            const lienzo = document.getElementById("grafico-consultas");
-            new Chart(lienzo, {
-                type: "bar",
-                data: {
-                    labels: etiquetas,
-                    datasets: [{
-                        label: "Consultas",
-                        data: valores,
-                        backgroundColor: "#e56a00"
-                    }]
-                },
-                options: { indexAxis: "y" }
-            });
+            // El gráfico arranca con los datos del servidor y se refresca vía
+            // fetch al cambiar las fechas, sin recargar.
+            (function () {
+                const urlDatos = "{{ url_for('admin.gerencia_consultas_datos') }}";
+                const urlCatalogo = "{{ url_for('publico.catalogo_publico') }}";
+                const inputDesde = document.getElementById("desde");
+                const inputHasta = document.getElementById("hasta");
+
+                // Lo que muestra hoy el gráfico: el clic lo usa para saber
+                // a qué marca y modelo corresponde cada barra.
+                let datosActuales = [];
+
+                // El catálogo filtra marca exacta (?marca=) y busca texto en
+                // marca/modelo (?q=), pero su lista blanca de q rechaza '.' y
+                // '(': un modelo como 'FZ 2.5' se descartaría entero. Se manda
+                // el tramo inicial válido ('FZ 2'), que la búsqueda parcial
+                // (ilike) sigue encontrando.
+                function urlModelo(m) {
+                    const params = new URLSearchParams();
+                    if (m.marca) params.append("marca", m.marca);
+                    const q = (m.modelo.match(/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-]*/)[0] || "").trim().slice(0, 50);
+                    if (q) params.append("q", q);
+                    return urlCatalogo + "?" + params;
+                }
+
+                const grafico = new Chart(document.getElementById("grafico-consultas"), {
+                    type: "bar",
+                    data: { labels: [], datasets: [{ label: "Consultas", data: [], backgroundColor: "#e56a00" }] },
+                    options: {
+                        indexAxis: "y",
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+                        onClick: (evento, elementos) => {
+                            if (!elementos.length) return;
+                            const m = datosActuales[elementos[0].index];
+                            if (m) window.open(urlModelo(m), "_blank", "noopener");
+                        },
+                        // Cursor de mano sobre las barras: se ve que son clickeables.
+                        onHover: (evento, elementos) => {
+                            evento.native.target.style.cursor = elementos.length ? "pointer" : "default";
+                        }
+                    }
+                });
+
+                function pintar(datos) {
+                    datosActuales = datos;
+                    grafico.data.labels = datos.map(m => m.marca + " " + m.modelo);
+                    grafico.data.datasets[0].data = datos.map(m => m.consultas);
+                    grafico.update();
+                }
+
+                let enCurso = null;
+                function actualizar() {
+                    if (enCurso) enCurso.abort();  // solo cuenta la última petición
+                    enCurso = new AbortController();
+                    const params = new URLSearchParams({ desde: inputDesde.value, hasta: inputHasta.value });
+                    fetch(urlDatos + "?" + params, { signal: enCurso.signal, credentials: "same-origin" })
+                        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                        .then(pintar)
+                        .catch(e => { if (e.name !== "AbortError") console.error("Gráfico de consultas:", e); });
+                }
+
+                pintar({{ motos_consultadas | tojson }});
+                inputDesde.addEventListener("change", actualizar);
+                inputHasta.addEventListener("change", actualizar);
+
+                // Guardia: si algo dispara el submit (p. ej. Enter), no recargar;
+                // refrescar el gráfico en su lugar.
+                document.getElementById("filtro-fechas").addEventListener("submit", e => {
+                    e.preventDefault();
+                    actualizar();
+                });
+            })();
         </script>
-        {% else %}
-        <div class="vacio">Aún no hay consultas registradas.</div>
-        {% endif %}
 {% endblock %}
