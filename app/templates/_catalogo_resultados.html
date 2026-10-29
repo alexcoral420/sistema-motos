@@ -1,0 +1,107 @@
+{# Región de resultados del catálogo. Se renderiza dentro de catalogo.html
+   (#resultados) y también sola, con ?fragmento=1, para que el JS la
+   reemplace sin recargar la página. Los filtros y la búsqueda NO viven
+   aquí: son controles del usuario y no se reemplazan. #}
+
+{# Los enlaces se arman con los params de la URL, sin 'fragmento': si no,
+   abrir la paginación en otra pestaña entregaría el parcial suelto. #}
+{% set args = request.args.to_dict(flat=False) %}
+{% set _ = args.pop('fragmento', None) %}
+
+{% if filtros.texto %}
+<p class="aviso-busqueda">
+    Resultados para "<b>{{ filtros.texto }}</b>" · <a href="/catalogo">ver todo el catálogo</a>
+</p>
+{% endif %}
+
+<div class="resumen-resultados">
+    <p class="resultado-cuenta">
+        <b>{{ total_motos }}</b> {{ 'moto encontrada' if total_motos == 1 else 'motos encontradas' }}
+    </p>
+    {% if filtros_aplicados %}
+    <div class="aplicados">
+        {% for f in filtros_aplicados %}
+        <a href="{{ f.url_quitar }}" aria-label="Quitar filtro {{ f.etiqueta }}">
+            {{ f.etiqueta }} <span class="quitar">&times;</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+    <div class="container">
+        {% if motos %}
+        <div class="grid">
+            {% for moto in motos %}
+            <div class="card">
+                <a href="/moto/{{ moto.id }}">
+                    {% if moto.foto_url %}
+                        <img src="{{ moto.foto_url | miniatura }}" data-original="{{ moto.foto_url }}" onerror="this.onerror=null; this.src=this.dataset.original" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
+                    {% else %}
+                        <div class="card-no-img"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
+                    {% endif %}
+                </a>
+
+                <div class="card-body">
+                    <a href="/moto/{{ moto.id }}" style="text-decoration:none">
+                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %}{% if moto.anio %} {{ moto.anio }}{% endif %}</div>
+                    </a>
+                    {% if moto.precio %}
+                    <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
+                    {% else %}
+                    <div class="card-price consultar">Consultar precio</div>
+                    {% endif %}
+
+                    <div class="card-tags">
+                        {% if moto.anio %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-calendario"/></svg> {{ moto.anio }}</span>{% endif %}
+                        {% if moto.kilometraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-km"/></svg> {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
+                        {% if moto.color %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-color"/></svg> {{ moto.color }}</span>{% endif %}
+                        {% if moto.cilindraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-motor"/></svg> {{ moto.cilindraje }}cc</span>{% endif %}
+                        {% if moto.sedes %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-edificio"/></svg> {{ moto.sedes.nombre }}</span>{% endif %}
+                    </div>
+
+                    {% if moto.descripcion %}
+                    <div class="card-desc"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-nota"/></svg> {{ moto.descripcion }}</div>
+                    {% endif %}
+
+                    <div class="card-btns">
+                        <a href="/moto/{{ moto.id }}" class="btn-detalle">
+                            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg> Ver detalle y fotos
+                        </a>
+                        <!-- IMPORTANTE: va a /consultar/{id}, que registra el interés
+                             antes de redirigir a WhatsApp. NUNCA a wa.me directo. -->
+                             {% if not session.rol %}
+                        <a href="/consultar/{{ moto.id }}" class="btn-whatsapp" target="_blank" rel="noopener">
+                            <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Preguntar por esta moto
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">
+            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg>
+            <p>No hay motos disponibles en este momento</p>
+        </div>
+        {% endif %}
+    </div>
+
+{% if total_paginas > 1 %}
+<nav class="paginacion" aria-label="Páginas del catálogo">
+    {% if pagina > 1 %}
+    <a href="{{ url_for('publico.catalogo_publico', **dict(args, pagina=pagina-1)) }}">← Anterior</a>
+    {% else %}
+    <span class="inactivo">← Anterior</span>
+    {% endif %}
+
+    <span class="actual">{{ pagina }} de {{ total_paginas }}</span>
+
+    {% if pagina < total_paginas %}
+    <a href="{{ url_for('publico.catalogo_publico', **dict(args, pagina=pagina+1)) }}">Siguiente →</a>
+    {% else %}
+    <span class="inactivo">Siguiente →</span>
+    {% endif %}
+</nav>
+{% endif %}
