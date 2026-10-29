@@ -852,6 +852,7 @@
             const resp = await fetch('/catalogo?' + conFragmento, { signal: pedido.signal });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             resultados.innerHTML = await resp.text();
+            contarResultados();
 
             if (push) history.pushState({}, '', url);
             consultaMostrada = location.search;
@@ -913,11 +914,44 @@
         return params;
     }
 
-    document.getElementById('form-filtros').addEventListener('submit', e => {
+    // ===== Contador animado =====
+    // Cuenta de 0 al total (data-n) con desaceleración al final. Quien
+    // pidió reducir el movimiento ve el número directo.
+    function contarResultados() {
+        const el = document.querySelector('#resultados [data-n]');
+        if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const n = +el.dataset.n, t0 = performance.now();
+        (function f(t) {
+            const p = Math.min(1, (t - t0) / 900);
+            el.textContent = Math.round(n * (1 - Math.pow(1 - p, 3)));
+            if (p < 1) requestAnimationFrame(f);
+        })(performance.now());
+    }
+    contarResultados();
+
+    const formFiltros = document.getElementById('form-filtros');
+    let esperaFiltro;
+
+    formFiltros.addEventListener('submit', e => {
         e.preventDefault();
+        clearTimeout(esperaFiltro);   // el submit ya aplica: no repetir
         cerrarFiltros();
         aplicar(paramsDeForm(e.target));
     });
+
+    // ===== Filtro instantáneo =====
+    // Cada casilla o radio aplica solo, sin "Ver resultados". La espera
+    // de 300ms agrupa varios clics seguidos en un solo pedido. El panel
+    // queda abierto para seguir eligiendo.
+    formFiltros.addEventListener('change', e => {
+        if (!e.target.matches('input[type=checkbox], input[type=radio]')) return;
+        clearTimeout(esperaFiltro);
+        esperaFiltro = setTimeout(() => aplicar(paramsDeForm(formFiltros)), 300);
+    });
+
+    // Con JS los botones sobran; se ocultan (no se borran) para que sin JS
+    // el form siga teniendo con qué enviarse.
+    formFiltros.querySelectorAll('.btn-filtrar').forEach(b => b.style.display = 'none');
 
     document.getElementById('busqueda-barra').addEventListener('submit', e => {
         e.preventDefault();
