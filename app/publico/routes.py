@@ -111,8 +111,14 @@ def catalogo_publico():
     El servicio los valida y devuelve todo lo que la página necesita.
     La ruta solo pasa 'request.args' y entrega el HTML: no valida ni
     consulta nada por su cuenta.
+
+    Con ?fragmento=1 devuelve solo la región de resultados: la pide el
+    JS del catálogo para filtrar y paginar sin recargar. Sin JS, la
+    misma URL sin 'fragmento' entrega la página completa.
     """
     datos = catalogo.buscar_motos(request.args)
+    if request.args.get("fragmento"):
+        return render_template("_catalogo_resultados.html", **datos)
     return render_template("catalogo.html", **datos)
 
 

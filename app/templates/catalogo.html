@@ -338,7 +338,14 @@
             .opcion { font-size: 13px; padding: 8px 14px; }
         }
         /* ===== Filtros (GET a servidor) ===== */
-        .filtros-form { max-width: 940px; margin: 0 auto; padding: 16px 20px 32px; }
+        .filtros-form { max-width: 940px; margin: 0 auto; padding: 16px 20px 0; }
+        /* Contador y pastillas: antes vivían dentro del form; ahora están en
+           #resultados, con el mismo ancho y el espacio inferior del form. */
+        .resumen-resultados { max-width: 940px; margin: 0 auto; padding: 0 20px 32px; }
+
+        /* Mientras llega el fragmento por fetch. */
+        #resultados { transition: opacity 0.15s; }
+        #resultados.cargando { opacity: 0.45; pointer-events: none; }
         .filtros-fila { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         .filtros-fila .campo-icono { position: relative; flex: 1; min-width: 150px; display: flex; }
         .filtros-fila .campo-icono .ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--texto-tenue); width: 16px; height: 16px; pointer-events: none; }
@@ -578,12 +585,6 @@
         </a>
     </header>
 
-    {% if filtros.texto %}
-    <p class="aviso-busqueda">
-        Resultados para "<b>{{ filtros.texto }}</b>" · <a href="/catalogo">ver todo el catálogo</a>
-    </p>
-    {% endif %}
-
         <!-- Filtros: formulario real que va al servidor por GET.
          method="GET" hace que los filtros queden en la URL, así el
          resultado es compartible por WhatsApp y se puede guardar.
@@ -682,100 +683,13 @@
             <button type="submit" class="btn-filtrar" style="margin-top:16px; width:100%">Ver resultados</button>
         </div>
 
-    
-       
-
-        <p class="resultado-cuenta">
-            <b>{{ total_motos }}</b> {{ 'moto encontrada' if total_motos == 1 else 'motos encontradas' }}
-        </p>
-        {% if filtros_aplicados %}
-        <div class="aplicados">
-            {% for f in filtros_aplicados %}
-            <a href="{{ f.url_quitar }}" aria-label="Quitar filtro {{ f.etiqueta }}">
-                {{ f.etiqueta }} <span class="quitar">&times;</span>
-            </a>
-            {% endfor %}
-        </div>
-        {% endif %}
-
     </form>
 
-    <div class="container">
-        {% if motos %}
-        <div class="grid">
-            {% for moto in motos %}
-            <div class="card">
-                <a href="/moto/{{ moto.id }}">
-                    {% if moto.foto_url %}
-                        <img src="{{ moto.foto_url | miniatura }}" data-original="{{ moto.foto_url }}" onerror="this.onerror=null; this.src=this.dataset.original" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
-                    {% else %}
-                        <div class="card-no-img"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
-                    {% endif %}
-                </a>
-
-                <div class="card-body">
-                    <a href="/moto/{{ moto.id }}" style="text-decoration:none">
-                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %}{% if moto.anio %} {{ moto.anio }}{% endif %}</div>
-                    </a>
-                    {% if moto.precio %}
-                    <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
-                    {% else %}
-                    <div class="card-price consultar">Consultar precio</div>
-                    {% endif %}
-
-                    <div class="card-tags">
-                        {% if moto.anio %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-calendario"/></svg> {{ moto.anio }}</span>{% endif %}
-                        {% if moto.kilometraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-km"/></svg> {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
-                        {% if moto.color %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-color"/></svg> {{ moto.color }}</span>{% endif %}
-                        {% if moto.cilindraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-motor"/></svg> {{ moto.cilindraje }}cc</span>{% endif %}
-                        {% if moto.sedes %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-edificio"/></svg> {{ moto.sedes.nombre }}</span>{% endif %}
-                    </div>
-
-                    {% if moto.descripcion %}
-                    <div class="card-desc"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-nota"/></svg> {{ moto.descripcion }}</div>
-                    {% endif %}
-
-                    <div class="card-btns">
-                        <a href="/moto/{{ moto.id }}" class="btn-detalle">
-                            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg> Ver detalle y fotos
-                        </a>
-                        <!-- IMPORTANTE: va a /consultar/{id}, que registra el interés
-                             antes de redirigir a WhatsApp. NUNCA a wa.me directo. -->
-                             {% if not session.rol %}
-                        <a href="/consultar/{{ moto.id }}" class="btn-whatsapp" target="_blank" rel="noopener">
-                            <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Preguntar por esta moto
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty">
-            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg>
-            <p>No hay motos disponibles en este momento</p>
-        </div>
-        {% endif %}
+    {# Región que el JS reemplaza al filtrar o paginar sin recargar.
+       Sin JS, se renderiza igual con la página completa. #}
+    <div id="resultados">
+        {% include "_catalogo_resultados.html" %}
     </div>
-
-{% if total_paginas > 1 %}
-<nav class="paginacion" aria-label="Páginas del catálogo">
-    {% if pagina > 1 %}
-    <a href="{{ url_for('publico.catalogo_publico', **dict(request.args.to_dict(flat=False), pagina=pagina-1)) }}">← Anterior</a>
-    {% else %}
-    <span class="inactivo">← Anterior</span>
-    {% endif %}
-
-    <span class="actual">{{ pagina }} de {{ total_paginas }}</span>
-
-    {% if pagina < total_paginas %}
-    <a href="{{ url_for('publico.catalogo_publico', **dict(request.args.to_dict(flat=False), pagina=pagina+1)) }}">Siguiente →</a>
-    {% else %}
-    <span class="inactivo">Siguiente →</span>
-    {% endif %}
-</nav>
-{% endif %}
 
 
     <!-- Footer -->
@@ -861,16 +775,20 @@
     // ===== Filtros desplegables =====
     // Solo uno abierto a la vez: si se acumularan, el panel empujaria las
     // motos fuera de la pantalla, que es justo lo que queremos evitar.
-    function alternarFiltro(nombre) {
-        const panel = document.getElementById('panel-' + nombre);
-        const boton = document.getElementById('btn-' + nombre);
-        const estaAbierto = panel.classList.contains('abierto');
-
+    function cerrarFiltros() {
         document.querySelectorAll('.panel-desplegable').forEach(p => p.classList.remove('abierto'));
         document.querySelectorAll('.btn-desplegable').forEach(b => {
             b.classList.remove('abierto');
             b.setAttribute('aria-expanded', 'false');
         });
+    }
+
+    function alternarFiltro(nombre) {
+        const panel = document.getElementById('panel-' + nombre);
+        const boton = document.getElementById('btn-' + nombre);
+        const estaAbierto = panel.classList.contains('abierto');
+
+        cerrarFiltros();
 
         if (!estaAbierto) {
             panel.classList.add('abierto');
@@ -878,6 +796,122 @@
             boton.setAttribute('aria-expanded', 'true');
         }
     }
+
+    // ===== Filtrar y paginar sin recargar (mejora progresiva) =====
+    // Los forms siguen siendo GET a /catalogo y la paginación son enlaces
+    // normales: si este JS falla o no corre, todo funciona con recargas.
+    // Aquí solo se intercepta, se pide el fragmento (?fragmento=1) y se
+    // reemplaza #resultados.
+    const resultados = document.getElementById('resultados');
+    let pedidoActual = null;
+    let consultaMostrada = location.search;
+
+    async function aplicar(params, push = true) {
+        const consulta = params.toString();
+        const url = '/catalogo' + (consulta ? '?' + consulta : '');
+
+        // Un pedido nuevo cancela el anterior: si no, una respuesta lenta
+        // podría llegar después y pisar el resultado correcto.
+        if (pedidoActual) pedidoActual.abort();
+        const pedido = new AbortController();
+        pedidoActual = pedido;
+
+        resultados.classList.add('cargando');
+        resultados.setAttribute('aria-busy', 'true');
+        try {
+            const conFragmento = new URLSearchParams(params);
+            conFragmento.set('fragmento', '1');
+            const resp = await fetch('/catalogo?' + conFragmento, { signal: pedido.signal });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            resultados.innerHTML = await resp.text();
+
+            if (push) history.pushState({}, '', url);
+            consultaMostrada = location.search;
+            sincronizarControles(params);
+            return true;
+        } catch (err) {
+            if (err.name === 'AbortError') return false;
+            // Cualquier otra falla: navegación normal, que siempre funciona.
+            window.location.href = url;
+            return false;
+        } finally {
+            if (pedidoActual === pedido) {
+                resultados.classList.remove('cargando');
+                resultados.removeAttribute('aria-busy');
+                pedidoActual = null;
+            }
+        }
+    }
+
+    // Los botones, las casillas y la búsqueda quedan fuera de #resultados,
+    // así que se ajustan a mano al estado nuevo (sobre todo al volver con
+    // el botón atrás, donde no los tocó el usuario).
+    function sincronizarControles(params) {
+        document.querySelectorAll('#form-filtros input[type=checkbox]').forEach(c => {
+            c.checked = params.getAll(c.name).includes(c.value);
+        });
+        document.getElementById('input-busqueda').value = params.get('q') || '';
+
+        ['marca', 'cc', 'anio', 'precio'].forEach(nombre => {
+            const boton = document.getElementById('btn-' + nombre);
+            const elegidas = document.querySelectorAll('#panel-' + nombre + ' input:checked').length;
+            let cuenta = boton.querySelector('.cuenta');
+            boton.classList.toggle('activo', elegidas > 0);
+            if (elegidas) {
+                if (!cuenta) {
+                    cuenta = document.createElement('span');
+                    cuenta.className = 'cuenta';
+                    boton.insertBefore(cuenta, boton.querySelector('.flecha'));
+                }
+                cuenta.textContent = elegidas;
+            } else if (cuenta) {
+                cuenta.remove();
+            }
+        });
+    }
+
+    function paramsDeForm(form) {
+        const params = new URLSearchParams(new FormData(form));
+        // Una búsqueda vacía no ensucia la URL con ?q=
+        if (params.get('q') === '') params.delete('q');
+        params.delete('pagina');   // filtro nuevo: siempre desde la página 1
+        return params;
+    }
+
+    document.getElementById('form-filtros').addEventListener('submit', e => {
+        e.preventDefault();
+        cerrarFiltros();
+        aplicar(paramsDeForm(e.target));
+    });
+
+    document.getElementById('busqueda-barra').addEventListener('submit', e => {
+        e.preventDefault();
+        cerrarBusqueda();
+        aplicar(paramsDeForm(e.target));
+    });
+
+    // Paginación, pastillas para quitar filtros y "ver todo el catálogo"
+    // se reemplazan con cada respuesta, por eso se escuchan por delegación.
+    // Sus href ya traen la consulta completa: se usa tal cual.
+    resultados.addEventListener('click', async e => {
+        const enlace = e.target.closest('.paginacion a, .aplicados a, .aviso-busqueda a');
+        if (!enlace) return;
+        // Ctrl/Cmd/Shift-clic o clic medio: abrir en otra pestaña como siempre.
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+
+        const esPaginacion = !!enlace.closest('.paginacion');
+        const ok = await aplicar(new URL(enlace.href).searchParams);
+        if (ok && esPaginacion) resultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // Atrás/adelante: re-renderizar el estado de esa URL sin apilar otra.
+    // Se ignoran los popstate que no cambian la consulta (p. ej. el ancla
+    // #form-filtros del hero).
+    window.addEventListener('popstate', () => {
+        if (location.search === consultaMostrada) return;
+        aplicar(new URLSearchParams(location.search), false);
+    });
     </script>
     {% if not session.rol %}
     {% include 'chat.html' %}
