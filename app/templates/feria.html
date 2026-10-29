@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Universal Motors · Feria de las 2 Ruedas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* ===== COLORES DE MARCA — ajustá a tu identidad ===== */
+:root{
+  --bg:#0b0b0d; --bg2:#151519; --line:#27272a; --txt:#f4f4f5; --muted:#a1a1aa;
+  --accent:#e10600;    /* principal */
+  --accent2:#ffb800;   /* secundario */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+.stage{position:fixed;inset:0}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+  padding:9vh 7vw;opacity:0;pointer-events:none;transition:opacity .7s ease;overflow:auto}
+.slide.on{opacity:1;pointer-events:auto}
+.slide::before{content:"";position:absolute;inset:0;z-index:-1;
+  background:radial-gradient(circle at 85% 15%,color-mix(in srgb,var(--accent) 26%,transparent),transparent 55%),
+             radial-gradient(circle at 8% 92%,color-mix(in srgb,var(--accent2) 13%,transparent),transparent 50%),var(--bg)}
+h1,h2{font-family:Anton,Impact,sans-serif;text-transform:uppercase;letter-spacing:.01em;line-height:.92}
+h1{font-size:clamp(2.6rem,10vw,9rem)}
+h2{font-size:clamp(2rem,6vw,5.5rem);margin-bottom:3.5vh}
+.kicker{color:var(--accent2);font-weight:800;letter-spacing:.28em;text-transform:uppercase;
+  font-size:clamp(.72rem,1.5vw,1.25rem);margin-bottom:2.2vh}
+.lead{font-size:clamp(1rem,2.3vw,2rem);max-width:60ch;color:#d4d4d8;line-height:1.35}
+.red{color:var(--accent)} .amber{color:var(--accent2)}
+.grid{display:grid;gap:clamp(12px,2vw,26px);grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:clamp(16px,3vh,28px) clamp(14px,2vw,24px);
+  transform:translateY(26px);opacity:0;transition:all .6s cubic-bezier(.2,.8,.2,1)}
+.on .card{transform:none;opacity:1}
+.on .card:nth-child(2){transition-delay:.1s}.on .card:nth-child(3){transition-delay:.2s}
+.on .card:nth-child(4){transition-delay:.3s}.on .card:nth-child(5){transition-delay:.4s}
+.on .card:nth-child(6){transition-delay:.5s}.on .card:nth-child(7){transition-delay:.6s}.on .card:nth-child(8){transition-delay:.7s}
+.card .ico{font-size:clamp(1.8rem,4vw,3rem);margin-bottom:1.2vh}
+.card h3{font-size:clamp(1rem,2vw,1.6rem);margin-bottom:.8vh}
+.card p{color:var(--muted);font-size:clamp(.85rem,1.4vw,1.15rem);line-height:1.4}
+.big{font-family:Anton,sans-serif;font-size:clamp(2.6rem,8vw,6.5rem);color:var(--accent2);line-height:1}
+/* vitrina de motos */
+.motos{display:grid;gap:clamp(12px,1.6vw,20px);grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr))}
+.moto{background:var(--bg2);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  transform:translateY(24px);opacity:0;transition:all .55s cubic-bezier(.2,.8,.2,1)}
+.on .moto{transform:none;opacity:1}
+.on .moto:nth-child(2){transition-delay:.07s}.on .moto:nth-child(3){transition-delay:.14s}.on .moto:nth-child(4){transition-delay:.21s}
+.on .moto:nth-child(5){transition-delay:.28s}.on .moto:nth-child(6){transition-delay:.35s}.on .moto:nth-child(7){transition-delay:.42s}.on .moto:nth-child(8){transition-delay:.49s}
+.moto .ph{aspect-ratio:4/3;background:#1f1f24;display:block;width:100%;object-fit:cover}
+.moto .info{padding:10px 14px}
+.moto .mod{font-weight:800;font-size:clamp(.95rem,1.5vw,1.25rem);line-height:1.1}
+.moto .pr{color:var(--accent2);font-family:Anton;font-size:clamp(1.1rem,1.8vw,1.6rem);margin-top:4px}
+.moto .mc{position:absolute}
+.badge{display:inline-block;background:color-mix(in srgb,var(--accent) 22%,transparent);color:#fff;
+  border:1px solid var(--accent);border-radius:999px;padding:3px 12px;font-size:.72rem;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;margin:6px 0 0}
+.steps{display:flex;gap:clamp(12px,2vw,22px);flex-wrap:wrap}
+.steps .card{flex:1;min-width:190px}
+.steps .n{font-family:Anton;color:var(--accent);font-size:clamp(1.8rem,4vw,3.2rem)}
+.logos{display:flex;flex-wrap:wrap;gap:clamp(12px,2vw,24px)}
+.logo{background:#fff;color:#111;border-radius:14px;padding:clamp(14px,2.5vh,22px) clamp(18px,3vw,32px);
+  font-weight:800;font-size:clamp(.95rem,2vw,1.6rem);min-width:150px;text-align:center;opacity:0;transform:scale(.85);transition:all .5s}
+.on .logo{opacity:1;transform:none}
+.cta-wrap{display:flex;gap:clamp(24px,5vw,70px);align-items:center;flex-wrap:wrap}
+.cta-qr{background:#fff;padding:14px;border-radius:18px}
+.cta-qr img{display:block;width:clamp(180px,26vh,300px);height:auto}
+.wheel{position:absolute;right:-12vh;bottom:-12vh;width:52vh;height:52vh;z-index:-1;
+  border:2.4vh dashed color-mix(in srgb,var(--accent) 45%,transparent);border-radius:50%;animation:spin 20s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* chrome: marca, hint, barra, dots, QR persistente */
+.brand{position:fixed;top:3vh;left:7vw;font-family:Anton;font-size:clamp(.95rem,1.8vw,1.5rem);letter-spacing:.05em;z-index:6}
+.brand span{color:var(--accent)}
+.hint{position:fixed;top:3.4vh;right:calc(7vw + clamp(96px,11vw,150px));color:#71717a;font-size:.8rem;z-index:6}
+.bar{position:fixed;left:0;bottom:0;height:5px;background:var(--accent);width:0;z-index:6}
+.dots{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:9px;z-index:6}
+.dots button{width:11px;height:11px;border-radius:50%;border:0;background:#52525b;cursor:pointer;padding:0}
+.dots button.on{background:var(--accent);width:30px;border-radius:7px}
+.qrfix{position:fixed;top:2.4vh;right:7vw;z-index:6;background:#fff;border-radius:12px;padding:8px;text-align:center;
+  box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.qrfix img{display:block;width:clamp(74px,9vw,120px);height:auto}
+.qrfix small{display:block;color:#111;font-weight:700;font-size:.6rem;margin-top:4px;letter-spacing:.04em}
+.qrfix.hide{opacity:0;pointer-events:none;transition:opacity .4s}
+/* ===== responsive: celular en vertical ===== */
+@media (max-width:760px){
+  .slide{padding:12vh 6vw 10vh;justify-content:flex-start}
+  .wheel{display:none}
+  .qrfix{top:auto;bottom:62px;right:50%;transform:translateX(50%)}
+  .hint{display:none}
+  .cta-wrap{flex-direction:column;align-items:flex-start}
+}
+@media (max-width:760px) and (orientation:portrait){
+  h1{font-size:clamp(2.4rem,13vw,4.5rem)} h2{font-size:clamp(1.8rem,9vw,3rem)}
+}
+</style>
+</head>
+<body>
+<div class="brand">UNIVERSAL <span>MOTORS</span></div>
+<div class="hint" id="hint">▶ auto · tocá o deslizá para navegar</div>
+<div class="qrfix" id="qrfix"><img src="{{ qr_src }}" alt="QR catálogo"><small>ESCANEÁ EL CATÁLOGO</small></div>
+<div class="stage" id="stage"></div>
+<div class="dots" id="dots"></div>
+<div class="bar" id="bar"></div>
+
+<script>
+/* ===== datos inyectados por Flask ===== */
+const CFG   = {{ cfg | tojson }};        /* {whatsapp, instagram, sitio, qr_src, segundos} */
+const MOTOS = {{ motos_feria | tojson }};/* [{marca, modelo, precio, foto}] mas consultadas disponibles */
+const STATS = {{ stats | tojson }};      /* {disponibles, sedes, verificados} */
+
+const money = n => n ? "$" + Number(n).toLocaleString("es-CO") : "Consultar";
+
+const SLIDES = [
+  { tipo:"portada", kicker:"Feria de las 2 Ruedas · Corferias",
+    titulo:'Tu moto,<br><span class="red">sin rodeos.</span>',
+    texto:"Compra y venta de motos usadas en Bogotá. Seguro, rápido y con respaldo de principio a fin." },
+
+  { tipo:"vitrina", kicker:"Las más buscadas ahora", titulo:"Disponibles hoy",
+    texto:"Esto es lo que más está moviendo nuestro catálogo esta semana." },
+
+  { tipo:"texto", kicker:"Quiénes somos", titulo:"Universal Motors",
+    texto:"Somos un equipo bogotano apasionado por las dos ruedas. Conectamos a quien quiere vender su moto con quien busca una usada confiable — con <b>2 sedes</b> en la ciudad y un proceso transparente de punta a punta." },
+
+  { tipo:"pasos", kicker:"¿Querés vender?", titulo:"Vendé tu moto en 3 pasos",
+    items:[
+      {t:"Traéla",d:"Visitanos en cualquiera de nuestras sedes o escribinos por WhatsApp."},
+      {t:"Peritaje",d:"Revisamos mecánica y documentos, y te damos una oferta justa."},
+      {t:"Recibí tu dinero",d:"Nos encargamos del traspaso. Vos te olvidás del papeleo."} ]},
+
+  { tipo:"tarjetas", kicker:"Todo en un solo lugar", titulo:"Nuestros servicios",
+    items:[
+      {ico:"🔍",t:"Peritaje técnico",d:"Revisión mecánica completa de cada moto."},
+      {ico:"📄",t:"Documentos al día",d:"SOAT, tecnomecánica, multas y prenda verificados."},
+      {ico:"💳",t:"Financiación",d:"Crédito con nuestros aliados financieros."},
+      {ico:"🔁",t:"Retoma",d:"Recibimos tu moto como parte de pago."},
+      {ico:"🌐",t:"Catálogo online",d:"Inventario en vivo en universalmotors.online."},
+      {ico:"🛡️",t:"Respaldo",d:"Acompañamiento antes, durante y después."} ]},
+
+  { tipo:"cifras", kicker:"En números", titulo:"Rodando con confianza",
+    items:[
+      {n:STATS.disponibles||0,suf:"",t:"Motos disponibles ahora"},
+      {n:STATS.sedes||2,suf:"",t:"Sedes en Bogotá"},
+      {n:100,suf:"%",t:"Documentos verificados"} ]},
+
+  { tipo:"tarjetas", kicker:"Visitanos", titulo:"Nuestras sedes",
+    items:[
+      {ico:"📍",t:"Sede 1",d:"Dirección · Barrio<br>Lun–Sáb 8:00 a.m. – 6:00 p.m."},
+      {ico:"📍",t:"Sede 2",d:"Dirección · Barrio<br>Lun–Sáb 8:00 a.m. – 6:00 p.m."} ]},
+
+  { tipo:"aliados", kicker:"Nos respaldan", titulo:"Nuestros aliados",
+    items:[ {nombre:"Aliado 1"},{nombre:"Aliado 2"},{nombre:"Aliado 3"},{nombre:"Aliado 4"} ]},
+
+  { tipo:"cta", kicker:"Escaneá y mirá todo el catálogo", titulo:'¿Comprás o <span class="red">vendés?</span>' }
+];
+
+/* ===== motor ===== */
+const stage=document.getElementById('stage'),dots=document.getElementById('dots'),
+      bar=document.getElementById('bar'),qrfix=document.getElementById('qrfix'),hint=document.getElementById('hint');
+const card=i=>`<div class="card">${i.ico?`<div class="ico">${i.ico}</div>`:''}<h3>${i.t}</h3><p>${i.d}</p></div>`;
+const motoCard=m=>`<div class="moto"><img class="ph" loading="lazy" src="${m.foto||''}" alt="${m.marca} ${m.modelo}" onerror="this.style.visibility='hidden'">
+  <div class="info"><div class="mod">${m.marca} ${m.modelo}</div><div class="pr">${money(m.precio)}</div></div></div>`;
+
+SLIDES.forEach((s,k)=>{
+  let h=`<div class="kicker">${s.kicker||''}</div>`;
+  h += s.tipo==='portada' ? `<h1>${s.titulo}</h1>` : `<h2>${s.titulo}</h2>`;
+  if(s.tipo==='portada') h+=`<p class="lead" style="margin-top:3vh">${s.texto}</p><div class="wheel"></div>`;
+  if(s.tipo==='texto')   h+=`<p class="lead">${s.texto}</p><div class="wheel"></div>`;
+  if(s.tipo==='vitrina'){
+    const list = MOTOS.length ? `<div class="motos">${MOTOS.slice(0,8).map(motoCard).join('')}</div>`
+                              : `<p class="lead">Mirá todo el inventario escaneando el código 👉</p>`;
+    h+=`<p class="lead" style="margin-bottom:2.5vh">${s.texto}</p>${list}`;
+  }
+  if(s.tipo==='tarjetas') h+=`<div class="grid">${s.items.map(card).join('')}</div>`;
+  if(s.tipo==='pasos')    h+=`<div class="steps">${s.items.map((i,n)=>`<div class="card"><div class="n">0${n+1}</div><h3>${i.t}</h3><p>${i.d}</p></div>`).join('')}</div>`;
+  if(s.tipo==='aliados')  h+=`<div class="logos">${s.items.map((i,n)=>`<div class="logo" style="transition-delay:${n*.1}s">${i.img?`<img src="${i.img}" alt="">`:i.nombre}</div>`).join('')}</div>`;
+  if(s.tipo==='cifras')   h+=`<div class="grid">${s.items.map(i=>`<div class="card"><div class="big" data-n="${i.n}" data-s="${i.suf}">0</div><p>${i.t}</p></div>`).join('')}</div>`;
+  if(s.tipo==='cta')      h+=`<div class="cta-wrap"><div class="cta-qr"><img src="${CFG.qr_src}" alt="QR catálogo"></div>
+      <div><p class="lead">WhatsApp<br><b style="font-size:1.35em">${CFG.whatsapp}</b></p>
+      <p class="lead" style="margin-top:2.2vh">Instagram<br><b>${CFG.instagram}</b></p>
+      <p class="lead amber" style="margin-top:2.2vh">${CFG.sitio}</p></div></div><div class="wheel"></div>`;
+  const el=document.createElement('section');el.className='slide';el.innerHTML=h;stage.appendChild(el);
+  const b=document.createElement('button');b.onclick=e=>{e.stopPropagation();manual();go(k)};dots.appendChild(b);
+});
+
+const slides=[...document.querySelectorAll('.slide')],btns=[...dots.children];
+let cur=0,timer,auto=true;
+function count(el){const n=+el.dataset.n,s=el.dataset.s||'',t0=performance.now();
+  (function f(t){const p=Math.min(1,(t-t0)/1400);el.textContent=Math.round(n*(1-Math.pow(1-p,3)))+s;if(p<1)requestAnimationFrame(f)})(performance.now())}
+function go(i){
+  cur=(i+slides.length)%slides.length;
+  slides.forEach((s,k)=>s.classList.toggle('on',k===cur));
+  btns.forEach((b,k)=>b.classList.toggle('on',k===cur));
+  slides[cur].querySelectorAll('.big').forEach(count);
+  qrfix.classList.toggle('hide', SLIDES[cur].tipo==='cta');  /* en el CTA ya hay QR grande */
+  bar.style.transition='none';bar.style.width='0';clearTimeout(timer);
+  if(auto){requestAnimationFrame(()=>{bar.style.transition=`width ${CFG.segundos}s linear`;bar.style.width='100%'});
+    timer=setTimeout(()=>go(cur+1),CFG.segundos*1000);}
+}
+function manual(){auto=false;bar.style.width='0';clearTimeout(timer);hint.textContent='manual · ␣ reanuda auto';}
+function toggleAuto(){auto=!auto;hint.textContent=auto?'▶ auto · tocá o deslizá para navegar':'manual · ␣ reanuda auto';go(cur);}
+
+/* navegación: mitad derecha avanza, izquierda retrocede; teclas; swipe */
+document.addEventListener('click',e=>{if(e.target.closest('.dots'))return;manual();go(cur+(e.clientX>innerWidth/2?1:-1))});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){manual();go(cur+1)} if(e.key==='ArrowLeft'){manual();go(cur-1)}
+  if(e.key===' '){e.preventDefault();toggleAuto()}
+  if(e.key.toLowerCase()==='f'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+});
+let tx=0;
+addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+addEventListener('touchend',e=>{const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>45){manual();go(cur+(d<0?1:-1))}},{passive:true});
+go(0);
+</script>
+</body>
+</html>

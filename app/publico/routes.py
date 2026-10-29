@@ -265,6 +265,27 @@ def credito():
     """Landing de financiacion: explica el proceso y lleva al asistente."""
     return render_template("credito.html")
 
+
+@publico_bp.route("/feria")
+def feria():
+    """
+    Vitrina del stand de feria: la abren la tablet, el portátil y los
+    celulares del stand, así que es pública. Rota slides solos cada
+    cfg['segundos'] con las motos más consultadas y el QR al catálogo.
+    """
+    datos = catalogo.vitrina_feria()
+    # El número se guarda en crudo (573042827795); en la pantalla del
+    # stand se lee mejor agrupado: +57 304 282 7795.
+    numero = current_app.config["WHATSAPP_CONTACTO"][-10:]
+    cfg = {
+        "whatsapp": f"+57 {numero[:3]} {numero[3:6]} {numero[6:]}",
+        "instagram": "@universalmotors",            # ← EDITAR
+        "sitio": "universalmotors.online",
+        "qr_src": url_for("static", filename="qr_feria_catalogo.png"),
+        "segundos": 10,
+    }
+    return render_template("feria.html", cfg=cfg, qr_src=cfg["qr_src"], **datos)
+
 @publico_bp.route("/debug-ua")
 def debug_ua():
     """TEMPORAL - diagnóstico. Quitar después."""

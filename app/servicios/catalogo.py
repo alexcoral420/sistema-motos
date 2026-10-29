@@ -267,3 +267,38 @@ def filtros_aplicados(filtros) -> list:
             })
 
     return aplicados
+
+# Motos que muestra la vitrina de feria (/feria). Se piden de más porque
+# no todas tienen foto y la vitrina solo muestra las que sí.
+MOTOS_FERIA = 8
+_CANDIDATAS_FERIA = 24
+
+
+def vitrina_feria() -> dict:
+    """
+    Datos de la vitrina del stand de feria: las motos más consultadas
+    disponibles (el catálogo ya viene ordenado por interés, vista
+    catalogo_ordenado) y las cifras del inventario.
+
+    Solo sale información pública: marca, modelo, precio y la miniatura,
+    que pesa mucho menos que la foto original en el wifi de la feria.
+    """
+    from werkzeug.datastructures import MultiDict
+    from app.servicios.archivos import url_miniatura
+
+    datos = buscar_motos(MultiDict({"limite": str(_CANDIDATAS_FERIA)}))
+    con_foto = [m for m in datos["motos"] if m.get("foto_url")][:MOTOS_FERIA]
+
+    return {
+        "motos_feria": [{
+            "marca": m["marca"],
+            "modelo": m["modelo"],
+            "precio": m.get("precio"),
+            "foto": url_miniatura(m["foto_url"]),
+        } for m in con_foto],
+        "stats": {
+            # Sin filtros, el total del catálogo es el total de disponibles.
+            "disponibles": datos["total_motos"],
+            "sedes": len(datos["sedes"]),
+        },
+    }
