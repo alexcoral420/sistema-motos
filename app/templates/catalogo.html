@@ -629,6 +629,14 @@
                 {% if filtros.precio %}<span class="cuenta">{{ filtros.precio|length }}</span>{% endif %}
                 <span class="flecha">&#9660;</span>
             </button>
+
+            <button type="button" class="btn-desplegable {% if filtros.sede_id %}activo{% endif %}"
+                    onclick="alternarFiltro('sede')" id="btn-sede"
+                    aria-expanded="false" aria-controls="panel-sede">
+                Sede
+                {% if filtros.sede_id %}<span class="cuenta">1</span>{% endif %}
+                <span class="flecha">&#9660;</span>
+            </button>
         </div>
 
         <div class="panel-desplegable" id="panel-marca">
@@ -677,6 +685,26 @@
                     <input type="checkbox" name="precio" value="{{ clave }}"
                            {% if clave in filtros.precio %}checked{% endif %}>
                     {{ rango.etiqueta }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn-filtrar" style="margin-top:16px; width:100%">Ver resultados</button>
+        </div>
+
+        {# Una sola sede a la vez: radios. "Todas" va con value vacío, que el
+           servidor descarta como "sin filtro de sede". #}
+        <div class="panel-desplegable" id="panel-sede">
+            <div class="opciones">
+                <label class="opcion">
+                    <input type="radio" name="sede" value=""
+                           {% if not filtros.sede_id %}checked{% endif %}>
+                    Todas las sedes
+                </label>
+                {% for s in sedes %}
+                <label class="opcion">
+                    <input type="radio" name="sede" value="{{ s.id }}"
+                           {% if s.id == filtros.sede_id %}checked{% endif %}>
+                    {{ s.nombre }}
                 </label>
                 {% endfor %}
             </div>
@@ -850,11 +878,17 @@
         document.querySelectorAll('#form-filtros input[type=checkbox]').forEach(c => {
             c.checked = params.getAll(c.name).includes(c.value);
         });
+        // Sede: sin param (o con uno vacío) queda marcada "Todas" (value="").
+        document.querySelectorAll('#form-filtros input[type=radio]').forEach(r => {
+            r.checked = (params.get(r.name) || '') === r.value;
+        });
         document.getElementById('input-busqueda').value = params.get('q') || '';
 
-        ['marca', 'cc', 'anio', 'precio'].forEach(nombre => {
+        ['marca', 'cc', 'anio', 'precio', 'sede'].forEach(nombre => {
             const boton = document.getElementById('btn-' + nombre);
-            const elegidas = document.querySelectorAll('#panel-' + nombre + ' input:checked').length;
+            // "Todas las sedes" está marcada pero no es un filtro: no cuenta.
+            const elegidas = [...document.querySelectorAll('#panel-' + nombre + ' input:checked')]
+                .filter(i => i.value !== '').length;
             let cuenta = boton.querySelector('.cuenta');
             boton.classList.toggle('activo', elegidas > 0);
             if (elegidas) {
@@ -872,8 +906,9 @@
 
     function paramsDeForm(form) {
         const params = new URLSearchParams(new FormData(form));
-        // Una búsqueda vacía no ensucia la URL con ?q=
-        if (params.get('q') === '') params.delete('q');
+        // Campos vacíos (búsqueda en blanco, "Todas las sedes") no ensucian
+        // la URL con ?q= o ?sede=
+        [...params].filter(([, v]) => v === '').forEach(([k]) => params.delete(k));
         params.delete('pagina');   // filtro nuevo: siempre desde la página 1
         return params;
     }

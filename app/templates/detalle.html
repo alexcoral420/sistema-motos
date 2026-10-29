@@ -48,9 +48,15 @@
 
         .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 24px; }
 
-        /* Botón volver */
-        .volver { display: inline-flex; align-items: center; gap: 6px; color: #bbb; text-decoration: none; font-size: 14px; margin-bottom: 20px; transition: color 0.2s; }
-        .volver:hover { color: #ff7a00; }
+        /* Botón atrás: con aspecto de botón, no de enlace suelto. */
+        .volver {
+            display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px;
+            padding: 9px 18px; border-radius: 10px;
+            background: rgba(255,255,255,0.06); border: 1px solid #3a3a3a;
+            color: #eee; font-size: 14px; font-weight: 600; text-decoration: none;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+        }
+        .volver:hover { border-color: #ff7a00; color: #ff7a00; background: rgba(255,122,0,0.08); }
 
         /* Galería */
         .galeria-principal {
@@ -288,7 +294,7 @@
         {% if es_admin %}
             <a href="{{ url_for('admin.index') }}" class="btn btn-back">← Volver</a>
         {% else %}
-            <a href="/catalogo" class="volver">← Volver al catálogo</a>
+            <a href="/catalogo" class="volver" id="btn-atras">← Atrás</a>
         {% endif %}
 
         <!-- Galería como carrusel deslizable. La PORTADA (moto.foto_url) es
@@ -739,6 +745,15 @@
     </div>
 
     <script>
+        // ===== Botón atrás =====
+        // Si se llegó desde el sitio (normalmente el catálogo filtrado),
+        // history.back() vuelve con los filtros y el scroll intactos. Si se
+        // entró de afuera (link de WhatsApp, Google), se sigue el href.
+        document.getElementById('btn-atras')?.addEventListener('click', e => {
+            const interno = document.referrer && new URL(document.referrer).origin === location.origin;
+            if (interno && history.length > 1) { e.preventDefault(); history.back(); }
+        });
+
         // ===== Carrusel de fotos deslizable =====
         (function () {
             const pista = document.getElementById('carrusel-pista');

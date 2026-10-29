@@ -208,21 +208,23 @@ def buscar_motos(args) -> dict:
             filtros, limite=limite, pagina=pagina
         )
 
+    lista_sedes = sedes.listar_sedes()
+
     return {
         "motos": motos,
         "marcas": repositorios.obtener_marcas_disponibles(),
-        "sedes": sedes.listar_sedes(),
+        "sedes": lista_sedes,
         "filtros": filtros,
         "rangos_cc": RANGOS_CILINDRAJE,
         "rangos_anio": RANGOS_ANIO,
         "rangos_precio": RANGOS_PRECIO,
         "filtros_activos": contar_filtros_activos(filtros),
-        "filtros_aplicados": filtros_aplicados(filtros),
+        "filtros_aplicados": filtros_aplicados(filtros, lista_sedes),
         "pagina": pagina,
         "total_paginas": total_paginas,
         "total_motos": total,
     }
-def filtros_aplicados(filtros) -> list:
+def filtros_aplicados(filtros, lista_sedes) -> list:
     """
     Arma la lista de filtros activos para mostrarlos como pastillas
     que el cliente puede quitar de a una.
@@ -231,15 +233,21 @@ def filtros_aplicados(filtros) -> list:
     ESE filtro conservando los demas. Se calcula aqui y no en la plantilla
     porque armar la URL requiere reconstruir listas de parametros
     repetidos (?marca=BAJAJ&marca=YAMAHA), y eso es logica, no formato.
+    La URL nunca lleva 'pagina': quitar un filtro vuelve a la primera.
     """
     from urllib.parse import urlencode
 
-    # Los cuatro criterios en el orden en que se muestran los botones.
+    # Nombre visible de cada sede; la URL solo lleva el id.
+    nombres_sede = {str(s["id"]): s["nombre"] for s in lista_sedes}
+    sede = [str(filtros["sede_id"])] if filtros.get("sede_id") else []
+
+    # Los criterios en el orden en que se muestran los botones.
     criterios = [
         ("marca",  filtros.get("marcas", []),  lambda v: v),
         ("cc",     filtros.get("cc", []),      lambda v: RANGOS_CILINDRAJE[v]["etiqueta"]),
         ("anio",   filtros.get("anio", []),    lambda v: RANGOS_ANIO[v]["etiqueta"]),
         ("precio", filtros.get("precio", []),  lambda v: RANGOS_PRECIO[v]["etiqueta"]),
+        ("sede",   sede,                       lambda v: nombres_sede.get(v, "Sede")),
     ]
 
     activos = {nombre: list(valores) for nombre, valores, _ in criterios}
