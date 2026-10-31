@@ -24,6 +24,7 @@
     {% endif %}
     
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+    {% include "_pwa_head.html" %}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e8e8e8; }

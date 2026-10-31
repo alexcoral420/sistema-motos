@@ -1,0 +1,13 @@
+{# PWA: manifest, color de la barra, ícono de iOS y registro del Service
+   Worker. Va en el <head> de las páginas públicas (no en el panel).
+   Manifest y SW los sirve app/publico/routes.py desde la raíz. #}
+<link rel="manifest" href="{{ url_for('publico.manifest') }}">
+<meta name="theme-color" content="#ff7a00">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='pwa/apple-touch-icon.png') }}">
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js');
+        });
+    }
+</script>

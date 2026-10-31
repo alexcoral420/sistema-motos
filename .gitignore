@@ -20,3 +20,6 @@ mockup_base.html
 muckup_base.html
 
 mockup_gerencia.html
+
+# pytest-cov
+.coverage
