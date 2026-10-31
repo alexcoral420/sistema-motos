@@ -14,8 +14,9 @@ from flask import Blueprint, request, jsonify
 from app.auth.api_key import requiere_api_key
 from app.seguridad.logging_config import obtener_logger
 from app.seguridad.limites import limiter
-from app.servicios import inventario, metricas, catalogo
+from app.servicios import inventario, metricas, catalogo, avaluo
 from app.servicios.metricas import ErrorMetrica
+from app.seguridad.validadores import ErrorValidacion
 from app.db import repositorios
 from app.seguridad.limites import limiter
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -142,3 +143,20 @@ def registrar_mensaje():
         return jsonify({"error": e.mensaje}), 400
 
     return jsonify({"ok": True, "conversacion_id": conversacion_id}), 201
+
+
+@api_bp.route("/avaluo", methods=["GET"])
+@limiter.limit("30 per hour")
+def avaluo_moto():
+    """
+    Estima el valor de una moto: ?marca=&modelo=&anio=&km=
+
+    Pública (sin API key) a propósito: la usa la página /simula-compra
+    desde el navegador, donde una llave quedaría expuesta. Solo devuelve
+    agregados (percentiles y conteo), y el rate limit acota el abuso.
+    """
+    try:
+        consulta = avaluo.validar_consulta(request.args)
+    except ErrorValidacion as e:
+        return jsonify({"error": e.mensaje}), 400
+    return jsonify(avaluo.avaluo(**consulta))

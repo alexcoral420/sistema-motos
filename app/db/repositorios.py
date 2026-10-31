@@ -823,6 +823,32 @@ def intenciones_en_rango(desde, hasta):
                         .lt("created_at", hasta)
                         .order("id"))
 
+
+def pares_marca_modelo():
+    """(marca, modelo) de todas las motos registradas, con repetidos."""
+    supabase = get_supabase_publico()
+    return _traer_todas(lambda: supabase.table("motos")
+                        .select("marca, modelo")
+                        .order("id"))
+
+
+def motos_con_venta_activa(marca: str, modelo: str):
+    """
+    Motos de una marca y modelo con su venta no anulada y con precio,
+    si la tiene (LEFT JOIN: 'ventas' llega como lista, vacía si no).
+
+    Usa el cliente admin porque 'ventas' tiene RLS; quien llame solo
+    debe exponer agregados, nunca filas sueltas.
+    """
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("motos")
+                        .select("anio, kilometraje, precio, ventas(id, precio_venta)")
+                        .eq("marca", marca)
+                        .eq("modelo", modelo)
+                        .eq("ventas.estado", "activa")
+                        .not_.is_("ventas.precio_venta", "null")
+                        .order("id"))
+
     # ============================================================
 #  GESTIÓN DE USUARIOS (crear, listar, desactivar)
 # ============================================================

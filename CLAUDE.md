@@ -24,7 +24,12 @@ python scripts/crear_usuario.py
 gunicorn run:app --bind 0.0.0.0:$PORT
 ```
 
-There is no test suite (`tests/` is empty, no pytest config) and no configured linter — this is documented as known technical debt in the README, not an oversight. Verification is manual; when changing behavior, check it by running the app.
+```bash
+# Tests (from the project root)
+python -m pytest tests/
+```
+
+There is a small pytest suite in `tests/` covering pure service logic (`test_personas.py`, `test_avaluo.py`). Tests never touch Supabase: repository functions are replaced with `monkeypatch`. There is no pytest config file or `conftest.py`, and `pytest` is not listed in `requirements.txt` (install it separately). There is no configured linter. Coverage is far from complete, so verification is still mostly manual; when changing behavior, add or update tests for pure logic and check the rest by running the app.
 
 Required `.env` vars are listed in `.env.example`: `SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role), `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `CLAVE_CIFRADO` (Fernet key for sensitive fields — irrecoverable if lost, never commit it), `WHATSAPP_CONTACTO`, plus Twilio/Meta WhatsApp Cloud API credentials.
 

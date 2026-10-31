@@ -272,6 +272,29 @@ def credito():
     return render_template("credito.html")
 
 
+@publico_bp.route("/simula-compra")
+def simula_compra():
+    """
+    "¿Cuánto vale mi moto?": formulario de avalúo.
+
+    Con JS, la página pide /api/avaluo y pinta el resultado sin recargar.
+    Sin JS, el formulario llega aquí mismo con ?marca=&modelo=... y el
+    resultado se renderiza en el servidor con el mismo servicio.
+    """
+    from app.servicios import avaluo
+    resultado, error, consulta = None, None, None
+    if request.args.get("marca"):
+        try:
+            consulta = avaluo.validar_consulta(request.args)
+            resultado = avaluo.avaluo(**consulta)
+        except ErrorValidacion as e:
+            error = e.mensaje
+    return render_template("simula_compra.html",
+                           modelos_por_marca=avaluo.modelos_por_marca(),
+                           consulta=consulta or request.args,
+                           resultado=resultado, error=error)
+
+
 @publico_bp.route("/feria")
 def feria():
     """
