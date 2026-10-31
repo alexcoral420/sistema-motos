@@ -18,7 +18,6 @@ from app.servicios import inventario, metricas, catalogo, avaluo
 from app.servicios.metricas import ErrorMetrica
 from app.seguridad.validadores import ErrorValidacion
 from app.db import repositorios
-from app.seguridad.limites import limiter
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
