@@ -1,13 +1,13 @@
 name: Tests
 
-on: [push, pull_request]          # corre en cada push y en cada PR
+on: [push, pull_request]
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest        # una máquina Linux limpia en la nube de GitHub
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4          # baja tu código al runner
-      - uses: actions/setup-python@v5      # instala Python
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - name: Instalar dependencias
