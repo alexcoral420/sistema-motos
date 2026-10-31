@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¿Cuánto vale mi moto? Avalúo gratis en Bogotá | Universal Motors</title>
+    <meta name="description" content="Descubre cuánto vale tu moto usada con datos reales de motos que hemos comprado y vendido en Bogotá. Gratis y en segundos.">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #0d0d0a;
+            --negro-800: #14140f;
+            --negro-700: #1c1c16;
+            --negro-600: #26261e;
+            --borde: #33332a;
+            --texto: #f2f2ee;
+            --texto-suave: #b8b8ad;
+            --texto-tenue: #7a7a70;
+            --verde-wa: #25d366;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, .btn-cta, .cifra { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
+        a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+        /* ===== Navegación ===== */
+        .navbar { background: var(--negro-900); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
+        .navbar .logo img { height: 38px; width: 38px; border-radius: 50%; }
+        .navbar .logo span { color: var(--naranja); }
+        .nav-links { display: flex; gap: 22px; align-items: center; }
+        .nav-links a { color: var(--texto-suave); text-decoration: none; font-size: 15px; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--naranja); }
+
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ===== Botones ===== */
+        .btn-cta {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            background: var(--naranja); color: #000;
+            padding: 15px 30px; border-radius: 40px;
+            font-size: 18px; font-weight: 700; text-transform: uppercase;
+            text-decoration: none; border: none; cursor: pointer;
+            transition: transform 0.15s, background 0.2s;
+        }
+        .btn-cta:hover { background: var(--naranja-claro); transform: translateY(-2px); }
+        .btn-cta:disabled { opacity: 0.6; cursor: wait; transform: none; }
+        .btn-cta.wa { background: var(--verde-wa); }
+        .btn-cta.wa:hover { background: #3ee07a; }
+
+        /* ===== Contenido ===== */
+        .contenido { max-width: 640px; margin: 0 auto; padding: 48px 20px 56px; }
+        .contenido h1 { font-size: 44px; line-height: 1.05; text-transform: uppercase; margin-bottom: 14px; }
+        .contenido h1 em { font-style: normal; color: var(--naranja); }
+        .intro { color: var(--texto-suave); font-size: 17px; line-height: 1.6; margin-bottom: 28px; }
+
+        .tarjeta { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 18px; padding: 24px; }
+
+        .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+        .campo label { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-tenue); margin-bottom: 6px; }
+        .campo select, .campo input {
+            width: 100%; padding: 12px 14px; font: inherit; font-size: 16px;
+            background: var(--negro-900); color: var(--texto);
+            border: 1px solid var(--borde); border-radius: 10px;
+        }
+        .campo select:disabled { opacity: 0.5; }
+        .campo .ayuda { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+        form .btn-cta { width: 100%; }
+
+        .error { background: rgba(255,80,60,0.12); border: 1px solid #a33; color: #ffb3a8; border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 15px; }
+
+        /* ===== Resultado ===== */
+        .resultado { margin-top: 24px; text-align: center; }
+        .resultado[hidden] { display: none; }
+        .resultado .etiqueta { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-tenue); }
+        .cifra { font-size: 56px; font-weight: 800; color: var(--naranja); line-height: 1.1; margin: 6px 0 18px; font-variant-numeric: tabular-nums; }
+
+        .rango { margin: 0 auto 18px; max-width: 420px; }
+        .rango-barra { position: relative; height: 10px; border-radius: 6px; background: linear-gradient(to right, var(--negro-600), var(--naranja)); }
+        .rango-marca { position: absolute; top: 50%; width: 20px; height: 20px; border-radius: 50%; background: var(--texto); border: 3px solid var(--naranja); transform: translate(-50%, -50%); transition: left 0.9s cubic-bezier(.2,.7,.3,1); }
+        .rango-extremos { display: flex; justify-content: space-between; margin-top: 10px; font-size: 14px; color: var(--texto-suave); }
+
+        .nota { color: var(--texto-suave); font-size: 15px; line-height: 1.55; margin-bottom: 22px; }
+        .nota b { color: var(--texto); }
+        .confianza { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border: 1px solid var(--borde); }
+        .confianza.alta { color: #7fe39b; border-color: #2f6b3f; }
+        .confianza.media { color: #ffd27a; border-color: #6b5a2f; }
+        .confianza.baja { color: #ff9f8a; border-color: #6b3a2f; }
+
+        .aviso { padding: 22px 0 0; color: var(--texto-tenue); font-size: 13px; line-height: 1.6; }
+
+        /* ===== Móvil ===== */
+        @media (max-width: 640px) {
+            .menu-toggle { display: block; }
+            .navbar { position: relative; }
+            .nav-links {
+                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                flex-direction: column; align-items: flex-start;
+                background: var(--negro-900); padding: 16px 20px; gap: 16px;
+                border-bottom: 2px solid var(--naranja);
+            }
+            .nav-links.abierto { display: flex; }
+            .contenido { padding: 36px 16px 48px; }
+            .contenido h1 { font-size: 36px; }
+            .campos { grid-template-columns: 1fr; }
+            .cifra { font-size: 46px; }
+            .btn-cta { width: 100%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn-cta:hover { transform: none; }
+            .rango-marca { transition: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="{{ url_for('publico.inicio') }}" class="logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
+            <a href="{{ url_for('publico.inicio') }}">Inicio</a>
+            <a href="{{ url_for('publico.catalogo_publico') }}">Catálogo</a>
+            <a href="{{ url_for('publico.credito') }}">Financiación</a>
+            <a href="#" class="active">¿Cuánto vale mi moto?</a>
+        </div>
+    </nav>
+
+    <main class="contenido">
+        <h1>¿Cuánto vale <em>tu moto</em>?</h1>
+        <p class="intro">
+            Te damos un estimado con datos reales de motos de tu mismo modelo
+            que han pasado por nuestras sedes en Bogotá. Gratis y en segundos.
+        </p>
+
+        <div class="tarjeta">
+            {# Sin JS, el formulario llega a esta misma página y el servidor
+               pinta el resultado. Con JS, se intercepta y se pide a /api/avaluo. #}
+            <form id="form-avaluo" method="get" action="{{ url_for('publico.simula_compra') }}">
+                <div id="error" class="error" role="alert" {% if not error %}hidden{% endif %}>{{ error or '' }}</div>
+
+                <div class="campos">
+                    <div class="campo">
+                        <label for="marca">Marca</label>
+                        <select id="marca" name="marca" required>
+                            <option value="">Elige la marca</option>
+                            {% for marca in modelos_por_marca %}
+                            <option value="{{ marca }}" {% if consulta.get('marca') == marca %}selected{% endif %}>{{ marca }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="modelo">Modelo</label>
+                        {# Sin JS se ven todos los modelos agrupados por marca;
+                           el JS los reemplaza por los de la marca elegida. #}
+                        <select id="modelo" name="modelo" required>
+                            <option value="">Elige el modelo</option>
+                            {% for marca, modelos in modelos_por_marca.items() %}
+                            <optgroup label="{{ marca }}">
+                                {% for modelo in modelos %}
+                                <option value="{{ modelo }}" {% if consulta.get('marca') == marca and consulta.get('modelo') == modelo %}selected{% endif %}>{{ modelo }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="anio">Año</label>
+                        <input id="anio" name="anio" type="number" inputmode="numeric" min="1980" max="2100" placeholder="2019" required value="{{ consulta.get('anio') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="km">Kilometraje</label>
+                        <input id="km" name="km" type="number" inputmode="numeric" min="0" step="1" placeholder="25000" value="{{ consulta.get('km') if consulta.get('km') is not none else '' }}">
+                        <p class="ayuda">Opcional, pero afina el estimado.</p>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-cta" id="btn-avaluo">Calcular valor</button>
+            </form>
+
+            {# Resultado: el servidor lo llena si llegó sin JS; el JS lo
+               rellena con lo que devuelva la API. #}
+            <section id="resultado" class="resultado" aria-live="polite" {% if not resultado %}hidden{% endif %}>
+                <div id="con-datos" {% if resultado and resultado.sin_datos %}hidden{% endif %}>
+                    <p class="etiqueta">Valor estimado</p>
+                    <p class="cifra">$<span id="estimado" data-n="{{ resultado.estimado if resultado and not resultado.sin_datos else 0 }}">{{ (resultado.estimado if resultado and not resultado.sin_datos else 0) | pesos }}</span></p>
+
+                    {% set ancho = (resultado.rango_max - resultado.rango_min) if resultado and not resultado.sin_datos else 0 %}
+                    <div class="rango">
+                        <div class="rango-barra">
+                            <span class="rango-marca" id="rango-marca"
+                                  style="left: {{ ((resultado.estimado - resultado.rango_min) / ancho * 100) | round(1) if ancho else 50 }}%"></span>
+                        </div>
+                        <div class="rango-extremos">
+                            <span>$<span id="rango-min">{{ resultado.rango_min | pesos if resultado and not resultado.sin_datos else '' }}</span></span>
+                            <span>$<span id="rango-max">{{ resultado.rango_max | pesos if resultado and not resultado.sin_datos else '' }}</span></span>
+                        </div>
+                    </div>
+
+                    <span id="confianza" class="confianza {{ resultado.confianza if resultado and not resultado.sin_datos else '' }}">
+                        Confianza {{ resultado.confianza if resultado and not resultado.sin_datos else '' }}
+                    </span>
+                    <p class="nota" id="nota">
+                        {% if resultado and not resultado.sin_datos %}
+                        Basado en <b>{{ resultado.n_comparables }}</b> moto{{ 's' if resultado.n_comparables != 1 }}
+                        {%- if resultado.anio_desde %} de <b>{{ resultado.anio_desde }}{% if resultado.anio_hasta != resultado.anio_desde %} a {{ resultado.anio_hasta }}{% endif %}</b>{% endif %}.
+                        El valor final depende del estado de la moto y sus papeles.
+                        {% endif %}
+                    </p>
+                </div>
+
+                <p class="nota" id="sin-datos" {% if not (resultado and resultado.sin_datos) %}hidden{% endif %}>
+                    Todavía no tenemos suficientes datos de este modelo para darte un número.
+                    <b>Tráenos tu moto</b> o escríbenos y un asesor te la avalúa sin compromiso.
+                </p>
+
+                {% set c = consulta if resultado else {} %}
+                {% set texto_wa = 'Hola, tengo una ' ~ c.get('marca', '') ~ ' ' ~ c.get('modelo', '') ~ ' ' ~ c.get('anio', '') ~ (' con ' ~ c.get('km') ~ ' km' if c.get('km') is not none else '') ~ ', ¿me hacen una oferta?' %}
+                <a id="btn-wa" class="btn-cta wa" target="_blank" rel="noopener"
+                   href="https://wa.me/{{ whatsapp }}?text={{ texto_wa | urlencode }}">
+                    Quiero una oferta por WhatsApp
+                </a>
+            </section>
+
+            <p class="aviso">
+                El estimado es orientativo y no constituye una oferta de compra. La oferta final
+                la da un asesor después de revisar la moto y sus papeles.
+            </p>
+        </div>
+    </main>
+
+    <script>
+        const toggle = document.querySelector('.menu-toggle');
+        const links = document.getElementById('nav-links');
+        if (toggle && links) {
+            toggle.addEventListener('click', () => {
+                const abierto = links.classList.toggle('abierto');
+                toggle.classList.toggle('abierto', abierto);
+                toggle.setAttribute('aria-expanded', abierto);
+            });
+        }
+
+        // ===== Modelo dependiente de la marca =====
+        const MODELOS = {{ modelos_por_marca | tojson }};
+        const selMarca = document.getElementById('marca');
+        const selModelo = document.getElementById('modelo');
+
+        function llenarModelos() {
+            const previo = selModelo.value;
+            const modelos = MODELOS[selMarca.value] || [];
+            selModelo.replaceChildren(new Option(
+                selMarca.value ? 'Elige el modelo' : 'Primero elige la marca', ''));
+            modelos.forEach(m => selModelo.add(new Option(m, m, false, m === previo)));
+            selModelo.disabled = !selMarca.value;
+        }
+        selMarca.addEventListener('change', llenarModelos);
+        llenarModelos();
+
+        // ===== Contador animado =====
+        // Mismo patrón que el catálogo: de 0 a data-n con desaceleración.
+        const pesos = n => Math.round(n).toLocaleString('es-CO');
+        function contar(el) {
+            const n = +el.dataset.n;
+            if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                el.textContent = pesos(n);
+                return;
+            }
+            const t0 = performance.now();
+            (function f(t) {
+                const p = Math.min(1, (t - t0) / 900);
+                el.textContent = pesos(n * (1 - Math.pow(1 - p, 3)));
+                if (p < 1) requestAnimationFrame(f);
+            })(performance.now());
+        }
+
+        // ===== Envío sin recargar =====
+        const form = document.getElementById('form-avaluo');
+        const caja = document.getElementById('resultado');
+        const error = document.getElementById('error');
+        const boton = document.getElementById('btn-avaluo');
+        const $ = id => document.getElementById(id);
+
+        function mostrar(r, c) {
+            const sinDatos = !!r.sin_datos;
+            $('con-datos').hidden = sinDatos;
+            $('sin-datos').hidden = !sinDatos;
+            if (!sinDatos) {
+                $('estimado').dataset.n = r.estimado;
+                $('rango-min').textContent = pesos(r.rango_min);
+                $('rango-max').textContent = pesos(r.rango_max);
+                const ancho = r.rango_max - r.rango_min;
+                $('rango-marca').style.left = '50%';
+                const conf = $('confianza');
+                conf.className = 'confianza ' + r.confianza;
+                conf.textContent = 'Confianza ' + r.confianza;
+                const motos = r.n_comparables === 1 ? 'moto' : 'motos';
+                let anios = '';
+                if (r.anio_desde) {
+                    anios = ' de ' + r.anio_desde + (r.anio_hasta !== r.anio_desde ? ' a ' + r.anio_hasta : '');
+                }
+                const nota = $('nota');
+                nota.replaceChildren('Basado en ', Object.assign(document.createElement('b'), { textContent: r.n_comparables }),
+                    ' ' + motos + anios + '. El valor final depende del estado de la moto y sus papeles.');
+                // El marcador parte del centro y se desliza a su posición.
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    $('rango-marca').style.left = (ancho ? (r.estimado - r.rango_min) / ancho * 100 : 50) + '%';
+                }));
+            }
+            const texto = `Hola, tengo una ${c.marca} ${c.modelo} ${c.anio}` +
+                (c.km ? ` con ${c.km} km` : '') + ', ¿me hacen una oferta?';
+            $('btn-wa').href = 'https://wa.me/{{ whatsapp }}?text=' + encodeURIComponent(texto);
+            caja.hidden = false;
+            if (!sinDatos) contar($('estimado'));
+        }
+
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+            const params = new URLSearchParams(new FormData(form));
+            if (!params.get('km')) params.delete('km');
+            const consulta = Object.fromEntries(params);
+            error.hidden = true;
+            boton.disabled = true;
+            try {
+                const resp = await fetch('/api/avaluo?' + params);
+                const datos = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    error.textContent = datos.error ||
+                        (resp.status === 429 ? 'Hiciste muchas consultas seguidas. Intenta en un rato.'
+                                             : 'No pudimos calcular el valor. Intenta de nuevo.');
+                    error.hidden = false;
+                    return;
+                }
+                mostrar(datos, consulta);
+                history.replaceState(null, '', '?' + params);
+            } catch {
+                // Sin red o falla del fetch: el envío normal sigue funcionando.
+                form.submit();
+            } finally {
+                boton.disabled = false;
+            }
+        });
+
+        // Si el resultado vino renderizado por el servidor, también cuenta.
+        if (!caja.hidden && !$('con-datos').hidden) contar($('estimado'));
+    </script>
+</body>
+</html>

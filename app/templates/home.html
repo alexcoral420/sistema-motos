@@ -342,6 +342,7 @@
         .servicio-card:hover .servicio-icon { border-color: var(--naranja); background: rgba(255,122,0,0.08); }
         .servicio-card h3 { color: var(--naranja); font-size: 22px; margin-bottom: 12px; text-transform: uppercase; }
         .servicio-card p { color: var(--texto-suave); font-size: 14px; line-height: 1.6; }
+        .servicio-card p a { color: var(--naranja); font-weight: 600; }
 
         /* ===== Cómo funciona la financiación ===== */
         .pasos { background: var(--negro-700); border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); padding: 80px 24px; }
@@ -457,6 +458,7 @@
             <a href="/inicio">Inicio</a>
             <a href="/catalogo">Catálogo</a>
             <a href="{{ url_for('publico.credito') }}">Financiación</a>
+            <a href="{{ url_for('publico.simula_compra') }}">¿Cuánto vale mi moto?</a>
             <a href="/privacidad">Privacidad</a>
             <a href="https://wa.me/{{ whatsapp }}" class="btn-nav" target="_blank" rel="noopener">
                 <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
@@ -593,7 +595,7 @@
             <div class="servicio-card">
                 <div class="servicio-icon"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
                 <h3>Compraventa de motos</h3>
-                <p>Motos usadas revisadas, con papeles al día y SOAT y tecnomecánica vigentes. Si ya tienes moto, también te la compramos.</p>
+                <p>Motos usadas revisadas, con papeles al día y SOAT y tecnomecánica vigentes. Si ya tienes moto, también te la compramos: <a href="{{ url_for('publico.simula_compra') }}">¿cuánto vale la tuya?</a></p>
             </div>
             <div class="servicio-card">
                 <div class="servicio-icon"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-tarjeta"/></svg></div>
