@@ -14,7 +14,7 @@ from flask import Blueprint, request, jsonify
 from app.auth.api_key import requiere_api_key
 from app.seguridad.logging_config import obtener_logger
 from app.seguridad.limites import limiter
-from app.servicios import inventario, metricas, catalogo, avaluo
+from app.servicios import inventario, metricas, catalogo, avaluo, recordatorios
 from app.servicios.metricas import ErrorMetrica
 from app.seguridad.validadores import ErrorValidacion
 from app.db import repositorios
@@ -159,3 +159,21 @@ def avaluo_moto():
     except ErrorValidacion as e:
         return jsonify({"error": e.mensaje}), 400
     return jsonify(avaluo.avaluo(**consulta))
+
+
+@api_bp.route("/recordatorios", methods=["POST"])
+@limiter.limit("10 per hour")
+def crear_recordatorio():
+    """
+    Activa un recordatorio push de vencimiento (SOAT / tecnomecánica).
+
+    Pública (sin API key) como /avaluo: la llama la página
+    /recordatorio-soat desde el navegador. Escribe en la base, por eso su
+    rate limit es más estricto. Devuelve el token del recordatorio (el
+    dispositivo lo guarda para editarlo o borrarlo después).
+    """
+    try:
+        token = recordatorios.crear(request.get_json(silent=True))
+    except ErrorValidacion as e:
+        return jsonify({"error": e.mensaje}), 400
+    return jsonify({"token": token}), 201

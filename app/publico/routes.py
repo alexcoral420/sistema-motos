@@ -321,6 +321,17 @@ def credito():
     return render_template("credito.html")
 
 
+@publico_bp.route("/recordatorio-soat")
+def recordatorio_soat():
+    """
+    Formulario para activar un recordatorio push de vencimiento de SOAT y
+    tecnomecánica. El JS de la página pide permiso, crea la suscripción
+    con la llave pública VAPID y la envía a POST /api/recordatorios.
+    """
+    return render_template("recordatorio_soat.html",
+                           vapid_publica=current_app.config.get("VAPID_PUBLIC_KEY") or "")
+
+
 @publico_bp.route("/simula-compra")
 def simula_compra():
     """

@@ -1502,3 +1502,17 @@ def obtener_datos_contrato(moto_id: int):
                  .limit(1)
                  .execute())
     return resultado.data[0] if resultado.data else None
+
+
+# ============================================================
+# RECORDATORIOS (push de vencimiento SOAT / tecnomecánica)
+# ============================================================
+
+def crear_recordatorio(registro: dict):
+    """
+    Inserta un recordatorio ya validado (token_hash, suscripcion, fechas,
+    placa, política). Devuelve el registro insertado.
+    """
+    supabase = get_supabase_admin()
+    resultado = supabase.table("recordatorios").insert(registro).execute()
+    return resultado.data[0] if resultado.data else None

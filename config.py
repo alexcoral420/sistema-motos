@@ -46,6 +46,14 @@ class Config:
     # UNA sola fuente de verdad, para no repetirlo en cada template.
     WHATSAPP_CONTACTO = os.environ.get("WHATSAPP_CONTACTO", "3042827795")
 
+    # --- Web Push (recordatorios de SOAT / tecnomecánica) ---
+    # La pública va al navegador (applicationServerKey); la privada firma
+    # los envíos (Fase 2) y nunca sale del servidor. SUBJECT es el contacto
+    # (mailto:) que ven los servicios de push si hay un problema.
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+    VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT")
+
     # --- Datos legales de la empresa (contratos de venta y compra) ---
     # UNA sola fuente: las plantillas .docx los reciben como marcadores,
     # nunca escritos a mano.
