@@ -226,3 +226,75 @@ def test_envio_sin_vapid(monkeypatch, envio):
     monkeypatch.setattr(recordatorios.Config, "VAPID_PRIVATE_KEY", None)
     with pytest.raises(RuntimeError):
         recordatorios.enviar_push({"suscripcion": _suscripcion()}, "T", "C")
+
+
+# ------------------------------------------------- qué avisos salen hoy
+
+def _rec(id=1, soat=None, tecno=None, activo=True):
+    return {"id": id, "activo": activo,
+            "fecha_soat": (HOY + timedelta(days=soat)).isoformat() if soat is not None else None,
+            "fecha_tecno": (HOY + timedelta(days=tecno)).isoformat() if tecno is not None else None}
+
+
+def _avisos(recs, ya=frozenset()):
+    return recordatorios.avisos_a_enviar(recs, HOY, set(ya))
+
+
+def test_a_30_dias_dispara_el_30():
+    assert _avisos([_rec(soat=30)]) == [(1, "soat", 30, 30)]
+
+
+def test_a_31_dias_no_dispara():
+    assert _avisos([_rec(soat=31)]) == []
+
+
+def test_catch_up_29_dias_con_30_pendiente_dispara_30():
+    assert _avisos([_rec(soat=29)]) == [(1, "soat", 30, 29)]
+
+
+def test_29_dias_con_30_ya_enviado_no_dispara():
+    assert _avisos([_rec(soat=29)], {(1, "soat", 30)}) == []
+
+
+def test_umbral_ya_enviado_se_saltea():
+    assert _avisos([_rec(soat=15)], {(1, "soat", 15)}) == []
+
+
+@pytest.mark.parametrize("dias, umbral", [(16, 30), (15, 15), (8, 15), (7, 7), (2, 7), (1, 1), (0, 1)])
+def test_bucket_es_el_umbral_mas_chico_mayor_o_igual(dias, umbral):
+    assert _avisos([_rec(soat=dias)]) == [(1, "soat", umbral, dias)]
+
+
+def test_soat_y_tecno_disparan_independientes():
+    avisos = _avisos([_rec(soat=7, tecno=30)], {(1, "soat", 30), (1, "soat", 15)})
+    assert sorted(avisos) == [(1, "soat", 7, 7), (1, "tecno", 30, 30)]
+
+
+def test_lo_enviado_de_un_tipo_no_afecta_al_otro():
+    assert _avisos([_rec(soat=7, tecno=7)], {(1, "soat", 7)}) == [(1, "tecno", 7, 7)]
+
+
+def test_sin_esa_fecha_no_dispara():
+    assert _avisos([_rec(soat=None, tecno=15)]) == [(1, "tecno", 15, 15)]
+    assert _avisos([_rec(soat=None, tecno=None)]) == []
+
+
+def test_ya_vencido_no_dispara():
+    assert _avisos([_rec(soat=-1)]) == []
+
+
+def test_inactivo_no_dispara():
+    assert _avisos([_rec(soat=7, activo=False)]) == []
+
+
+def test_acepta_fechas_como_date():
+    r = {"id": 3, "fecha_soat": HOY + timedelta(days=7), "fecha_tecno": None}
+    assert _avisos([r]) == [(3, "soat", 7, 7)]
+
+
+def test_texto_aviso():
+    t = recordatorios.texto_aviso("tecno", "2027-03-15", 15)
+    assert t["titulo"] == "Tu tecnomecánica vence pronto"
+    assert t["cuerpo"] == "Vence en 15 días (15 de marzo de 2027). Renuévalo para evitar multas."
+    assert recordatorios.texto_aviso("soat", "2027-03-15", 1)["cuerpo"].startswith("Vence mañana (")
+    assert recordatorios.texto_aviso("soat", "2027-03-15", 0)["cuerpo"].startswith("Vence hoy (")

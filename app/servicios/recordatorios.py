@@ -75,6 +75,17 @@ TIMEOUT_PUSH = 10
 # existe" (el usuario revocó el permiso, desinstaló, limpió datos...).
 ESTADOS_SUSCRIPCION_MUERTA = (404, 410)
 
+# Envío automático (Fase 3): días antes del vencimiento en que se avisa.
+UMBRALES_AVISO = (30, 15, 7, 1)
+# Tipo de aviso → (columna con la fecha, nombre para el usuario).
+TIPOS_AVISO = {
+    "soat": ("fecha_soat", "SOAT"),
+    "tecno": ("fecha_tecno", "tecnomecánica"),
+}
+MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+         "agosto", "septiembre", "octubre", "noviembre", "diciembre")
+URL_AVISO = "/"
+
 
 def _hoy() -> date:
     return datetime.now(HORA_COLOMBIA).date()
@@ -234,3 +245,61 @@ def enviar_push(recordatorio: dict, titulo: str, cuerpo: str, url: str = "/") ->
             desactivados = repositorios.desactivar_recordatorios_por_endpoint(
                 suscripcion["endpoint"], datetime.now(HORA_COLOMBIA).isoformat())
         return {"ok": False, "estado": estado, "desactivados": desactivados, "detalle": str(e)}
+
+
+def _como_fecha(valor):
+    if valor in (None, ""):
+        return None
+    if isinstance(valor, date):
+        return valor
+    return date.fromisoformat(valor)
+
+
+def avisos_a_enviar(recordatorios, hoy: date, ya_enviados, umbrales=UMBRALES_AVISO) -> list:
+    """
+    Decide qué avisos salen hoy. Función pura, sin I/O.
+
+    Para cada recordatorio activo y cada tipo (SOAT y tecno, por separado)
+    con dias = fecha - hoy: si dias < 0 ya venció y no se avisa; si no, el
+    umbral que corresponde es el más chico de los umbrales que sea >= dias
+    ("bucket"). Se envía solo si (id, tipo, umbral) no está en ya_enviados.
+
+    El bucket hace de catch-up: si el job no corrió justo el día 30, el
+    aviso de 30 sale el día 29; y una vez enviado no se repite.
+
+    Devuelve [(recordatorio_id, tipo, umbral, dias_restantes), ...].
+    """
+    ordenados = sorted(umbrales)
+    avisos = []
+    for r in recordatorios:
+        if not r.get("activo", True):
+            continue
+        for tipo, (columna, _) in TIPOS_AVISO.items():
+            fecha = _como_fecha(r.get(columna))
+            if fecha is None:
+                continue
+            dias = (fecha - hoy).days
+            if dias < 0:
+                continue
+            umbral = next((u for u in ordenados if u >= dias), None)
+            if umbral is None or (r["id"], tipo, umbral) in ya_enviados:
+                continue
+            avisos.append((r["id"], tipo, umbral, dias))
+    return avisos
+
+
+def texto_aviso(tipo: str, fecha, dias: int) -> dict:
+    """Título y cuerpo de la notificación de vencimiento."""
+    fecha = _como_fecha(fecha)
+    nombre = TIPOS_AVISO[tipo][1]
+    fecha_txt = f"{fecha.day} de {MESES[fecha.month - 1]} de {fecha.year}"
+    if dias == 0:
+        cuando = "Vence hoy"
+    elif dias == 1:
+        cuando = "Vence mañana"
+    else:
+        cuando = f"Vence en {dias} días"
+    return {
+        "titulo": f"Tu {nombre} vence pronto",
+        "cuerpo": f"{cuando} ({fecha_txt}). Renuévalo para evitar multas.",
+    }
