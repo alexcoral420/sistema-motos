@@ -6,6 +6,7 @@
     <title>Catálogo de Motos Usadas en Bogotá | Precios y Financiación</title>
     <meta name="description" content="Explora nuestro catálogo de motos usadas en Bogotá. Filtra por marca y precio, todas con papeles al día. Financiación disponible. ¡Encuentra la tuya!">
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+    {% include "_pwa_head.html" %}
     <!-- El hero es un fondo CSS: el navegador lo descubre tarde. El preload lo
          pide de inmediato y con prioridad alta (está arriba del pliegue). -->
     <link rel="preload" as="image" href="/static/hero-hall.webp" type="image/webp" fetchpriority="high">

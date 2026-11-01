@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordatorio de SOAT y tecnomecánica gratis | Universal Motors</title>
+    <meta name="description" content="Te avisamos en tu celular antes de que se venzan el SOAT y la revisión técnico-mecánica de tu moto. Gratis y sin registrarte.">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+    {% include "_pwa_head.html" %}
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #0d0d0a;
+            --negro-800: #14140f;
+            --negro-700: #1c1c16;
+            --negro-600: #26261e;
+            --borde: #33332a;
+            --texto: #f2f2ee;
+            --texto-suave: #b8b8ad;
+            --texto-tenue: #7a7a70;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, .btn-cta { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
+        a { color: var(--naranja); }
+        a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+        /* ===== Navegación ===== */
+        .navbar { background: var(--negro-900); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
+        .navbar .logo img { height: 38px; width: 38px; border-radius: 50%; }
+        .navbar .logo span { color: var(--naranja); }
+        .nav-links { display: flex; gap: 22px; align-items: center; }
+        .nav-links a { color: var(--texto-suave); text-decoration: none; font-size: 15px; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--naranja); }
+
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ===== Botón ===== */
+        .btn-cta {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%;
+            background: var(--naranja); color: #000;
+            padding: 15px 30px; border-radius: 40px;
+            font-size: 18px; font-weight: 700; text-transform: uppercase;
+            border: none; cursor: pointer;
+            transition: transform 0.15s, background 0.2s;
+        }
+        .btn-cta:hover { background: var(--naranja-claro); transform: translateY(-2px); }
+        .btn-cta:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+        /* ===== Contenido ===== */
+        .contenido { max-width: 640px; margin: 0 auto; padding: 48px 20px 56px; }
+        .contenido h1 { font-size: 44px; line-height: 1.05; text-transform: uppercase; margin-bottom: 14px; }
+        .contenido h1 em { font-style: normal; color: var(--naranja); }
+        .intro { color: var(--texto-suave); font-size: 17px; line-height: 1.6; margin-bottom: 28px; }
+
+        .tarjeta { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 18px; padding: 24px; }
+
+        .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .campo label { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-tenue); margin-bottom: 6px; }
+        .campo input {
+            width: 100%; padding: 12px 14px; font: inherit; font-size: 16px;
+            background: var(--negro-900); color: var(--texto);
+            border: 1px solid var(--borde); border-radius: 10px;
+            color-scheme: dark;
+        }
+        .campo-placa { margin-bottom: 18px; }
+        .campo-placa input { text-transform: uppercase; max-width: 220px; }
+        .campo .ayuda { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+
+        .consentimiento { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--texto-suave); line-height: 1.5; margin-bottom: 20px; }
+        .consentimiento input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--naranja); flex-shrink: 0; }
+
+        /* Mensajes de estado: error, aviso (pasos a seguir) y éxito. */
+        .mensaje { border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 15px; line-height: 1.5; }
+        .mensaje[hidden] { display: none; }
+        .mensaje.error { background: rgba(255,80,60,0.12); border: 1px solid #a33; color: #ffb3a8; }
+        .mensaje.aviso { background: rgba(255,122,0,0.10); border: 1px solid #6b4a1f; color: #ffd6ad; }
+        .mensaje.exito { background: rgba(60,200,110,0.12); border: 1px solid #2f6b3f; color: #a8f0c0; }
+
+        .nota { padding: 22px 0 0; color: var(--texto-tenue); font-size: 13px; line-height: 1.6; }
+
+        /* ===== Móvil ===== */
+        @media (max-width: 640px) {
+            .menu-toggle { display: block; }
+            .navbar { position: relative; }
+            .nav-links {
+                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                flex-direction: column; align-items: flex-start;
+                background: var(--negro-900); padding: 16px 20px; gap: 16px;
+                border-bottom: 2px solid var(--naranja);
+            }
+            .nav-links.abierto { display: flex; }
+            .contenido { padding: 36px 16px 48px; }
+            .contenido h1 { font-size: 36px; }
+            .campos { grid-template-columns: 1fr; }
+            .campo-placa input { max-width: none; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn-cta:hover { transform: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="{{ url_for('publico.inicio') }}" class="logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
+            <a href="{{ url_for('publico.inicio') }}">Inicio</a>
+            <a href="{{ url_for('publico.catalogo_publico') }}">Catálogo</a>
+            <a href="{{ url_for('publico.credito') }}">Financiación</a>
+            <a href="{{ url_for('publico.simula_compra') }}">¿Cuánto vale mi moto?</a>
+        </div>
+    </nav>
+
+    <main class="contenido">
+        <h1>Que no se te <em>venza</em> el SOAT</h1>
+        <p class="intro">
+            Te avisamos en tu celular antes de que se venzan el SOAT y la revisión
+            técnico-mecánica de tu moto. Gratis y sin registrarte.
+        </p>
+
+        <div class="tarjeta">
+            <form id="form-recordatorio" novalidate>
+                <div id="mensaje" class="mensaje" role="status" aria-live="polite" hidden></div>
+
+                <div class="campos">
+                    <div class="campo">
+                        <label for="fecha_soat">Vence el SOAT</label>
+                        <input type="date" id="fecha_soat" name="fecha_soat">
+                    </div>
+                    <div class="campo">
+                        <label for="fecha_tecno">Vence la tecnomecánica</label>
+                        <input type="date" id="fecha_tecno" name="fecha_tecno">
+                    </div>
+                </div>
+
+                <div class="campo campo-placa">
+                    <label for="placa">Placa (opcional)</label>
+                    <input type="text" id="placa" name="placa" maxlength="7" autocomplete="off"
+                           autocapitalize="characters" placeholder="ABC12D">
+                    <p class="ayuda">Para saber de qué moto es el aviso si tienes varias.</p>
+                </div>
+
+                <label class="consentimiento">
+                    <input type="checkbox" id="acepta_politica" name="acepta_politica">
+                    <span>
+                        Autorizo a Universal Motors a guardar estos datos para enviarme los
+                        recordatorios, según la <a href="{{ url_for('publico.privacidad') }}" target="_blank" rel="noopener">política de privacidad</a>.
+                    </span>
+                </label>
+
+                <button type="submit" id="btn-activar" class="btn-cta">Activar recordatorio</button>
+            </form>
+
+            <p class="nota">
+                Al activarlo, tu navegador te pedirá permiso para mostrar notificaciones.
+                Puedes desactivarlas cuando quieras desde la configuración del navegador.
+            </p>
+        </div>
+    </main>
+
+    <script>
+        const toggle = document.querySelector('.menu-toggle');
+        const links = document.getElementById('nav-links');
+        if (toggle && links) {
+            toggle.addEventListener('click', () => {
+                const abierto = links.classList.toggle('abierto');
+                toggle.classList.toggle('abierto', abierto);
+                toggle.setAttribute('aria-expanded', abierto);
+            });
+        }
+
+        // ===== Recordatorio push =====
+        // La llave pública VAPID viene de config (VAPID_PUBLIC_KEY), no del código.
+        const VAPID_PUBLICA = {{ vapid_publica | tojson }};
+        const CLAVE_TOKEN = 'um_recordatorio_token';
+
+        const form = document.getElementById('form-recordatorio');
+        const boton = document.getElementById('btn-activar');
+        const mensaje = document.getElementById('mensaje');
+
+        function mostrar(tipo, html) {
+            mensaje.className = 'mensaje ' + tipo;
+            mensaje.innerHTML = html;
+            mensaje.hidden = false;
+            mensaje.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        // localStorage puede no existir o lanzar (modo privado, datos bloqueados).
+        function leerToken() {
+            try { return localStorage.getItem(CLAVE_TOKEN); } catch { return null; }
+        }
+        function guardarToken(token) {
+            try { localStorage.setItem(CLAVE_TOKEN, token); } catch { /* sin almacenamiento: el recordatorio igual queda activo */ }
+        }
+
+        // applicationServerKey espera bytes; la llave viene en base64url.
+        function base64urlABytes(texto) {
+            const relleno = '='.repeat((4 - texto.length % 4) % 4);
+            const b64 = (texto + relleno).replace(/-/g, '+').replace(/_/g, '/');
+            const crudo = atob(b64);
+            return Uint8Array.from(crudo, c => c.charCodeAt(0));
+        }
+
+        // iPadOS se presenta como Mac; se distingue por la pantalla táctil.
+        const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const instalada = window.matchMedia('(display-mode: standalone)').matches ||
+                          navigator.standalone === true;
+        const soportaPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+        if (leerToken()) {
+            mostrar('exito', 'Ya tienes un recordatorio activo en este dispositivo. ' +
+                             'Puedes activar otro si tienes más motos.');
+        }
+
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+
+            const fechaSoat = form.fecha_soat.value;
+            const fechaTecno = form.fecha_tecno.value;
+            if (!fechaSoat && !fechaTecno) {
+                mostrar('error', 'Ingresa al menos una fecha: SOAT o tecnomecánica.');
+                return;
+            }
+            if (!form.acepta_politica.checked) {
+                mostrar('error', 'Debes aceptar la política de privacidad para activar el recordatorio.');
+                return;
+            }
+
+            // Caso iOS sin instalar: va ANTES del chequeo de soporte, porque en
+            // Safari sin instalar PushManager no existe y diríamos "no soportado".
+            if (esIOS && !instalada) {
+                mostrar('aviso', '<b>Primero agrega la app a tu pantalla de inicio.</b><br>' +
+                    'En Safari toca <b>Compartir</b> (el cuadro con la flecha) → ' +
+                    '<b>Agregar a inicio</b>. Luego abre Universal Motors desde el ícono ' +
+                    'y activa el recordatorio desde ahí.');
+                return;
+            }
+            if (!soportaPush) {
+                mostrar('error', 'Tu navegador no permite recordatorios. Prueba con Chrome, Edge o Firefox.');
+                return;
+            }
+            if (!VAPID_PUBLICA) {
+                mostrar('error', 'Los recordatorios no están disponibles en este momento. Intenta más tarde.');
+                return;
+            }
+
+            boton.disabled = true;
+            try {
+                const permiso = await Notification.requestPermission();
+                if (permiso !== 'granted') {
+                    mostrar('aviso', 'Bloqueaste las notificaciones, así que no podemos avisarte. ' +
+                        'Puedes habilitarlas en la configuración del navegador (el candado junto a ' +
+                        'la dirección) y volver a intentar.');
+                    return;
+                }
+
+                const registro = await navigator.serviceWorker.ready;
+                const suscripcion = await registro.pushManager.getSubscription() ||
+                    await registro.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: base64urlABytes(VAPID_PUBLICA),
+                    });
+
+                const resp = await fetch('/api/recordatorios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fecha_soat: fechaSoat || null,
+                        fecha_tecno: fechaTecno || null,
+                        placa: form.placa.value.trim() || null,
+                        acepta_politica: true,
+                        suscripcion: suscripcion.toJSON(),
+                    }),
+                });
+                const datos = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    mostrar('error', datos.error ||
+                        (resp.status === 429 ? 'Hiciste muchos intentos seguidos. Intenta en un rato.'
+                                             : 'No pudimos activar el recordatorio. Intenta de nuevo.'));
+                    return;
+                }
+                guardarToken(datos.token);
+                mostrar('exito', '<b>¡Listo!</b> Te avisaremos en este dispositivo antes del vencimiento.');
+                form.reset();
+            } catch {
+                mostrar('error', 'No pudimos activar el recordatorio. Revisa tu conexión e intenta de nuevo.');
+            } finally {
+                boton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -8,7 +8,8 @@ servicio y entrega el HTML. Esa es toda su responsabilidad.
 """
 from app import csrf
 from app.seguridad.limites import limiter
-from flask import Blueprint, abort, render_template, request, redirect, current_app, session, url_for, jsonify
+import os
+from flask import Blueprint, abort, render_template, request, redirect, current_app, session, url_for, jsonify, send_from_directory
 from urllib.parse import quote
 from app.seguridad import validadores
 from app.seguridad.validadores import ErrorValidacion
@@ -214,6 +215,54 @@ def sitemap():
     # HTML. Hay que anunciarlo explícitamente como XML.
     return xml, 200, {"Content-Type": "application/xml"}
 
+
+@publico_bp.route("/manifest.json")
+def manifest():
+    """
+    Web App Manifest: lo que hace al sitio instalable como PWA.
+
+    Se arma aquí (y no como JSON estático) para que las URLs de los
+    íconos salgan de url_for. Los íconos los genera
+    scripts/generar_iconos_pwa.py.
+    """
+    def icono(nombre, lado):
+        return {"src": url_for("static", filename=f"pwa/{nombre}"),
+                "sizes": f"{lado}x{lado}", "type": "image/png",
+                "purpose": "any maskable"}
+
+    datos = {
+        "name": "Universal Motors",
+        "short_name": "U. Motors",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        # Naranja de la marca (--naranja) en la barra; negro del sitio
+        # (--negro-900) en la pantalla de carga, para que no destelle.
+        "theme_color": "#ff7a00",
+        "background_color": "#050505",
+        "icons": [icono("icon-192.png", 192), icono("icon-512.png", 512)],
+    }
+    respuesta = jsonify(datos)
+    respuesta.mimetype = "application/manifest+json"
+    return respuesta
+
+
+@publico_bp.route("/sw.js")
+def service_worker():
+    """
+    Service Worker, servido desde la RAÍZ a propósito.
+
+    El scope de un SW es la carpeta desde donde se sirve: desde
+    /static/pwa/sw.js solo controlaría /static/pwa/. Servido en /sw.js
+    cubre todo el sitio. no-cache para que el navegador revise la
+    versión nueva en cada visita en vez de quedarse con una vieja.
+    """
+    respuesta = send_from_directory(
+        os.path.join(current_app.static_folder, "pwa"), "sw.js",
+        mimetype="application/javascript", max_age=0)
+    respuesta.headers["Cache-Control"] = "no-cache"
+    return respuesta
+
 @publico_bp.route("/robots.txt")
 def robots():
     """
@@ -270,6 +319,17 @@ def financiacion():
 def credito():
     """Landing de financiacion: explica el proceso y lleva al asistente."""
     return render_template("credito.html")
+
+
+@publico_bp.route("/recordatorio-soat")
+def recordatorio_soat():
+    """
+    Formulario para activar un recordatorio push de vencimiento de SOAT y
+    tecnomecánica. El JS de la página pide permiso, crea la suscripción
+    con la llave pública VAPID y la envía a POST /api/recordatorios.
+    """
+    return render_template("recordatorio_soat.html",
+                           vapid_publica=current_app.config.get("VAPID_PUBLIC_KEY") or "")
 
 
 @publico_bp.route("/simula-compra")

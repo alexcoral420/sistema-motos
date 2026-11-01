@@ -1502,3 +1502,120 @@ def obtener_datos_contrato(moto_id: int):
                  .limit(1)
                  .execute())
     return resultado.data[0] if resultado.data else None
+
+
+# ============================================================
+# RECORDATORIOS (push de vencimiento SOAT / tecnomecánica)
+# ============================================================
+
+def crear_recordatorio(registro: dict):
+    """
+    Inserta un recordatorio ya validado (token_hash, suscripcion, fechas,
+    placa, política). Devuelve el registro insertado.
+    """
+    supabase = get_supabase_admin()
+    resultado = supabase.table("recordatorios").insert(registro).execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_recordatorio(recordatorio_id: int):
+    """Un recordatorio por id, o None."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("recordatorios")
+                 .select("*")
+                 .eq("id", recordatorio_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_recordatorio_activo_mas_reciente():
+    """El recordatorio activo creado más recientemente, o None."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("recordatorios")
+                 .select("*")
+                 .eq("activo", True)
+                 .order("creado_en", desc=True)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def desactivar_recordatorios_por_endpoint(endpoint: str, actualizado_en: str) -> int:
+    """
+    Marca activo=false en todos los recordatorios con esa suscripción
+    (usa idx_recordatorios_endpoint). Devuelve cuántos se desactivaron.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("recordatorios")
+                 .update({"activo": False, "actualizado_en": actualizado_en})
+                 .eq("suscripcion->>endpoint", endpoint)
+                 .eq("activo", True)
+                 .execute())
+    return len(resultado.data or [])
+
+
+# Supabase corta cada respuesta en 1000 filas: se lee de a páginas.
+_PAGINA = 1000
+# Ids por consulta .in_(): van en la URL, así que se parten en tandas.
+_TANDA_IDS = 200
+
+
+def listar_recordatorios_por_vencer(desde: str, hasta: str) -> list:
+    """
+    Recordatorios activos con fecha_soat o fecha_tecno entre desde y hasta
+    (ISO, inclusive). Usa los índices parciales de la migración 019.
+    """
+    supabase = get_supabase_admin()
+    filtro = (f"and(fecha_soat.gte.{desde},fecha_soat.lte.{hasta}),"
+              f"and(fecha_tecno.gte.{desde},fecha_tecno.lte.{hasta})")
+    filas, inicio = [], 0
+    while True:
+        resultado = (supabase.table("recordatorios")
+                     .select("*")
+                     .eq("activo", True)
+                     .or_(filtro)
+                     .order("id")
+                     .range(inicio, inicio + _PAGINA - 1)
+                     .execute())
+        filas.extend(resultado.data or [])
+        if len(resultado.data or []) < _PAGINA:
+            return filas
+        inicio += _PAGINA
+
+
+def listar_avisos_enviados(recordatorio_ids: list) -> list:
+    """Avisos ya enviados (recordatorio_id, tipo, umbral) de esos recordatorios."""
+    supabase = get_supabase_admin()
+    filas = []
+    for i in range(0, len(recordatorio_ids), _TANDA_IDS):
+        tanda = recordatorio_ids[i:i + _TANDA_IDS]
+        inicio = 0
+        while True:
+            resultado = (supabase.table("recordatorios_avisos")
+                         .select("recordatorio_id, tipo, umbral")
+                         .in_("recordatorio_id", tanda)
+                         .order("id")
+                         .range(inicio, inicio + _PAGINA - 1)
+                         .execute())
+            filas.extend(resultado.data or [])
+            if len(resultado.data or []) < _PAGINA:
+                break
+            inicio += _PAGINA
+    return filas
+
+
+def registrar_aviso(recordatorio_id: int, tipo: str, umbral: int):
+    """
+    Registra un aviso enviado. Lanza RegistroDuplicado si ese
+    (recordatorio_id, tipo, umbral) ya estaba registrado.
+    """
+    supabase = get_supabase_admin()
+    try:
+        supabase.table("recordatorios_avisos").insert({
+            "recordatorio_id": recordatorio_id, "tipo": tipo, "umbral": umbral,
+        }).execute()
+    except APIError as e:
+        if e.code == "23505":
+            raise RegistroDuplicado(e.message) from e
+        raise
