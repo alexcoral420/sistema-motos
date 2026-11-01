@@ -1516,3 +1516,40 @@ def crear_recordatorio(registro: dict):
     supabase = get_supabase_admin()
     resultado = supabase.table("recordatorios").insert(registro).execute()
     return resultado.data[0] if resultado.data else None
+
+
+def obtener_recordatorio(recordatorio_id: int):
+    """Un recordatorio por id, o None."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("recordatorios")
+                 .select("*")
+                 .eq("id", recordatorio_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_recordatorio_activo_mas_reciente():
+    """El recordatorio activo creado más recientemente, o None."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("recordatorios")
+                 .select("*")
+                 .eq("activo", True)
+                 .order("creado_en", desc=True)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def desactivar_recordatorios_por_endpoint(endpoint: str, actualizado_en: str) -> int:
+    """
+    Marca activo=false en todos los recordatorios con esa suscripción
+    (usa idx_recordatorios_endpoint). Devuelve cuántos se desactivaron.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("recordatorios")
+                 .update({"activo": False, "actualizado_en": actualizado_en})
+                 .eq("suscripcion->>endpoint", endpoint)
+                 .eq("activo", True)
+                 .execute())
+    return len(resultado.data or [])

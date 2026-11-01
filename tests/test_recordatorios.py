@@ -155,3 +155,74 @@ def test_crear_no_guarda_si_es_invalido(monkeypatch):
                         lambda registro: pytest.fail("no debió guardar"))
     with pytest.raises(ErrorValidacion):
         recordatorios.crear(_solicitud(acepta_politica=False))
+
+
+# ---------------------------------------------------------------- envío
+
+class _Respuesta:
+    def __init__(self, status_code):
+        self.status_code = status_code
+        self.text = ""
+
+
+@pytest.fixture
+def envio(monkeypatch):
+    """Config VAPID falsa y repositorio espiado; devuelve el registro de llamadas."""
+    monkeypatch.setattr(recordatorios.Config, "VAPID_PRIVATE_KEY", "clave")
+    monkeypatch.setattr(recordatorios.Config, "VAPID_SUBJECT", "mailto:x@y.co")
+    llamadas = {"webpush": [], "desactivar": []}
+
+    def desactivar(endpoint, actualizado_en):
+        llamadas["desactivar"].append(endpoint)
+        return 2
+    monkeypatch.setattr(recordatorios.repositorios, "desactivar_recordatorios_por_endpoint", desactivar)
+    return llamadas
+
+
+def _con_webpush(monkeypatch, llamadas, estado):
+    def falso(**kwargs):
+        llamadas["webpush"].append(kwargs)
+        if estado >= 400:
+            raise recordatorios.WebPushException("error", response=_Respuesta(estado))
+        return _Respuesta(estado)
+    monkeypatch.setattr(recordatorios, "webpush", falso)
+
+
+def test_envio_exitoso(monkeypatch, envio):
+    _con_webpush(monkeypatch, envio, 201)
+    r = recordatorios.enviar_push({"suscripcion": _suscripcion()}, "T", "C", "/x")
+    assert r == {"ok": True, "estado": 201, "desactivados": 0, "detalle": "enviado"}
+    kwargs = envio["webpush"][0]
+    assert kwargs["vapid_claims"] == {"sub": "mailto:x@y.co"}
+    assert kwargs["vapid_private_key"] == "clave"
+    assert '"title": "T"' in kwargs["data"] and '"url": "/x"' in kwargs["data"]
+    assert envio["desactivar"] == []
+
+
+@pytest.mark.parametrize("estado", [404, 410])
+def test_suscripcion_muerta_desactiva(monkeypatch, envio, estado):
+    _con_webpush(monkeypatch, envio, estado)
+    r = recordatorios.enviar_push({"suscripcion": _suscripcion()}, "T", "C")
+    assert r["ok"] is False and r["estado"] == estado and r["desactivados"] == 2
+    assert envio["desactivar"] == ["https://fcm.googleapis.com/fcm/send/abc123"]
+
+
+@pytest.mark.parametrize("estado", [400, 413, 429, 500])
+def test_otros_errores_no_desactivan(monkeypatch, envio, estado):
+    _con_webpush(monkeypatch, envio, estado)
+    r = recordatorios.enviar_push({"suscripcion": _suscripcion()}, "T", "C")
+    assert r["ok"] is False and r["desactivados"] == 0
+    assert envio["desactivar"] == []
+
+
+def test_envio_revalida_endpoint(monkeypatch, envio):
+    _con_webpush(monkeypatch, envio, 201)
+    with pytest.raises(ErrorValidacion):
+        recordatorios.enviar_push({"suscripcion": _suscripcion("https://169.254.169.254/x")}, "T", "C")
+    assert envio["webpush"] == []
+
+
+def test_envio_sin_vapid(monkeypatch, envio):
+    monkeypatch.setattr(recordatorios.Config, "VAPID_PRIVATE_KEY", None)
+    with pytest.raises(RuntimeError):
+        recordatorios.enviar_push({"suscripcion": _suscripcion()}, "T", "C")
