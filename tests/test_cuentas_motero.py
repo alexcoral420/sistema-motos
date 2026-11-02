@@ -105,6 +105,102 @@ def test_mensaje_error_auth():
     assert cuentas_motero.mensaje_error_auth(None) == cuentas_motero.MENSAJE_ERROR_GENERICO
 
 
+# ---------- motos del motero (Capa 1) ----------
+
+ANIO_FIJO = 2026
+
+
+@pytest.fixture
+def anio_fijo(monkeypatch):
+    monkeypatch.setattr(cuentas_motero, "_anio_actual", lambda: ANIO_FIJO)
+
+
+def _moto(**cambios):
+    datos = {"marca": " Yamaha ", "modelo": "NMAX 155", "anio": "2022", "placa": "abc-12d"}
+    datos.update(cambios)
+    return {k: v for k, v in datos.items() if v is not None}
+
+
+def test_moto_valida_limpia_datos(anio_fijo):
+    assert cuentas_motero.validar_moto(_moto()) == {
+        "marca": "Yamaha", "modelo": "NMAX 155", "anio": 2022, "placa": "ABC12D",
+    }
+
+
+@pytest.mark.parametrize("placa, esperada", [
+    ("ABC12D", "ABC12D"),
+    ("ABC12", "ABC12"),
+    ("abc-12d", "ABC12D"),
+    (" abc 12 ", "ABC12"),
+    ("", None),
+    ("   ", None),
+    (None, None),
+])
+def test_moto_placa_valida_o_vacia(anio_fijo, placa, esperada):
+    assert cuentas_motero.validar_moto(_moto(placa=placa))["placa"] == esperada
+
+
+@pytest.mark.parametrize("placa", ["AB123", "ABC123", "ABC12DE", "123ABC", "ABCD12"])
+def test_moto_placa_invalida(anio_fijo, placa):
+    with pytest.raises(ErrorValidacion) as e:
+        cuentas_motero.validar_moto(_moto(placa=placa))
+    assert e.value.campo == "placa"
+
+
+@pytest.mark.parametrize("anio, valido", [
+    ("1949", False),
+    ("1950", True),
+    (str(ANIO_FIJO + 1), True),
+    (str(ANIO_FIJO + 2), False),
+    ("dos mil", False),
+    ("2022.5", False),
+])
+def test_moto_rango_de_anio(anio_fijo, anio, valido):
+    if valido:
+        assert cuentas_motero.validar_moto(_moto(anio=anio))["anio"] == int(anio)
+    else:
+        with pytest.raises(ErrorValidacion) as e:
+            cuentas_motero.validar_moto(_moto(anio=anio))
+        assert e.value.campo == "año"
+
+
+@pytest.mark.parametrize("cambio, campo", [
+    ({"marca": None}, "marca"),
+    ({"marca": "  "}, "marca"),
+    ({"marca": "x" * 61}, "marca"),
+    ({"modelo": None}, "modelo"),
+    ({"modelo": "x" * 61}, "modelo"),
+    ({"anio": None}, "año"),
+])
+def test_moto_obligatorios_y_largos(anio_fijo, cambio, campo):
+    with pytest.raises(ErrorValidacion) as e:
+        cuentas_motero.validar_moto(_moto(**cambio))
+    assert e.value.campo == campo
+
+
+def test_moto_ignora_usuario_id_del_formulario(anio_fijo):
+    assert "usuario_id" not in cuentas_motero.validar_moto(_moto(usuario_id="otro"))
+
+
+def test_anio_maximo_es_el_proximo(anio_fijo):
+    assert cuentas_motero.anio_maximo() == ANIO_FIJO + 1
+
+
+@pytest.mark.parametrize("codigo, fragmento", [
+    ("23505", "esa placa"),
+    ("23514", "fuera del rango"),
+    ("42501", "permiso"),
+    ("PGRST301", "sesión venció"),
+])
+def test_mensaje_error_moto(codigo, fragmento):
+    assert fragmento in cuentas_motero.mensaje_error_moto(codigo)
+
+
+def test_mensaje_error_moto_desconocido():
+    assert cuentas_motero.mensaje_error_moto("99999") == cuentas_motero.MENSAJE_ERROR_GENERICO
+    assert cuentas_motero.mensaje_error_moto(None) == cuentas_motero.MENSAJE_ERROR_GENERICO
+
+
 # ---------- decorador de sesión ----------
 
 @pytest.fixture
@@ -250,3 +346,17 @@ def test_blueprint_motero_no_arrastra_service_role():
     salida = subprocess.run([sys.executable, "-c", codigo], cwd=raiz,
                             capture_output=True, text=True, check=True)
     assert salida.stdout.strip() == "", f"El blueprint del motero importa: {salida.stdout.strip()}"
+
+
+def test_validadores_sigue_neutral():
+    """validadores.py lo usan el panel y el motero: no puede importar nada de la app."""
+    import ast
+    raiz = Path(__file__).resolve().parents[1]
+    arbol = ast.parse((raiz / "app" / "seguridad" / "validadores.py").read_text(encoding="utf-8"))
+    modulos = set()
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Import):
+            modulos.update(a.name for a in nodo.names)
+        elif isinstance(nodo, ast.ImportFrom):
+            modulos.add(nodo.module or "")
+    assert not [m for m in modulos if m.startswith(("app", "supabase", "config"))], modulos

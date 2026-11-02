@@ -11,8 +11,17 @@ escapa algo).
 Cada validador NO revienta ante datos malos: devuelve un resultado
 controlado. Usamos una excepción propia (ErrorValidacion) que las rutas
 capturan para responder con un mensaje limpio, sin exponer tracebacks.
+
+Este módulo es NEUTRAL: no importa la base, ni clientes de Supabase, ni
+servicios. Lo usan tanto el panel como el blueprint del motero, que tiene
+prohibido arrastrar el cliente service_role (tests/test_cuentas_motero.py).
 """
 
+import re
+
+# Placa de moto en Colombia: 3 letras + 2 números + 1 letra (ABC12D). Las
+# más viejas no traen la letra final (ABC12).
+PATRON_PLACA_MOTO = re.compile(r"^[A-Z]{3}[0-9]{2}[A-Z]?$")
 
 class ErrorValidacion(Exception):
     """
@@ -154,3 +163,30 @@ def validar_telefono(valor, campo: str = "número"):
         raise ErrorValidacion("Número de teléfono inválido.", campo)
 
     return numero
+
+
+def validar_placa_moto(valor, campo: str = "placa", obligatorio: bool = False):
+    """
+    Valida una placa de moto colombiana (ABC12D o ABC12).
+
+    Tolera espacios, guiones y minúsculas ("abc-12d" -> "ABC12D"). Si viene
+    vacía y no es obligatoria, devuelve None.
+
+    Devuelve la placa normalizada. Lanza ErrorValidacion si no tiene forma
+    de placa de moto.
+    """
+    if valor is None or valor == "":
+        if obligatorio:
+            raise ErrorValidacion("La placa es obligatoria.", campo)
+        return None
+    if not isinstance(valor, str):
+        raise ErrorValidacion("La placa no es válida.", campo)
+
+    placa = re.sub(r"[\s-]", "", valor).upper()
+    if not placa:
+        if obligatorio:
+            raise ErrorValidacion("La placa es obligatoria.", campo)
+        return None
+    if not PATRON_PLACA_MOTO.match(placa):
+        raise ErrorValidacion("La placa debe tener el formato ABC12D.", campo)
+    return placa

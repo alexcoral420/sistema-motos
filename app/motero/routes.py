@@ -8,11 +8,12 @@ anon + el JWT del motero, así que RLS aplica siempre.
 REGLA: aquí no se importa get_supabase_admin ni app.db.repositorios (ni
 nada que los arrastre). Lo verifica tests/test_cuentas_motero.py.
 
-Rutas: /registro, /ingresar, /salir (POST), /mi-espacio.
+Rutas: /registro, /ingresar, /salir (POST), /mi-espacio, y el CRUD de
+motos: POST /mi-espacio/motos, /mi-espacio/motos/<id>/editar y /borrar.
 """
 
 from flask import Blueprint, g, redirect, render_template, request, url_for
-from supabase import AuthError
+from supabase import AuthError, PostgrestAPIError
 
 from app.motero import repositorio
 from app.motero.cliente import cliente_auth
@@ -121,10 +122,84 @@ def salir():
     return redirect(url_for("publico.inicio"))
 
 
-@motero_bp.route("/mi-espacio")
-@login_requerido_motero
-def mi_espacio():
+def _pagina_mi_espacio(estado=200, **extra):
+    """Renderiza /mi-espacio; con `extra` se muestra el error de un formulario."""
     token = g.motero["access_token"]
     perfil = repositorio.obtener_perfil(token)
     motos = repositorio.listar_motos(token)
-    return render_template("mi_espacio.html", motero=g.motero, perfil=perfil, motos=motos)
+    return render_template(
+        "mi_espacio.html", motero=g.motero, perfil=perfil, motos=motos,
+        max_motos=cuentas_motero.MAX_MOTOS_POR_MOTERO,
+        anio_min=cuentas_motero.ANIO_MIN, anio_max=cuentas_motero.anio_maximo(),
+        **extra), estado
+
+
+def _valores_moto():
+    return {c: request.form.get(c, "") for c in ("marca", "modelo", "anio", "placa")}
+
+
+@motero_bp.route("/mi-espacio")
+@login_requerido_motero
+def mi_espacio():
+    return _pagina_mi_espacio()
+
+
+# ---------- CRUD de motos ----------
+# Todo va con el cliente JWT: RLS garantiza que el motero solo toque sus
+# filas. Éxito -> redirect (POST-redirect-GET, recargar no repite la
+# acción); error -> la misma página con el mensaje sobre el formulario.
+
+LIMITE_MOTOS = "20 per minute"
+
+
+@motero_bp.route("/mi-espacio/motos", methods=["POST"])
+@limiter.limit(LIMITE_MOTOS)
+@login_requerido_motero
+def agregar_moto():
+    token = g.motero["access_token"]
+    try:
+        datos = cuentas_motero.validar_moto(request.form)
+        if repositorio.contar_motos(token) >= cuentas_motero.MAX_MOTOS_POR_MOTERO:
+            raise ErrorValidacion(cuentas_motero.MENSAJE_TOPE_MOTOS)
+        # usuario_id sale de la sesión, nunca del formulario.
+        repositorio.agregar_moto(token, g.motero["id"], datos)
+    except ErrorValidacion as e:
+        return _pagina_mi_espacio(400, error_agregar=e.mensaje, valores_agregar=_valores_moto())
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: agregar moto rechazado (%s)", g.motero["id"], e.code)
+        return _pagina_mi_espacio(400, error_agregar=cuentas_motero.mensaje_error_moto(e.code),
+                                  valores_agregar=_valores_moto())
+    return redirect(url_for("motero.mi_espacio"))
+
+
+@motero_bp.route("/mi-espacio/motos/<int:moto_id>/editar", methods=["POST"])
+@limiter.limit(LIMITE_MOTOS)
+@login_requerido_motero
+def editar_moto(moto_id):
+    token = g.motero["access_token"]
+    error = {"moto_editando": moto_id, "valores_editar": _valores_moto()}
+    try:
+        datos = cuentas_motero.validar_moto(request.form)
+        fila = repositorio.editar_moto(token, moto_id, datos)
+    except ErrorValidacion as e:
+        return _pagina_mi_espacio(400, error_editar=e.mensaje, **error)
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: editar moto %s rechazado (%s)", g.motero["id"], moto_id, e.code)
+        return _pagina_mi_espacio(400, error_editar=cuentas_motero.mensaje_error_moto(e.code), **error)
+    if fila is None:
+        return _pagina_mi_espacio(404, error_lista=cuentas_motero.MENSAJE_MOTO_NO_ENCONTRADA)
+    return redirect(url_for("motero.mi_espacio"))
+
+
+@motero_bp.route("/mi-espacio/motos/<int:moto_id>/borrar", methods=["POST"])
+@limiter.limit(LIMITE_MOTOS)
+@login_requerido_motero
+def borrar_moto(moto_id):
+    try:
+        fila = repositorio.borrar_moto(g.motero["access_token"], moto_id)
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: borrar moto %s rechazado (%s)", g.motero["id"], moto_id, e.code)
+        return _pagina_mi_espacio(400, error_lista=cuentas_motero.mensaje_error_moto(e.code))
+    if fila is None:
+        return _pagina_mi_espacio(404, error_lista=cuentas_motero.MENSAJE_MOTO_NO_ENCONTRADA)
+    return redirect(url_for("motero.mi_espacio"))

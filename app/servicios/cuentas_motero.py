@@ -14,8 +14,11 @@ Qué se pide al registrarse:
 """
 
 import re
+from datetime import datetime, timezone
 
-from app.seguridad.validadores import ErrorValidacion, validar_telefono, validar_texto
+from app.seguridad.validadores import (
+    ErrorValidacion, validar_entero, validar_placa_moto, validar_telefono, validar_texto,
+)
 
 # Contraseña: 8 como mínimo razonable; 72 es el tope de bcrypt (Supabase
 # ignora lo que pase de ahí, así que mejor rechazarlo que truncarlo callado).
@@ -140,3 +143,58 @@ def destino_seguro(siguiente, por_defecto: str) -> str:
             or any(c in siguiente for c in "\r\n\t")):
         return por_defecto
     return siguiente
+
+
+# ---------- Motos del motero (Capa 1) ----------
+
+# Año de la moto: desde 1950 hasta el año próximo (los modelos del año
+# siguiente salen a la venta antes de que empiece). La base tiene un CHECK
+# más amplio (1950-2100) solo como red de seguridad.
+ANIO_MIN = 1950
+
+# Tope de motos por cuenta: nadie normal tiene más; evita que una cuenta
+# se use para llenar la tabla.
+MAX_MOTOS_POR_MOTERO = 20
+
+MARCA_MODELO_MAX = 60
+
+# Errores de PostgREST (campo `code` de APIError) al escribir una moto.
+MENSAJES_ERROR_MOTO = {
+    "23505": "Ya tienes una moto con esa placa.",
+    "23514": "Alguno de los datos está fuera del rango permitido.",
+    "42501": "No tienes permiso para hacer eso.",
+    "PGRST301": "Tu sesión venció. Ingresa de nuevo.",
+}
+MENSAJE_MOTO_NO_ENCONTRADA = "Esa moto no existe o no es tuya."
+MENSAJE_TOPE_MOTOS = f"Puedes registrar hasta {MAX_MOTOS_POR_MOTERO} motos."
+
+
+def _anio_actual() -> int:
+    # Año en UTC: la hora de Colombia (contratos.HORA_COLOMBIA) no se puede
+    # importar desde aquí sin arrastrar el repositorio del admin. Solo
+    # difiere 5 horas en Año Nuevo, y el tope ya es el año próximo.
+    return datetime.now(timezone.utc).year
+
+
+def anio_maximo() -> int:
+    """Año más reciente aceptado para una moto: el próximo."""
+    return _anio_actual() + 1
+
+
+def validar_moto(form) -> dict:
+    """
+    Valida el formulario de agregar/editar moto. Devuelve los datos limpios
+    (sin usuario_id: ese lo pone la ruta desde la sesión) o lanza
+    ErrorValidacion.
+    """
+    return {
+        "marca": validar_texto(form.get("marca"), "marca", min_len=2, max_len=MARCA_MODELO_MAX),
+        "modelo": validar_texto(form.get("modelo"), "modelo", min_len=1, max_len=MARCA_MODELO_MAX),
+        "anio": validar_entero(form.get("anio"), "año", minimo=ANIO_MIN, maximo=anio_maximo()),
+        "placa": validar_placa_moto(form.get("placa"), "placa"),
+    }
+
+
+def mensaje_error_moto(codigo) -> str:
+    """Traduce el código de error de PostgREST a un mensaje para el motero."""
+    return MENSAJES_ERROR_MOTO.get(str(codigo or ""), MENSAJE_ERROR_GENERICO)
