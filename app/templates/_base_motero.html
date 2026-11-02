@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo %}Mi espacio{% endblock %} | Universal Motors</title>
+    {# Páginas de cuenta: no se indexan. #}
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" sizes="48x48">
+    {% include "_pwa_head.html" %}
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+    {# Mismo estilo que las páginas públicas (recordatorio_soat.html). #}
+    <style>
+        :root {
+            --naranja: #ff7a00;
+            --naranja-claro: #ff9633;
+            --negro-900: #0d0d0a;
+            --negro-800: #14140f;
+            --negro-700: #1c1c16;
+            --negro-600: #26261e;
+            --borde: #33332a;
+            --texto: #f2f2ee;
+            --texto-suave: #b8b8ad;
+            --texto-tenue: #7a7a70;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        h1, h2, .btn-cta { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
+        a { color: var(--naranja); }
+        a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+        .navbar { background: var(--negro-900); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--naranja); }
+        .navbar .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: 800; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
+        .navbar .logo img { height: 38px; width: 38px; border-radius: 50%; }
+        .navbar .logo span { color: var(--naranja); }
+        .nav-links { display: flex; gap: 22px; align-items: center; }
+        .nav-links a { color: var(--texto-suave); text-decoration: none; font-size: 15px; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--naranja); }
+
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .menu-toggle span { display: block; width: 24px; height: 2px; background: var(--naranja); margin: 5px 0; transition: transform 0.25s, opacity 0.25s; }
+        .menu-toggle.abierto span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .menu-toggle.abierto span:nth-child(2) { opacity: 0; }
+        .menu-toggle.abierto span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .btn-cta {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%;
+            background: var(--naranja); color: #000;
+            padding: 15px 30px; border-radius: 40px;
+            font-size: 18px; font-weight: 700; text-transform: uppercase;
+            border: none; cursor: pointer; text-decoration: none;
+            transition: transform 0.15s, background 0.2s;
+        }
+        .btn-cta:hover { background: var(--naranja-claro); transform: translateY(-2px); }
+        .btn-secundario { background: none; border: 1px solid var(--borde); color: var(--texto-suave); padding: 10px 18px; border-radius: 40px; font: inherit; font-size: 14px; cursor: pointer; }
+        .btn-secundario:hover { border-color: var(--naranja); color: var(--naranja); }
+
+        .contenido { max-width: 640px; margin: 0 auto; padding: 48px 20px 56px; }
+        .contenido h1 { font-size: 44px; line-height: 1.05; text-transform: uppercase; margin-bottom: 14px; }
+        .contenido h1 em { font-style: normal; color: var(--naranja); }
+        .contenido h2 { font-size: 26px; text-transform: uppercase; margin-bottom: 12px; }
+        .intro { color: var(--texto-suave); font-size: 17px; line-height: 1.6; margin-bottom: 28px; }
+
+        .tarjeta { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 18px; padding: 24px; }
+
+        .campo { margin-bottom: 16px; }
+        .campo label { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-tenue); margin-bottom: 6px; }
+        .campo input {
+            width: 100%; padding: 12px 14px; font: inherit; font-size: 16px;
+            background: var(--negro-900); color: var(--texto);
+            border: 1px solid var(--borde); border-radius: 10px;
+            color-scheme: dark;
+        }
+        .campo .ayuda { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+
+        .consentimiento { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--texto-suave); line-height: 1.5; margin-bottom: 20px; }
+        .consentimiento input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--naranja); flex-shrink: 0; }
+
+        .mensaje { border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 15px; line-height: 1.5; }
+        .mensaje.error { background: rgba(255,80,60,0.12); border: 1px solid #a33; color: #ffb3a8; }
+        .mensaje.aviso { background: rgba(255,122,0,0.10); border: 1px solid #6b4a1f; color: #ffd6ad; }
+        .mensaje.exito { background: rgba(60,200,110,0.12); border: 1px solid #2f6b3f; color: #a8f0c0; }
+
+        .nota { padding: 22px 0 0; color: var(--texto-tenue); font-size: 14px; line-height: 1.6; }
+
+        @media (max-width: 640px) {
+            .menu-toggle { display: block; }
+            .navbar { position: relative; }
+            .nav-links {
+                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                flex-direction: column; align-items: flex-start;
+                background: var(--negro-900); padding: 16px 20px; gap: 16px;
+                border-bottom: 2px solid var(--naranja);
+            }
+            .nav-links.abierto { display: flex; }
+            .contenido { padding: 36px 16px 48px; }
+            .contenido h1 { font-size: 36px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn-cta:hover { transform: none; }
+        }
+        {% block estilos %}{% endblock %}
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="{{ url_for('publico.inicio') }}" class="logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Universal Motors">
+            Universal <span>Motors</span>
+        </a>
+        <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links" id="nav-links">
+            <a href="{{ url_for('publico.inicio') }}">Inicio</a>
+            <a href="{{ url_for('publico.catalogo_publico') }}">Catálogo</a>
+            <a href="{{ url_for('publico.credito') }}">Financiación</a>
+            <a href="{{ url_for('motero.mi_espacio') }}" class="{% block nav_mi_espacio %}{% endblock %}">Mi espacio</a>
+        </div>
+    </nav>
+
+    <main class="contenido">
+        {% block contenido %}{% endblock %}
+    </main>
+
+    <script>
+        const toggle = document.querySelector('.menu-toggle');
+        const links = document.getElementById('nav-links');
+        if (toggle && links) {
+            toggle.addEventListener('click', () => {
+                const abierto = links.classList.toggle('abierto');
+                toggle.classList.toggle('abierto', abierto);
+                toggle.setAttribute('aria-expanded', abierto);
+            });
+        }
+    </script>
+</body>
+</html>

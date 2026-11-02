@@ -1,0 +1,48 @@
+{% extends "_base_motero.html" %}
+{% block titulo %}Mi espacio{% endblock %}
+{% block nav_mi_espacio %}active{% endblock %}
+
+{% block estilos %}
+        .cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
+        .cabecera .intro { margin-bottom: 0; }
+        .motos { list-style: none; display: grid; gap: 12px; }
+        .moto { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .moto .nombre { font-weight: 600; font-size: 17px; }
+        .moto .detalle { color: var(--texto-tenue); font-size: 14px; margin-top: 2px; }
+        .moto .placa { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: 1px; background: #f5c400; color: #000; border-radius: 6px; padding: 2px 10px; white-space: nowrap; }
+        .vacio { text-align: center; color: var(--texto-suave); line-height: 1.6; }
+        .vacio strong { display: block; font-size: 18px; color: var(--texto); margin-bottom: 6px; }
+{% endblock %}
+
+{% block contenido %}
+    <div class="cabecera">
+        <div>
+            <h1>Hola, <em>{{ (perfil.nombre if perfil and perfil.nombre else motero.email) }}</em></h1>
+            <p class="intro">{{ motero.email }}</p>
+        </div>
+        <form method="post" action="{{ url_for('motero.salir') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-secundario">Salir</button>
+        </form>
+    </div>
+
+    <h2>Mis motos</h2>
+    {% if motos %}
+        <ul class="motos">
+            {% for moto in motos %}
+                <li class="moto">
+                    <div>
+                        <div class="nombre">{{ moto.marca or "Moto" }} {{ moto.modelo or "" }}</div>
+                        {% if moto.anio %}<div class="detalle">Modelo {{ moto.anio }}</div>{% endif %}
+                    </div>
+                    {% if moto.placa %}<span class="placa">{{ moto.placa }}</span>{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <div class="tarjeta vacio">
+            <strong>Todavía no tienes motos registradas</strong>
+            Muy pronto vas a poder agregar tus motos aquí.
+        </div>
+    {% endif %}
+{% endblock %}

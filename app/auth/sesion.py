@@ -12,6 +12,27 @@ from flask import session, redirect, url_for, request
 from app.seguridad.logging_config import obtener_logger
 
 
+# Claves de la sesión que pertenecen al panel. La cookie de sesión es una
+# sola y la comparten el panel, el sitio público (asesor_origen, visita_id,
+# leads_chat_firmas) y el motero (motero_*); por eso el panel borra SOLO lo
+# suyo al entrar o salir, en vez de session.clear(). Si se agrega una clave
+# del panel en el login, va también aquí.
+CLAVES_SESION_PANEL = (
+    "logueado",
+    "usuario_id",
+    "usuario_nombre",
+    "rol",
+    "sede_id",
+    "whatsapp",
+)
+
+
+def cerrar_sesion_panel():
+    """Quita de la sesión la identidad del panel y nada más."""
+    for clave in CLAVES_SESION_PANEL:
+        session.pop(clave, None)
+
+
 def verificar_usuario_habilitado():
     """
     Devuelve una redirección al login si el usuario en sesión ya no
@@ -37,7 +58,7 @@ def verificar_usuario_habilitado():
             usuario.get("activo") if usuario else None,
             usuario.get("puede_ingresar") if usuario else None,
             request.path)
-        session.clear()
+        cerrar_sesion_panel()
         return redirect(url_for("auth.login"))
 
     # Rol y sede salen de la base, no de lo que se guardó al hacer login.
