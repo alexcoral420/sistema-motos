@@ -23,7 +23,7 @@ que dice el registro oficial.
 
 import re
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -31,6 +31,7 @@ from docxtpl import DocxTemplate
 from flask import current_app
 
 from app.db import repositorios
+from app.seguridad.tiempo import HORA_COLOMBIA
 from app.seguridad.validadores import ErrorValidacion
 from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES, venta_en_alcance
 
@@ -277,12 +278,6 @@ def procesar_y_guardar(moto_id: int, texto_runt: str) -> dict:
 # ============================================================
 # FASE 2 — CONTRATOS EN WORD (VENTA Y COMPRA)
 # ============================================================
-
-# Hora de Colombia (America/Bogota): UTC-5 fijo, sin horario de verano
-# desde 1993. Offset fijo en vez de ZoneInfo("America/Bogota") porque
-# ZoneInfo necesita la base de zonas del sistema o el paquete tzdata,
-# que en Windows no viene y en el contenedor no está garantizada.
-HORA_COLOMBIA = timezone(timedelta(hours=-5))
 
 CARPETA_PLANTILLAS = Path(__file__).resolve().parent.parent / "plantillas"
 PLANTILLA_CONTRATO = CARPETA_PLANTILLAS / "contrato.docx"

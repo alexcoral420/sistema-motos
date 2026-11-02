@@ -26,42 +26,24 @@ El token que identifica al recordatorio se genera aquí, se devuelve en
 claro UNA sola vez y en la base queda solo su SHA-256.
 """
 
-import base64
 import hashlib
 import json
-import re
 import secrets
 from datetime import date, datetime, timedelta
-from urllib.parse import urlsplit
 
 from pywebpush import WebPushException, webpush
 
 from config import Config
 from app.db import repositorios
+from app.seguridad.suscripcion_push import validar_suscripcion
+from app.seguridad.tiempo import HORA_COLOMBIA, fecha_legible, hoy_colombia
 from app.seguridad.validadores import ErrorValidacion, validar_placa_moto
-from app.servicios.contratos import HORA_COLOMBIA
 
 # Rango aceptado para las fechas de vencimiento. Hacia atrás se tolera un
 # poco (alguien con el SOAT recién vencido igual quiere el aviso del
 # próximo); hacia adelante, SOAT y tecno se renuevan cada año o menos.
 DIAS_ATRAS_MAX = 365
 DIAS_ADELANTE_MAX = 2 * 365
-
-# Servicios de push de los navegadores. Se compara el host exacto o como
-# subdominio (Mozilla y Windows reparten en varios subdominios).
-HOSTS_PUSH = (
-    "fcm.googleapis.com",           # Chrome, Edge (Android), Opera, Samsung
-    "push.services.mozilla.com",    # Firefox
-    "notify.windows.com",           # Edge (Windows)
-    "push.apple.com",               # Safari (macOS, iOS 16.4+ instalada)
-)
-LARGO_MAX_ENDPOINT = 1000
-
-# Largo de las claves de la suscripción, ya decodificadas de base64url:
-# p256dh es un punto P-256 sin comprimir (65 bytes) y auth un secreto
-# de 16 bytes (RFC 8291).
-BYTES_P256DH = 65
-BYTES_AUTH = 16
 
 # Envío (Fase 2). Si el dispositivo está apagado, el servicio de push
 # guarda el mensaje hasta TTL_PUSH segundos; pasado eso se descarta.
@@ -78,13 +60,11 @@ TIPOS_AVISO = {
     "soat": ("fecha_soat", "SOAT"),
     "tecno": ("fecha_tecno", "tecnomecánica"),
 }
-MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
-         "agosto", "septiembre", "octubre", "noviembre", "diciembre")
 URL_AVISO = "/"
 
 
 def _hoy() -> date:
-    return datetime.now(HORA_COLOMBIA).date()
+    return hoy_colombia()
 
 
 def _fecha(valor, campo: str, nombre: str):
@@ -108,46 +88,6 @@ def _placa(valor):
     return validar_placa_moto(valor, "placa")
 
 
-def _host_permitido(host: str) -> bool:
-    return any(host == h or host.endswith("." + h) for h in HOSTS_PUSH)
-
-
-def _clave_b64url(valor, nombre: str, largo: int):
-    error = ErrorValidacion("La suscripción del navegador no es válida.", "suscripcion")
-    if not isinstance(valor, str) or not re.fullmatch(r"[A-Za-z0-9_-]+={0,2}", valor):
-        raise error
-    try:
-        crudo = base64.urlsafe_b64decode(valor + "=" * (-len(valor) % 4))
-    except (ValueError, TypeError):
-        raise error
-    if len(crudo) != largo:
-        raise error
-    return valor
-
-
-def _suscripcion(valor) -> dict:
-    error = ErrorValidacion("La suscripción del navegador no es válida.", "suscripcion")
-    if not isinstance(valor, dict):
-        raise error
-    endpoint = valor.get("endpoint")
-    claves = valor.get("keys")
-    if not isinstance(endpoint, str) or len(endpoint) > LARGO_MAX_ENDPOINT or not isinstance(claves, dict):
-        raise error
-    partes = urlsplit(endpoint)
-    host = (partes.hostname or "").lower()
-    if partes.scheme != "https" or partes.port not in (None, 443) or partes.username or not _host_permitido(host):
-        raise error
-    # Se reconstruye en vez de guardar lo recibido: así no entra a la base
-    # ningún campo extra que el cliente haya querido colar.
-    return {
-        "endpoint": endpoint,
-        "keys": {
-            "p256dh": _clave_b64url(claves.get("p256dh"), "p256dh", BYTES_P256DH),
-            "auth": _clave_b64url(claves.get("auth"), "auth", BYTES_AUTH),
-        },
-    }
-
-
 def validar_solicitud(datos) -> dict:
     """
     Valida el JSON recibido y devuelve los datos limpios. Lanza
@@ -168,7 +108,7 @@ def validar_solicitud(datos) -> dict:
         "fecha_soat": fecha_soat,
         "fecha_tecno": fecha_tecno,
         "placa": _placa(datos.get("placa")),
-        "suscripcion": _suscripcion(datos.get("suscripcion")),
+        "suscripcion": validar_suscripcion(datos.get("suscripcion")),
     }
 
 
@@ -211,7 +151,7 @@ def enviar_push(recordatorio: dict, titulo: str, cuerpo: str, url: str = "/") ->
 
     # Se revalida aunque venga de la base: una fila escrita por fuera del
     # servicio no debe poder hacer que el servidor le pegue a cualquier URL.
-    suscripcion = _suscripcion(recordatorio.get("suscripcion"))
+    suscripcion = validar_suscripcion(recordatorio.get("suscripcion"))
     payload = json.dumps({"title": titulo, "body": cuerpo, "url": url}, ensure_ascii=False)
 
     try:
@@ -280,7 +220,7 @@ def texto_aviso(tipo: str, fecha, dias: int) -> dict:
     """Título y cuerpo de la notificación de vencimiento."""
     fecha = _como_fecha(fecha)
     nombre = TIPOS_AVISO[tipo][1]
-    fecha_txt = f"{fecha.day} de {MESES[fecha.month - 1]} de {fecha.year}"
+    fecha_txt = fecha_legible(fecha)
     if dias == 0:
         cuando = "Vence hoy"
     elif dias == 1:

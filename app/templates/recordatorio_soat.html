@@ -179,6 +179,7 @@
         </div>
     </main>
 
+    <script src="{{ url_for('static', filename='pwa/suscribir-push.js') }}"></script>
     <script>
         const toggle = document.querySelector('.menu-toggle');
         const links = document.getElementById('nav-links');
@@ -214,21 +215,6 @@
             try { localStorage.setItem(CLAVE_TOKEN, token); } catch { /* sin almacenamiento: el recordatorio igual queda activo */ }
         }
 
-        // applicationServerKey espera bytes; la llave viene en base64url.
-        function base64urlABytes(texto) {
-            const relleno = '='.repeat((4 - texto.length % 4) % 4);
-            const b64 = (texto + relleno).replace(/-/g, '+').replace(/_/g, '/');
-            const crudo = atob(b64);
-            return Uint8Array.from(crudo, c => c.charCodeAt(0));
-        }
-
-        // iPadOS se presenta como Mac; se distingue por la pantalla táctil.
-        const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const instalada = window.matchMedia('(display-mode: standalone)').matches ||
-                          navigator.standalone === true;
-        const soportaPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-
         if (leerToken()) {
             mostrar('exito', 'Ya tienes un recordatorio activo en este dispositivo. ' +
                              'Puedes activar otro si tienes más motos.');
@@ -248,16 +234,16 @@
                 return;
             }
 
-            // Caso iOS sin instalar: va ANTES del chequeo de soporte, porque en
-            // Safari sin instalar PushManager no existe y diríamos "no soportado".
-            if (esIOS && !instalada) {
+            // Detección de iOS sin instalar / sin soporte: static/pwa/suscribir-push.js.
+            const caso = PushUM.diagnostico();
+            if (caso === 'ios-sin-instalar') {
                 mostrar('aviso', '<b>Primero agrega la app a tu pantalla de inicio.</b><br>' +
                     'En Safari toca <b>Compartir</b> (el cuadro con la flecha) → ' +
                     '<b>Agregar a inicio</b>. Luego abre Universal Motors desde el ícono ' +
                     'y activa el recordatorio desde ahí.');
                 return;
             }
-            if (!soportaPush) {
+            if (caso === 'sin-soporte') {
                 mostrar('error', 'Tu navegador no permite recordatorios. Prueba con Chrome, Edge o Firefox.');
                 return;
             }
@@ -268,20 +254,16 @@
 
             boton.disabled = true;
             try {
-                const permiso = await Notification.requestPermission();
-                if (permiso !== 'granted') {
+                let suscripcion;
+                try {
+                    suscripcion = await PushUM.suscribir(VAPID_PUBLICA);
+                } catch (err) {
+                    if (err.codigo !== 'denegado') throw err;
                     mostrar('aviso', 'Bloqueaste las notificaciones, así que no podemos avisarte. ' +
                         'Puedes habilitarlas en la configuración del navegador (el candado junto a ' +
                         'la dirección) y volver a intentar.');
                     return;
                 }
-
-                const registro = await navigator.serviceWorker.ready;
-                const suscripcion = await registro.pushManager.getSubscription() ||
-                    await registro.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: base64urlABytes(VAPID_PUBLICA),
-                    });
 
                 const resp = await fetch('/api/recordatorios', {
                     method: 'POST',
@@ -291,7 +273,7 @@
                         fecha_tecno: fechaTecno || null,
                         placa: form.placa.value.trim() || null,
                         acepta_politica: true,
-                        suscripcion: suscripcion.toJSON(),
+                        suscripcion: suscripcion,
                     }),
                 });
                 const datos = await resp.json().catch(() => ({}));

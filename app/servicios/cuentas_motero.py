@@ -14,8 +14,8 @@ Qué se pide al registrarse:
 """
 
 import re
-from datetime import datetime, timezone
 
+from app.seguridad.tiempo import hoy_colombia
 from app.seguridad.validadores import (
     ErrorValidacion, validar_entero, validar_placa_moto, validar_telefono, validar_texto,
 )
@@ -170,10 +170,7 @@ MENSAJE_TOPE_MOTOS = f"Puedes registrar hasta {MAX_MOTOS_POR_MOTERO} motos."
 
 
 def _anio_actual() -> int:
-    # Año en UTC: la hora de Colombia (contratos.HORA_COLOMBIA) no se puede
-    # importar desde aquí sin arrastrar el repositorio del admin. Solo
-    # difiere 5 horas en Año Nuevo, y el tope ya es el año próximo.
-    return datetime.now(timezone.utc).year
+    return hoy_colombia().year
 
 
 def anio_maximo() -> int:
