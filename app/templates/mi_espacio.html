@@ -5,14 +5,53 @@
 {% block estilos %}
         .cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
         .cabecera .intro { margin-bottom: 0; }
+        .seccion { margin-bottom: 32px; }
         .motos { list-style: none; display: grid; gap: 12px; }
-        .moto { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .moto { background: var(--negro-700); border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; }
+        .moto-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .moto .nombre { font-weight: 600; font-size: 17px; }
         .moto .detalle { color: var(--texto-tenue); font-size: 14px; margin-top: 2px; }
-        .moto .placa { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: 1px; background: #f5c400; color: #000; border-radius: 6px; padding: 2px 10px; white-space: nowrap; }
-        .vacio { text-align: center; color: var(--texto-suave); line-height: 1.6; }
+        .placa { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: 1px; background: #f5c400; color: #000; border-radius: 6px; padding: 2px 10px; white-space: nowrap; }
+        .acciones { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+        .acciones details { flex: 1 1 100%; }
+        .acciones summary { display: inline-block; cursor: pointer; list-style: none; }
+        .acciones summary::-webkit-details-marker { display: none; }
+        .acciones details[open] summary { margin-bottom: 14px; }
+        .btn-peligro:hover { border-color: #ff6b57; color: #ff6b57; }
+        .rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+        .campo input.placa-input { text-transform: uppercase; }
+        .vacio { text-align: center; color: var(--texto-suave); line-height: 1.6; margin-bottom: 0; }
         .vacio strong { display: block; font-size: 18px; color: var(--texto); margin-bottom: 6px; }
+        @media (max-width: 640px) { .rejilla { grid-template-columns: 1fr; } }
 {% endblock %}
+
+{# Campos de una moto: los comparten el formulario de agregar y el de editar.
+   `p` es el prefijo de los id (cada formulario necesita los suyos). #}
+{% macro campos_moto(p, v) %}
+    <div class="rejilla">
+        <div class="campo">
+            <label for="{{ p }}-marca">Marca</label>
+            <input type="text" id="{{ p }}-marca" name="marca" maxlength="60" required
+                   placeholder="Yamaha" value="{{ v.marca or '' }}">
+        </div>
+        <div class="campo">
+            <label for="{{ p }}-modelo">Modelo</label>
+            <input type="text" id="{{ p }}-modelo" name="modelo" maxlength="60" required
+                   placeholder="NMAX 155" value="{{ v.modelo or '' }}">
+        </div>
+        <div class="campo">
+            <label for="{{ p }}-anio">Año</label>
+            <input type="number" id="{{ p }}-anio" name="anio" inputmode="numeric" required
+                   min="{{ anio_min }}" max="{{ anio_max }}" placeholder="{{ anio_max - 1 }}"
+                   value="{{ v.anio or '' }}">
+        </div>
+        <div class="campo">
+            <label for="{{ p }}-placa">Placa <span style="text-transform:none">(opcional)</span></label>
+            <input type="text" id="{{ p }}-placa" name="placa" class="placa-input" maxlength="8"
+                   autocapitalize="characters" placeholder="ABC12D" value="{{ v.placa or '' }}">
+        </div>
+    </div>
+{% endmacro %}
 
 {% block contenido %}
     <div class="cabecera">
@@ -26,23 +65,67 @@
         </form>
     </div>
 
-    <h2>Mis motos</h2>
-    {% if motos %}
-        <ul class="motos">
-            {% for moto in motos %}
-                <li class="moto">
-                    <div>
-                        <div class="nombre">{{ moto.marca or "Moto" }} {{ moto.modelo or "" }}</div>
-                        {% if moto.anio %}<div class="detalle">Modelo {{ moto.anio }}</div>{% endif %}
-                    </div>
-                    {% if moto.placa %}<span class="placa">{{ moto.placa }}</span>{% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <div class="tarjeta vacio">
-            <strong>Todavía no tienes motos registradas</strong>
-            Muy pronto vas a poder agregar tus motos aquí.
-        </div>
-    {% endif %}
+    <section class="seccion">
+        <h2>Mis motos</h2>
+        {% if error_lista %}<div class="mensaje error" role="alert">{{ error_lista }}</div>{% endif %}
+
+        {% if motos %}
+            <ul class="motos">
+                {% for moto in motos %}
+                    {% set editando = moto_editando == moto.id %}
+                    <li class="moto">
+                        <div class="moto-fila">
+                            <div>
+                                <div class="nombre">{{ moto.marca or "Moto" }} {{ moto.modelo or "" }}</div>
+                                {% if moto.anio %}<div class="detalle">Modelo {{ moto.anio }}</div>{% endif %}
+                            </div>
+                            {% if moto.placa %}<span class="placa">{{ moto.placa }}</span>{% endif %}
+                        </div>
+
+                        <div class="acciones">
+                            <details {% if editando %}open{% endif %}>
+                                <summary class="btn-secundario">Editar</summary>
+                                {% if editando and error_editar %}
+                                    <div class="mensaje error" role="alert">{{ error_editar }}</div>
+                                {% endif %}
+                                <form method="post" action="{{ url_for('motero.editar_moto', moto_id=moto.id) }}" novalidate>
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    {{ campos_moto('m' ~ moto.id, valores_editar if editando else moto) }}
+                                    <button type="submit" class="btn-cta">Guardar cambios</button>
+                                </form>
+                            </details>
+
+                            {# confirm() es solo ayuda visual; la seguridad es el POST + CSRF + RLS. #}
+                            <form method="post" action="{{ url_for('motero.borrar_moto', moto_id=moto.id) }}"
+                                  onsubmit="return confirm('¿Borrar esta moto de tu espacio?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-secundario btn-peligro">Borrar</button>
+                            </form>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="tarjeta vacio">
+                <strong>Todavía no tienes motos registradas</strong>
+                Agrega la primera aquí abajo.
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="seccion">
+        <h2>Agregar moto</h2>
+        {% if motos | length >= max_motos %}
+            <p class="intro">Llegaste al máximo de {{ max_motos }} motos. Borra una para agregar otra.</p>
+        {% else %}
+            <div class="tarjeta">
+                {% if error_agregar %}<div class="mensaje error" role="alert">{{ error_agregar }}</div>{% endif %}
+                <form method="post" action="{{ url_for('motero.agregar_moto') }}" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {{ campos_moto('nueva', valores_agregar or {}) }}
+                    <button type="submit" class="btn-cta">Agregar moto</button>
+                </form>
+            </div>
+        {% endif %}
+    </section>
 {% endblock %}

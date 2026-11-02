@@ -38,7 +38,7 @@ from pywebpush import WebPushException, webpush
 
 from config import Config
 from app.db import repositorios
-from app.seguridad.validadores import ErrorValidacion
+from app.seguridad.validadores import ErrorValidacion, validar_placa_moto
 from app.servicios.contratos import HORA_COLOMBIA
 
 # Rango aceptado para las fechas de vencimiento. Hacia atrás se tolera un
@@ -46,10 +46,6 @@ from app.servicios.contratos import HORA_COLOMBIA
 # próximo); hacia adelante, SOAT y tecno se renuevan cada año o menos.
 DIAS_ATRAS_MAX = 365
 DIAS_ADELANTE_MAX = 2 * 365
-
-# Placa de moto en Colombia: 3 letras + 2 números + 1 letra (ABC12D). Las
-# más viejas no traen la letra final (ABC12).
-PATRON_PLACA = re.compile(r"^[A-Z]{3}[0-9]{2}[A-Z]?$")
 
 # Servicios de push de los navegadores. Se compara el host exacto o como
 # subdominio (Mozilla y Windows reparten en varios subdominios).
@@ -108,16 +104,8 @@ def _fecha(valor, campo: str, nombre: str):
 
 
 def _placa(valor):
-    if valor in (None, ""):
-        return None
-    if not isinstance(valor, str):
-        raise ErrorValidacion("La placa no es válida.", "placa")
-    placa = re.sub(r"[\s-]", "", valor).upper()
-    if not placa:
-        return None
-    if not PATRON_PLACA.match(placa):
-        raise ErrorValidacion("La placa debe tener el formato ABC12D.", "placa")
-    return placa
+    # El formato de placa vive en validadores (lo comparte "Mi espacio").
+    return validar_placa_moto(valor, "placa")
 
 
 def _host_permitido(host: str) -> bool:
