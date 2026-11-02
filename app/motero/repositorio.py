@@ -71,3 +71,70 @@ def borrar_moto(access_token, moto_id):
                  .eq("id", moto_id)
                  .execute())
     return resultado.data[0] if resultado.data else None
+
+
+# ---------- dispositivos (suscripciones push) ----------
+
+def guardar_dispositivo(access_token, usuario_id, suscripcion):
+    """
+    Guarda la suscripción push del motero. Si ese navegador ya estaba
+    registrado (mismo endpoint), la actualiza y la reactiva en vez de
+    duplicarla: UNIQUE (usuario_id, endpoint) de la migración 023.
+    """
+    fila = {"usuario_id": usuario_id, "suscripcion": suscripcion, "activo": True}
+    resultado = (cliente_motero(access_token).table("dispositivos")
+                 .upsert(fila, on_conflict="usuario_id,endpoint")
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def contar_dispositivos(access_token) -> int:
+    """Dispositivos activos del motero (RLS cuenta solo los suyos)."""
+    resultado = (cliente_motero(access_token).table("dispositivos")
+                 .select("id", count="exact")
+                 .eq("activo", True)
+                 .limit(1)
+                 .execute())
+    return resultado.count or 0
+
+
+# ---------- alertas ----------
+
+_SELECT_ALERTA = "id, tipo, modo, fecha_objetivo, recurrencia, umbrales_dias, activo, creado_en"
+
+# Columnas que el motero puede escribir al crear (usuario_id aparte: lo
+# pone la ruta desde la sesión y el WITH CHECK de RLS lo valida igual).
+_COLUMNAS_ALERTA = ("tipo", "modo", "recurrencia", "fecha_objetivo", "umbrales_dias")
+
+
+def listar_alertas(access_token):
+    """Las alertas del motero (RLS devuelve solo las suyas), más recientes primero."""
+    resultado = (cliente_motero(access_token).table("alertas")
+                 .select(_SELECT_ALERTA)
+                 .order("creado_en", desc=True)
+                 .execute())
+    return resultado.data or []
+
+
+def contar_alertas(access_token) -> int:
+    resultado = (cliente_motero(access_token).table("alertas")
+                 .select("id", count="exact")
+                 .limit(1)
+                 .execute())
+    return resultado.count or 0
+
+
+def crear_alerta(access_token, usuario_id, datos):
+    """Inserta una alerta del motero y devuelve la fila creada."""
+    fila = {**{c: datos.get(c) for c in _COLUMNAS_ALERTA}, "usuario_id": usuario_id}
+    resultado = cliente_motero(access_token).table("alertas").insert(fila).execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def borrar_alerta(access_token, alerta_id):
+    """Borra una alerta y devuelve la fila borrada, o None si no era suya o no existía."""
+    resultado = (cliente_motero(access_token).table("alertas")
+                 .delete()
+                 .eq("id", alerta_id)
+                 .execute())
+    return resultado.data[0] if resultado.data else None

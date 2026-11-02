@@ -22,6 +22,11 @@
         .campo input.placa-input { text-transform: uppercase; }
         .vacio { text-align: center; color: var(--texto-suave); line-height: 1.6; margin-bottom: 0; }
         .vacio strong { display: block; font-size: 18px; color: var(--texto); margin-bottom: 6px; }
+        .notif-fila { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .notif-fila p { color: var(--texto-suave); line-height: 1.5; flex: 1 1 260px; }
+        .notif-fila .btn-cta { width: auto; font-size: 16px; padding: 12px 24px; }
+        #notif-mensaje { margin: 16px 0 0; }
+        .alerta .proxima { color: var(--naranja); font-weight: 600; }
         @media (max-width: 640px) { .rejilla { grid-template-columns: 1fr; } }
 {% endblock %}
 
@@ -128,4 +133,180 @@
             </div>
         {% endif %}
     </section>
+
+    {# ---------- Notificaciones: suscribe ESTE navegador a la cuenta ---------- #}
+    <section class="seccion" id="notificaciones">
+        <h2>Notificaciones</h2>
+        <div class="tarjeta">
+            <div class="notif-fila">
+                <p id="notif-texto">
+                    Activa las notificaciones en este dispositivo para que te lleguen tus alertas.
+                    {% if dispositivos_activos %}
+                        Ya las tienes activas en {{ dispositivos_activos }}
+                        {{ "dispositivo" if dispositivos_activos == 1 else "dispositivos" }}.
+                    {% endif %}
+                </p>
+                <button type="button" id="btn-notif" class="btn-cta">Activar</button>
+            </div>
+            <div id="notif-mensaje" class="mensaje" role="status" hidden></div>
+        </div>
+    </section>
+
+    {# ---------- Alertas ---------- #}
+    <section class="seccion" id="alertas">
+        <h2>Mis alertas</h2>
+        {% if error_lista_alertas %}<div class="mensaje error" role="alert">{{ error_lista_alertas }}</div>{% endif %}
+
+        {% if alertas %}
+            <ul class="motos">
+                {% for alerta in alertas %}
+                    <li class="moto alerta">
+                        <div class="moto-fila">
+                            <div>
+                                <div class="nombre">{{ alerta.nombre }}</div>
+                                {% if alerta.proxima %}
+                                    <div class="detalle">Próxima: <span class="proxima">{{ alerta.proxima }}</span></div>
+                                {% endif %}
+                                <div class="detalle">
+                                    {% if alerta.recurrencia == "mensual" %}Cada mes · {% elif alerta.recurrencia == "anual" %}Cada año · {% endif %}
+                                    {% if alerta.umbrales_dias %}
+                                        aviso {{ alerta.umbrales_dias | join(" y ") }}
+                                        {{ "día" if alerta.umbrales_dias == [1] else "días" }} antes
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {# confirm() es solo ayuda visual; la seguridad es el POST + CSRF + RLS. #}
+                            <form method="post" action="{{ url_for('motero.borrar_alerta', alerta_id=alerta.id) }}"
+                                  onsubmit="return confirm('¿Borrar esta alerta?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-secundario btn-peligro">Borrar</button>
+                            </form>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="tarjeta vacio">
+                <strong>Todavía no tienes alertas</strong>
+                Crea la de tu crédito aquí abajo.
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="seccion">
+        <h2>Alerta de la cuota del crédito</h2>
+        {% if alertas | length >= max_alertas %}
+            <p class="intro">Llegaste al máximo de {{ max_alertas }} alertas. Borra una para crear otra.</p>
+        {% else %}
+            <div class="tarjeta">
+                {% if error_alerta %}<div class="mensaje error" role="alert">{{ error_alerta }}</div>{% endif %}
+                <form method="post" action="{{ url_for('motero.crear_alerta_credito') }}" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="campo">
+                        <label for="fecha-cuota">Fecha de tu próxima cuota</label>
+                        <input type="date" id="fecha-cuota" name="fecha_cuota" required
+                               min="{{ fecha_cuota_min }}" max="{{ fecha_cuota_max }}"
+                               value="{{ (valores_alerta or {}).fecha_cuota or '' }}">
+                        <div class="ayuda">Te avisamos cada mes, 3 días y 1 día antes. Solo guardamos la fecha.</div>
+                    </div>
+                    <button type="submit" class="btn-cta">Crear alerta</button>
+                </form>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='pwa/suscribir-push.js') }}"></script>
+    <script>
+        (function () {
+            // La llave pública VAPID viene de config (VAPID_PUBLIC_KEY), no del código.
+            const VAPID_PUBLICA = {{ vapid_publica | tojson }};
+            const CSRF = {{ csrf_token() | tojson }};
+            const URL_DISPOSITIVOS = {{ url_for('motero.guardar_dispositivo') | tojson }};
+            // Recuerda qué suscripción de este navegador ya quedó en ESTA cuenta
+            // (solo para mostrar el estado; la verdad está en la base).
+            const CLAVE_LOCAL = 'um_notif_motero:' + {{ motero.id | tojson }};
+
+            const boton = document.getElementById('btn-notif');
+            const mensaje = document.getElementById('notif-mensaje');
+
+            function mostrar(tipo, html) {
+                mensaje.className = 'mensaje ' + tipo;
+                mensaje.innerHTML = html;
+                mensaje.hidden = false;
+            }
+            function leerLocal() {
+                try { return localStorage.getItem(CLAVE_LOCAL); } catch { return null; }
+            }
+            function guardarLocal(valor) {
+                try { localStorage.setItem(CLAVE_LOCAL, valor); } catch { /* solo afecta el estado mostrado */ }
+            }
+
+            const AVISO_IOS = '<b>Primero agrega la app a tu pantalla de inicio.</b><br>' +
+                'En Safari toca <b>Compartir</b> (el cuadro con la flecha) → <b>Agregar a inicio</b>. ' +
+                'Luego abre Universal Motors desde el ícono, entra a Mi espacio y activa las notificaciones.';
+            const AVISO_BLOQUEADAS = 'Bloqueaste las notificaciones de este sitio. Puedes habilitarlas en la ' +
+                'configuración del navegador (el candado junto a la dirección) y volver a intentar.';
+
+            function activas() {
+                boton.hidden = true;
+                mostrar('exito', 'Las notificaciones están activas en este dispositivo.');
+            }
+
+            // Estado inicial: qué puede hacer este navegador.
+            async function revisar() {
+                const caso = PushUM.diagnostico();
+                if (caso === 'ios-sin-instalar') { boton.hidden = true; mostrar('aviso', AVISO_IOS); return; }
+                if (caso === 'sin-soporte') {
+                    boton.hidden = true;
+                    mostrar('error', 'Tu navegador no permite notificaciones. Prueba con Chrome, Edge o Firefox.');
+                    return;
+                }
+                if (PushUM.permiso() === 'denied') { mostrar('aviso', AVISO_BLOQUEADAS); return; }
+                try {
+                    const actual = await PushUM.suscripcionActual();
+                    if (actual && actual.endpoint === leerLocal()) activas();
+                } catch { /* sin estado: se deja el botón */ }
+            }
+
+            boton.addEventListener('click', async () => {
+                boton.disabled = true;
+                try {
+                    const suscripcion = await PushUM.suscribir(VAPID_PUBLICA);
+                    const resp = await fetch(URL_DISPOSITIVOS, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                        body: JSON.stringify({ suscripcion: suscripcion }),
+                    });
+                    // Sesión vencida: el decorador redirige a /ingresar y fetch sigue
+                    // el redirect, así que un 200 con HTML NO es éxito.
+                    const esJSON = (resp.headers.get('Content-Type') || '').includes('application/json');
+                    if (resp.redirected || !esJSON) {
+                        mostrar('error', 'Tu sesión venció. Recarga la página e ingresa de nuevo.');
+                        return;
+                    }
+                    const datos = await resp.json().catch(() => ({}));
+                    if (!resp.ok) {
+                        mostrar('error', datos.error ||
+                            (resp.status === 429 ? 'Hiciste muchos intentos seguidos. Intenta en un rato.'
+                                                 : 'No pudimos activar las notificaciones. Intenta de nuevo.'));
+                        return;
+                    }
+                    guardarLocal(suscripcion.endpoint);
+                    activas();
+                } catch (err) {
+                    if (err.codigo === 'denegado') mostrar('aviso', AVISO_BLOQUEADAS);
+                    else if (err.codigo === 'ios-sin-instalar') mostrar('aviso', AVISO_IOS);
+                    else if (err.codigo === 'sin-vapid') mostrar('error', 'Las notificaciones no están disponibles en este momento. Intenta más tarde.');
+                    else if (err.codigo === 'sin-soporte') mostrar('error', 'Tu navegador no permite notificaciones. Prueba con Chrome, Edge o Firefox.');
+                    else mostrar('error', 'No pudimos activar las notificaciones. Revisa tu conexión e intenta de nuevo.');
+                } finally {
+                    boton.disabled = false;
+                }
+            });
+
+            revisar();
+        })();
+    </script>
 {% endblock %}

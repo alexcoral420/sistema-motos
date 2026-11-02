@@ -65,7 +65,8 @@ Respect this separation when adding features: a change to catalog filtering, for
 - A **new Supabase client per request**, never the `get_supabase_publico()` singleton: supabase-py stores the session inside the client, and a `sign_in`/refresh on a shared client would switch every later query (the public catalog's included) to that motero's JWT.
 - Tokens are stored in the Flask session (a signed, not encrypted, cookie) **Fernet-encrypted**, under `motero_*` keys (`CLAVES_SESION_MOTERO` in `app/motero/sesion.py`). `@login_requerido_motero` validates the token with Supabase Auth and refreshes it when it's expired or about to expire.
 - Consent: `politica_id`/`version_politica` in `perfiles` are stamped by the `handle_new_user()` trigger (only if the signup metadata has `acepta_politica = true`); `authenticated` has no UPDATE grant on those columns.
-- Shared validation the motero needs (e.g. `validar_placa_moto`) lives in `app/seguridad/validadores.py`, which must stay **neutral** — no imports from `app`, `supabase` or `config` (a test checks it). Services like `recordatorios.py` or `contratos.py` import `repositorios`, so the motero can't import from them.
+- Shared code the motero needs lives in **neutral** modules under `app/seguridad/` — no imports from `app` (except `validadores`), `supabase` or `config` (tests check it): `validadores.py` (e.g. `validar_placa_moto`), `tiempo.py` (`HORA_COLOMBIA`, `hoy_colombia()`, `fecha_legible()`), `suscripcion_push.py` (`validar_suscripcion`, `HOSTS_PUSH`). Services like `recordatorios.py` or `contratos.py` import `repositorios`, so the motero can't import from them.
+- Alerts (migration 023, `app/servicios/alertas_motero.py`): generic `alertas` model (tipo, modo fecha/km, recurrencia, umbrales); Phase A only creates the credit one (monthly, warn 3 and 1 days before; only the date is stored). `fecha_objetivo` is an anchor that is never rewritten — each cycle's date comes from `proxima_ocurrencia()`. `dispositivos` holds the motero's push subscriptions (upsert on `usuario_id, endpoint`); `alertas_avisos` is service_role-only, for the sender. Sending is Phase B, not implemented.
 - **The session cookie is shared** by the panel, the public site and the motero. The panel never does `session.clear()`: it removes only `CLAVES_SESION_PANEL` (`app/auth/sesion.py`). A new panel session key must be added there.
 
 ### Two Supabase clients, different privilege (`app/db/cliente.py`)
@@ -99,13 +100,13 @@ The public site is an installable PWA. `/manifest.json` and `/sw.js` are Flask r
 
 `/recordatorio-soat` lets an anonymous visitor subscribe to SOAT/tecnomecánica expiry reminders (`app/servicios/recordatorios.py`):
 - The device gets a secret token (kept in `localStorage`) to edit/delete its reminder now and claim it from an account later. **Only its SHA-256 is stored** (`token_hash`); the plain token leaves the server exactly once, in the POST response.
-- The subscription endpoint must be `https` on an allow-listed push service host (`HOSTS_PUSH`): the server will POST to it when sending, so an arbitrary URL would be an SSRF vector. The subscription is rebuilt field by field, never stored as received.
+- The subscription endpoint must be `https` on an allow-listed push service host (`HOSTS_PUSH` in `app/seguridad/suscripcion_push.py`): the server will POST to it when sending, so an arbitrary URL would be an SSRF vector. The subscription is rebuilt field by field, never stored as received.
 - Plate + subscription are personal data: consent is mandatory and the policy version is recorded, as with leads.
 - Sending (pywebpush, signed with `VAPID_PRIVATE_KEY`) is not implemented yet.
 
 ### Data model notes
 
-Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial schema): `sedes`, `contactos`, `politicas_privacidad`, `usuarios`, `motos`, `fotos_motos`, `intenciones`, `ventas`, `compras`, `permutas`, `leads_chat`, `conversaciones`, `mensajes`. Later migrations add, among others, `datos_contrato` (007) and `recordatorios` (019).
+Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial schema): `sedes`, `contactos`, `politicas_privacidad`, `usuarios`, `motos`, `fotos_motos`, `intenciones`, `ventas`, `compras`, `permutas`, `leads_chat`, `conversaciones`, `mensajes`. Later migrations add, among others, `datos_contrato` (007), `recordatorios` (019), `perfiles`/`motos_usuario` (021) and `dispositivos`/`alertas`/`alertas_avisos` (023).
 
 - Sensitive/financial fields are encrypted with Fernet (`app/seguridad/cifrado.py`); the key (`CLAVE_CIFRADO`) lives only in env vars, never in the database or repo.
 - Privacy consent is versioned: `politicas_privacidad` archives each policy version's full text with a SHA-256 hash, and each lead records which version it consented to.

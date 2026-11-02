@@ -259,7 +259,7 @@ def interes_por_rango_precio(desde=None, hasta=None):
     por rango, en orden de precio.
     """
     from datetime import datetime, timedelta
-    from app.servicios.contratos import HORA_COLOMBIA
+    from app.seguridad.tiempo import HORA_COLOMBIA
 
     def parsear(v):
         try:

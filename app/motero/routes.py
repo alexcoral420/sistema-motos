@@ -8,11 +8,13 @@ anon + el JWT del motero, así que RLS aplica siempre.
 REGLA: aquí no se importa get_supabase_admin ni app.db.repositorios (ni
 nada que los arrastre). Lo verifica tests/test_cuentas_motero.py.
 
-Rutas: /registro, /ingresar, /salir (POST), /mi-espacio, y el CRUD de
-motos: POST /mi-espacio/motos, /mi-espacio/motos/<id>/editar y /borrar.
+Rutas: /registro, /ingresar, /salir (POST), /mi-espacio, el CRUD de
+motos (POST /mi-espacio/motos, /mi-espacio/motos/<id>/editar y /borrar),
+las notificaciones (POST /mi-espacio/dispositivos) y las alertas
+(POST /mi-espacio/alertas/credito y /mi-espacio/alertas/<id>/borrar).
 """
 
-from flask import Blueprint, g, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, g, jsonify, redirect, render_template, request, url_for
 from supabase import AuthError, PostgrestAPIError
 
 from app.motero import repositorio
@@ -23,7 +25,7 @@ from app.motero.sesion import (
 from app.seguridad.limites import limiter
 from app.seguridad.logging_config import obtener_logger
 from app.seguridad.validadores import ErrorValidacion
-from app.servicios import cuentas_motero
+from app.servicios import alertas_motero, cuentas_motero
 
 motero_bp = Blueprint("motero", __name__)
 
@@ -127,10 +129,16 @@ def _pagina_mi_espacio(estado=200, **extra):
     token = g.motero["access_token"]
     perfil = repositorio.obtener_perfil(token)
     motos = repositorio.listar_motos(token)
+    alertas = alertas_motero.para_mostrar(repositorio.listar_alertas(token))
+    fecha_min, fecha_max = alertas_motero.rango_fecha_credito()
     return render_template(
         "mi_espacio.html", motero=g.motero, perfil=perfil, motos=motos,
         max_motos=cuentas_motero.MAX_MOTOS_POR_MOTERO,
         anio_min=cuentas_motero.ANIO_MIN, anio_max=cuentas_motero.anio_maximo(),
+        alertas=alertas, max_alertas=alertas_motero.MAX_ALERTAS_POR_MOTERO,
+        fecha_cuota_min=fecha_min.isoformat(), fecha_cuota_max=fecha_max.isoformat(),
+        dispositivos_activos=repositorio.contar_dispositivos(token),
+        vapid_publica=current_app.config.get("VAPID_PUBLIC_KEY") or "",
         **extra), estado
 
 
@@ -203,3 +211,66 @@ def borrar_moto(moto_id):
     if fila is None:
         return _pagina_mi_espacio(404, error_lista=cuentas_motero.MENSAJE_MOTO_NO_ENCONTRADA)
     return redirect(url_for("motero.mi_espacio"))
+
+
+# ---------- notificaciones: dispositivos del motero ----------
+# La llama el JS de /mi-espacio con fetch (JSON) después de que el
+# navegador dio permiso y creó la suscripción. CSRF va en el header
+# X-CSRFToken (CSRFProtect lo acepta igual que el campo del formulario).
+
+@motero_bp.route("/mi-espacio/dispositivos", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_requerido_motero
+def guardar_dispositivo():
+    try:
+        datos = alertas_motero.validar_dispositivo(request.get_json(silent=True))
+        # usuario_id sale de la sesión, nunca del cuerpo de la petición.
+        repositorio.guardar_dispositivo(g.motero["access_token"], g.motero["id"], datos["suscripcion"])
+    except ErrorValidacion as e:
+        return jsonify({"error": e.mensaje}), 400
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: guardar dispositivo rechazado (%s)", g.motero["id"], e.code)
+        return jsonify({"error": alertas_motero.mensaje_error_alerta(e.code)}), 400
+    return jsonify({"ok": True})
+
+
+# ---------- alertas ----------
+# Igual que las motos: cliente JWT (RLS), POST-redirect-GET al terminar
+# bien, la misma página con el mensaje si algo falla.
+
+LIMITE_ALERTAS = "20 per minute"
+
+
+@motero_bp.route("/mi-espacio/alertas/credito", methods=["POST"])
+@limiter.limit(LIMITE_ALERTAS)
+@login_requerido_motero
+def crear_alerta_credito():
+    token = g.motero["access_token"]
+    valores = {"fecha_cuota": request.form.get("fecha_cuota", "")}
+    try:
+        datos = alertas_motero.validar_alerta_credito(request.form)
+        if repositorio.contar_alertas(token) >= alertas_motero.MAX_ALERTAS_POR_MOTERO:
+            raise ErrorValidacion(alertas_motero.MENSAJE_TOPE_ALERTAS)
+        # usuario_id sale de la sesión, nunca del formulario.
+        repositorio.crear_alerta(token, g.motero["id"], datos)
+    except ErrorValidacion as e:
+        return _pagina_mi_espacio(400, error_alerta=e.mensaje, valores_alerta=valores)
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: crear alerta rechazado (%s)", g.motero["id"], e.code)
+        return _pagina_mi_espacio(400, error_alerta=alertas_motero.mensaje_error_alerta(e.code),
+                                  valores_alerta=valores)
+    return redirect(url_for("motero.mi_espacio") + "#alertas")
+
+
+@motero_bp.route("/mi-espacio/alertas/<int:alerta_id>/borrar", methods=["POST"])
+@limiter.limit(LIMITE_ALERTAS)
+@login_requerido_motero
+def borrar_alerta(alerta_id):
+    try:
+        fila = repositorio.borrar_alerta(g.motero["access_token"], alerta_id)
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: borrar alerta %s rechazado (%s)", g.motero["id"], alerta_id, e.code)
+        return _pagina_mi_espacio(400, error_lista_alertas=alertas_motero.mensaje_error_alerta(e.code))
+    if fila is None:
+        return _pagina_mi_espacio(404, error_lista_alertas=alertas_motero.MENSAJE_ALERTA_NO_ENCONTRADA)
+    return redirect(url_for("motero.mi_espacio") + "#alertas")
