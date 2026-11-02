@@ -57,6 +57,15 @@ Respect this separation when adding features: a change to catalog filtering, for
 - `auth` — login/session
 - `api` — REST API for external integrations (n8n), API-key authenticated, CSRF-exempt
 - `webhook` — inbound messaging events (WhatsApp/Meta), CSRF-exempt
+- `motero` (`app/motero/`) — "Mi espacio" for end customers: `/registro`, `/ingresar`, `/salir` (POST), `/mi-espacio`. Accounts live in **Supabase Auth**, not in `usuarios`. See below.
+
+### "Mi espacio" del motero (`app/motero/`, migration 021)
+
+- **Never imports `get_supabase_admin` or `app.db.repositorios`**, directly or transitively (`tests/test_cuentas_motero.py` enforces it in a clean subprocess). Data access goes through `app/motero/cliente.py`: anon key + the motero's JWT in the `Authorization` header, so RLS (`auth.uid()`) is the real gate. Queries in `app/motero/repositorio.py` don't filter by user by hand — RLS does.
+- A **new Supabase client per request**, never the `get_supabase_publico()` singleton: supabase-py stores the session inside the client, and a `sign_in`/refresh on a shared client would switch every later query (the public catalog's included) to that motero's JWT.
+- Tokens are stored in the Flask session (a signed, not encrypted, cookie) **Fernet-encrypted**, under `motero_*` keys (`CLAVES_SESION_MOTERO` in `app/motero/sesion.py`). `@login_requerido_motero` validates the token with Supabase Auth and refreshes it when it's expired or about to expire.
+- Consent: `politica_id`/`version_politica` in `perfiles` are stamped by the `handle_new_user()` trigger (only if the signup metadata has `acepta_politica = true`); `authenticated` has no UPDATE grant on those columns.
+- **The session cookie is shared** by the panel, the public site and the motero. The panel never does `session.clear()`: it removes only `CLAVES_SESION_PANEL` (`app/auth/sesion.py`). A new panel session key must be added there.
 
 ### Two Supabase clients, different privilege (`app/db/cliente.py`)
 

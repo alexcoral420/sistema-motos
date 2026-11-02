@@ -9,6 +9,7 @@ sede), lo que habilita la trazabilidad: saber QUIÉN hace cada acción.
 from flask import Blueprint, request, render_template, redirect, url_for, session
 
 from app.auth.security import autenticar
+from app.auth.sesion import cerrar_sesion_panel
 from app.seguridad.limites import limiter
 from app.seguridad.logging_config import obtener_logger
 
@@ -32,8 +33,10 @@ def login():
 
         log = obtener_logger()
         if usuario:
-            # Sesión limpia: nada de una identidad anterior sobrevive.
-            session.clear()
+            # Ninguna identidad anterior del panel sobrevive. Solo se borran
+            # las claves del panel: la del motero y las del sitio público
+            # comparten la cookie y no son de este login.
+            cerrar_sesion_panel()
             # Guardamos la IDENTIDAD, no solo un booleano.
             session["logueado"] = True
             session["usuario_id"] = usuario["id"]
@@ -60,6 +63,6 @@ def login():
 
 @auth_bp.route("/logout")
 def logout():
-    """Cierra la sesión: limpia toda la identidad guardada."""
-    session.clear()
+    """Cierra la sesión del panel: limpia su identidad (y solo esa)."""
+    cerrar_sesion_panel()
     return redirect(url_for("auth.login"))
