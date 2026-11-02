@@ -173,7 +173,7 @@ def cliente(monkeypatch):
 
 def test_crear_alerta_usa_usuario_de_la_sesion(cliente, monkeypatch):
     creadas = []
-    monkeypatch.setattr(repositorio, "contar_alertas", lambda token: 0)
+    monkeypatch.setattr(repositorio, "contar_alertas", lambda token, tipo: 0)
     monkeypatch.setattr(repositorio, "crear_alerta",
                         lambda token, uid, datos: creadas.append((token, uid, datos)) or {"id": 1})
     r = cliente.post("/mi-espacio/alertas/credito",
@@ -182,8 +182,13 @@ def test_crear_alerta_usa_usuario_de_la_sesion(cliente, monkeypatch):
     assert creadas == [("access-1", "u-1", alertas_motero.validar_alerta_credito({"fecha_cuota": "2026-11-15"}))]
 
 
-def test_crear_alerta_respeta_el_tope(cliente, monkeypatch):
-    monkeypatch.setattr(repositorio, "contar_alertas", lambda token: alertas_motero.MAX_ALERTAS_POR_MOTERO)
+def test_crear_alerta_respeta_el_tope_de_credito(cliente, monkeypatch):
+    contados = []
+
+    def contar(token, tipo):
+        contados.append(tipo)
+        return alertas_motero.MAX_ALERTAS_CREDITO
+    monkeypatch.setattr(repositorio, "contar_alertas", contar)
     monkeypatch.setattr(repositorio, "crear_alerta", lambda *a: pytest.fail("no debía insertar"))
     # La página de error se renderiza con todo el contexto: se reemplaza.
     import app.motero.routes as rutas
@@ -191,6 +196,7 @@ def test_crear_alerta_respeta_el_tope(cliente, monkeypatch):
     r = cliente.post("/mi-espacio/alertas/credito", data={"fecha_cuota": "2026-11-15"})
     assert r.status_code == 400
     assert r.get_data(as_text=True) == alertas_motero.MENSAJE_TOPE_ALERTAS
+    assert contados == ["credito"]   # el tope cuenta solo las de crédito
 
 
 def test_borrar_alerta_ajena_da_404(cliente, monkeypatch):
@@ -228,9 +234,184 @@ def test_rutas_exigen_sesion(monkeypatch):
     from app.motero.routes import motero_bp
     app.register_blueprint(motero_bp)
     c = app.test_client()
-    for url in ("/mi-espacio/dispositivos", "/mi-espacio/alertas/credito", "/mi-espacio/alertas/1/borrar"):
+    for url in ("/mi-espacio/dispositivos", "/mi-espacio/alertas/credito", "/mi-espacio/alertas/1/borrar",
+                "/mi-espacio/motos/1/alertas/soat"):
         r = c.post(url)
         assert r.status_code == 302 and "/ingresar" in r.location
+
+
+# ---------- SOAT y tecno por moto: validación ----------
+
+@pytest.mark.parametrize("tipo", ["soat", "tecno"])
+def test_alerta_moto_valida(tipo):
+    assert alertas_motero.validar_alerta_moto(tipo, 5, {"fecha": "2027-03-15"}) == {
+        "tipo": tipo,
+        "modo": "fecha",
+        "recurrencia": "anual",
+        "fecha_objetivo": "2027-03-15",
+        "umbrales_dias": [30, 15, 7, 1],
+        "moto_usuario_id": 5,
+    }
+
+
+def test_alerta_moto_ignora_lo_que_no_es_la_fecha():
+    datos = alertas_motero.validar_alerta_moto("soat", 5, {
+        "fecha": "2027-03-15", "tipo": "credito", "recurrencia": "mensual",
+        "umbrales_dias": "{0}", "usuario_id": "otro-motero", "moto_usuario_id": "99",
+    })
+    assert (datos["tipo"], datos["recurrencia"], datos["moto_usuario_id"]) == ("soat", "anual", 5)
+    assert datos["umbrales_dias"] == [30, 15, 7, 1] and "usuario_id" not in datos
+
+
+@pytest.mark.parametrize("tipo, fecha, valida", [
+    ("soat", "2026-10-02", True),    # hoy - 31
+    ("soat", "2026-10-01", False),
+    ("soat", "2027-11-03", True),    # hoy + 366
+    ("soat", "2027-11-04", False),
+    ("tecno", "2026-10-02", True),
+    ("tecno", "2026-10-01", False),
+    ("tecno", "2028-11-01", True),   # hoy + 730: moto nueva, primera revisión a los 2 años
+    ("tecno", "2028-11-02", False),
+])
+def test_alerta_moto_rango_por_tipo(tipo, fecha, valida):
+    if valida:
+        assert alertas_motero.validar_alerta_moto(tipo, 1, {"fecha": fecha})["fecha_objetivo"] == fecha
+    else:
+        with pytest.raises(ErrorValidacion) as e:
+            alertas_motero.validar_alerta_moto(tipo, 1, {"fecha": fecha})
+        assert e.value.campo == "fecha"
+
+
+@pytest.mark.parametrize("fecha", [None, "", "15/03/2027", "2027-02-30", 20270315])
+@pytest.mark.parametrize("tipo", ["soat", "tecno"])
+def test_alerta_moto_fecha_invalida(tipo, fecha):
+    with pytest.raises(ErrorValidacion) as e:
+        alertas_motero.validar_alerta_moto(tipo, 1, {"fecha": fecha})
+    assert e.value.campo == "fecha"
+
+
+def test_mensajes_por_tipo():
+    with pytest.raises(ErrorValidacion) as e:
+        alertas_motero.validar_alerta_moto("tecno", 1, {"fecha": ""})
+    assert "tecnomecánica" in e.value.mensaje
+
+
+@pytest.mark.parametrize("tipo", ["credito", "aceite", "otro", "SOAT", ""])
+def test_alerta_moto_tipo_no_permitido(tipo):
+    assert not alertas_motero.es_tipo_por_moto(tipo)
+    with pytest.raises(ValueError):
+        alertas_motero.validar_alerta_moto(tipo, 1, {"fecha": "2027-03-15"})
+
+
+def test_reglas_de_tipos_coherentes_con_la_migracion():
+    """Umbrales dentro del CHECK de la 023 (1 a 5 valores entre 0 y 365) y recurrencias válidas."""
+    for tipo, reglas in alertas_motero.TIPOS_ALERTA_FECHA.items():
+        assert tipo in alertas_motero.NOMBRES_TIPO
+        assert 1 <= len(reglas["umbrales"]) <= 5
+        assert all(0 <= u <= 365 for u in reglas["umbrales"])
+        assert reglas["recurrencia"] in ("ninguna", "mensual", "anual")
+
+
+def test_proxima_ocurrencia_anual_de_soat_vencido_hace_poco():
+    # SOAT vencido hace 2 semanas: la alerta anual apunta al año siguiente.
+    assert alertas_motero.proxima_ocurrencia(date(2026, 10, 19), "anual", HOY) == date(2027, 10, 19)
+
+
+def test_separar_alertas():
+    alertas = alertas_motero.para_mostrar([
+        {"id": 1, "moto_usuario_id": None, "tipo": "credito", "modo": "fecha",
+         "fecha_objetivo": "2026-11-15", "recurrencia": "mensual"},
+        {"id": 2, "moto_usuario_id": 7, "tipo": "soat", "modo": "fecha",
+         "fecha_objetivo": "2027-03-15", "recurrencia": "anual"},
+        {"id": 3, "moto_usuario_id": 7, "tipo": "tecno", "modo": "fecha",
+         "fecha_objetivo": "2027-05-02", "recurrencia": "anual"},
+    ])
+    sin_moto, por_moto = alertas_motero.separar_alertas(alertas)
+    assert [a["id"] for a in sin_moto] == [1]
+    assert {t: a["id"] for t, a in por_moto[7].items()} == {"soat": 2, "tecno": 3}
+    assert por_moto[7]["soat"]["proxima"] == "15 de marzo de 2027"
+
+
+# ---------- SOAT y tecno por moto: rutas ----------
+
+def _pagina_simulada(monkeypatch):
+    import app.motero.routes as rutas
+    monkeypatch.setattr(rutas, "_pagina_mi_espacio", lambda estado=200, **extra: (
+        extra.get("error_alerta_moto") or extra.get("error_lista") or "", estado))
+
+
+def _error_postgrest(codigo):
+    from supabase import PostgrestAPIError
+    return PostgrestAPIError({"code": codigo, "message": "x", "details": None, "hint": None})
+
+
+def test_alerta_moto_nueva_se_crea_con_usuario_de_la_sesion(cliente, monkeypatch):
+    creadas = []
+    monkeypatch.setattr(repositorio, "obtener_alerta_de_moto", lambda token, moto_id, tipo: None)
+    monkeypatch.setattr(repositorio, "crear_alerta",
+                        lambda token, uid, datos: creadas.append((uid, datos)) or {"id": 1})
+    r = cliente.post("/mi-espacio/motos/7/alertas/soat",
+                     data={"fecha": "2027-03-15", "usuario_id": "otro-motero", "moto_usuario_id": "99"})
+    assert r.status_code == 302 and r.location.endswith("/mi-espacio#moto-7")
+    assert creadas == [("u-1", alertas_motero.validar_alerta_moto("soat", 7, {"fecha": "2027-03-15"}))]
+
+
+def test_alerta_moto_existente_se_actualiza(cliente, monkeypatch):
+    actualizadas = []
+    monkeypatch.setattr(repositorio, "obtener_alerta_de_moto", lambda token, moto_id, tipo: {"id": 40})
+    monkeypatch.setattr(repositorio, "crear_alerta", lambda *a: pytest.fail("no debía insertar"))
+    monkeypatch.setattr(repositorio, "actualizar_fecha_alerta",
+                        lambda token, alerta_id, fecha: actualizadas.append((alerta_id, fecha)) or {"id": alerta_id})
+    r = cliente.post("/mi-espacio/motos/7/alertas/tecno", data={"fecha": "2028-01-10"})
+    assert r.status_code == 302
+    assert actualizadas == [(40, "2028-01-10")]
+
+
+def test_alerta_moto_duplicada_en_carrera_se_actualiza(cliente, monkeypatch):
+    """Otra petición la creó entre el select y el insert: 23505 -> se actualiza la que quedó."""
+    vistas = iter([None, {"id": 41}])
+    actualizadas = []
+    monkeypatch.setattr(repositorio, "obtener_alerta_de_moto", lambda *a: next(vistas))
+
+    def crear(*a):
+        raise _error_postgrest("23505")
+    monkeypatch.setattr(repositorio, "crear_alerta", crear)
+    monkeypatch.setattr(repositorio, "actualizar_fecha_alerta",
+                        lambda token, alerta_id, fecha: actualizadas.append(alerta_id) or {"id": alerta_id})
+    r = cliente.post("/mi-espacio/motos/7/alertas/soat", data={"fecha": "2027-03-15"})
+    assert r.status_code == 302 and actualizadas == [41]
+
+
+@pytest.mark.parametrize("codigo", ["42501", "23503"])
+def test_alerta_de_moto_ajena_o_inexistente_da_404(cliente, monkeypatch, codigo):
+    _pagina_simulada(monkeypatch)
+    monkeypatch.setattr(repositorio, "obtener_alerta_de_moto", lambda *a: None)
+
+    def crear(*a):
+        raise _error_postgrest(codigo)
+    monkeypatch.setattr(repositorio, "crear_alerta", crear)
+    r = cliente.post("/mi-espacio/motos/999/alertas/soat", data={"fecha": "2027-03-15"})
+    assert r.status_code == 404
+
+
+def test_alerta_moto_fecha_invalida_no_escribe(cliente, monkeypatch):
+    _pagina_simulada(monkeypatch)
+    monkeypatch.setattr(repositorio, "obtener_alerta_de_moto", lambda *a: pytest.fail("no debía consultar"))
+    r = cliente.post("/mi-espacio/motos/7/alertas/soat", data={"fecha": "2020-01-01"})
+    assert r.status_code == 400 and "SOAT" in r.get_data(as_text=True)
+
+
+@pytest.mark.parametrize("tipo", ["credito", "aceite", "otro"])
+def test_alerta_moto_tipo_invalido_da_404(cliente, monkeypatch, tipo):
+    monkeypatch.setattr(repositorio, "obtener_alerta_de_moto", lambda *a: pytest.fail("no debía consultar"))
+    assert cliente.post(f"/mi-espacio/motos/7/alertas/{tipo}", data={"fecha": "2027-03-15"}).status_code == 404
+
+
+def test_borrar_alerta_de_moto_vuelve_a_la_moto(cliente, monkeypatch):
+    monkeypatch.setattr(repositorio, "borrar_alerta",
+                        lambda token, alerta_id: {"id": alerta_id, "moto_usuario_id": 7})
+    r = cliente.post("/mi-espacio/alertas/40/borrar")
+    assert r.status_code == 302 and r.location.endswith("#moto-7")
 
 
 # ---------- módulos neutrales ----------
