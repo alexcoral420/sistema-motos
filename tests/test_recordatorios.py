@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.servicios import recordatorios
+from app.servicios import push, recordatorios
 from app.seguridad.validadores import ErrorValidacion
 
 HOY = date(2026, 10, 31)
@@ -168,8 +168,8 @@ class _Respuesta:
 @pytest.fixture
 def envio(monkeypatch):
     """Config VAPID falsa y repositorio espiado; devuelve el registro de llamadas."""
-    monkeypatch.setattr(recordatorios.Config, "VAPID_PRIVATE_KEY", "clave")
-    monkeypatch.setattr(recordatorios.Config, "VAPID_SUBJECT", "mailto:x@y.co")
+    monkeypatch.setattr(push.Config, "VAPID_PRIVATE_KEY", "clave")
+    monkeypatch.setattr(push.Config, "VAPID_SUBJECT", "mailto:x@y.co")
     llamadas = {"webpush": [], "desactivar": []}
 
     def desactivar(endpoint, actualizado_en):
@@ -183,9 +183,9 @@ def _con_webpush(monkeypatch, llamadas, estado):
     def falso(**kwargs):
         llamadas["webpush"].append(kwargs)
         if estado >= 400:
-            raise recordatorios.WebPushException("error", response=_Respuesta(estado))
+            raise push.WebPushException("error", response=_Respuesta(estado))
         return _Respuesta(estado)
-    monkeypatch.setattr(recordatorios, "webpush", falso)
+    monkeypatch.setattr(push, "webpush", falso)
 
 
 def test_envio_exitoso(monkeypatch, envio):
@@ -223,7 +223,7 @@ def test_envio_revalida_endpoint(monkeypatch, envio):
 
 
 def test_envio_sin_vapid(monkeypatch, envio):
-    monkeypatch.setattr(recordatorios.Config, "VAPID_PRIVATE_KEY", None)
+    monkeypatch.setattr(push.Config, "VAPID_PRIVATE_KEY", None)
     with pytest.raises(RuntimeError):
         recordatorios.enviar_push({"suscripcion": _suscripcion()}, "T", "C")
 

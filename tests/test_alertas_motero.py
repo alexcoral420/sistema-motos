@@ -430,3 +430,244 @@ def test_modulo_neutral(modulo):
     prohibidos = [m for m in modulos
                   if m.startswith(("app", "supabase", "config")) and m != "app.seguridad.validadores"]
     assert not prohibidos, prohibidos
+
+
+# ------------------------------------------- Fase B: qué avisos salen hoy
+
+def _alerta(id=1, tipo="soat", ancla="2026-12-02", recurrencia=None, umbrales=None, **extra):
+    reglas = alertas_motero.TIPOS_ALERTA_FECHA[tipo]
+    fila = {
+        "id": id, "usuario_id": "u1", "tipo": tipo, "modo": "fecha", "activo": True,
+        "fecha_objetivo": ancla,
+        "recurrencia": recurrencia or reglas["recurrencia"],
+        "umbrales_dias": umbrales or list(reglas["umbrales"]),
+    }
+    fila.update(extra)
+    return fila
+
+
+def _avisos(alertas, hoy, ya_enviados=()):
+    return alertas_motero.avisos_a_enviar(alertas, hoy, set(ya_enviados))
+
+
+@pytest.mark.parametrize("tipo", ["soat", "tecno"])
+@pytest.mark.parametrize("hoy, umbral, dias", [
+    (date(2026, 11, 2), 30, 30),
+    (date(2026, 11, 17), 15, 15),
+    (date(2026, 11, 25), 7, 7),
+    (date(2026, 12, 1), 1, 1),
+    (date(2026, 12, 2), 1, 0),       # el mismo día del vencimiento
+])
+def test_soat_tecno_umbral_exacto(tipo, hoy, umbral, dias):
+    assert _avisos([_alerta(tipo=tipo)], hoy) == [(1, "2026-12-02", umbral, dias, date(2026, 12, 2))]
+
+
+def test_soat_lejos_no_avisa():
+    assert _avisos([_alerta()], date(2026, 10, 1)) == []   # 62 días
+
+
+def test_soat_anual_ancla_pasada_avisa_el_ciclo_siguiente():
+    alerta = _alerta(ancla="2026-10-20")
+    # Al día siguiente del vencimiento la ocurrencia ya es la del año que viene.
+    assert _avisos([alerta], date(2026, 10, 21)) == []
+    assert _avisos([alerta], date(2027, 9, 20)) == [(1, "2027-10-20", 30, 30, date(2027, 10, 20))]
+
+
+def test_credito_mensual():
+    alerta = _alerta(tipo="credito", ancla="2026-10-05")
+    assert _avisos([alerta], date(2026, 11, 2)) == [(1, "2026-11-05", 3, 3, date(2026, 11, 5))]
+    assert _avisos([alerta], date(2026, 11, 4)) == [(1, "2026-11-05", 1, 1, date(2026, 11, 5))]
+    assert _avisos([alerta], date(2026, 11, 6)) == []      # próxima: 5 de diciembre
+
+
+def test_credito_dia_31_no_se_corre():
+    alerta = _alerta(tipo="credito", ancla="2027-01-31")
+    assert _avisos([alerta], date(2027, 2, 27)) == [(1, "2027-02-28", 1, 1, date(2027, 2, 28))]
+    # Después de febrero vuelve al 31: el ancla no se reescribió.
+    assert _avisos([alerta], date(2027, 3, 30)) == [(1, "2027-03-31", 1, 1, date(2027, 3, 31))]
+
+
+def test_catch_up_bucket():
+    # El job no corrió el día 30: el aviso de 30 sale el 29.
+    assert _avisos([_alerta()], date(2026, 11, 3))[0][2] == 30
+    # Ya salió el de 30 y estamos a 10 días: sale el de 15 (el más chico >= 10).
+    ya = [(1, "2026-12-02", 30)]
+    assert _avisos([_alerta()], date(2026, 11, 22), ya) == [(1, "2026-12-02", 15, 10, date(2026, 12, 2))]
+    # Alerta creada a 5 días: un solo aviso (el de 7), no los de 30 y 15.
+    assert _avisos([_alerta()], date(2026, 11, 27)) == [(1, "2026-12-02", 7, 5, date(2026, 12, 2))]
+
+
+def test_dedup_por_ciclo():
+    alerta = _alerta(tipo="credito", ancla="2026-10-05")
+    ya = [(1, "2026-11-05", 3)]
+    assert _avisos([alerta], date(2026, 11, 2), ya) == []
+    # El mismo umbral del ciclo siguiente sí sale.
+    assert _avisos([alerta], date(2026, 12, 2), ya) == [(1, "2026-12-05", 3, 3, date(2026, 12, 5))]
+
+
+def test_dedup_es_por_alerta():
+    ya = [(1, "2026-12-02", 30)]
+    avisos = _avisos([_alerta(id=1), _alerta(id=2, tipo="tecno")], date(2026, 11, 2), ya)
+    assert [a[0] for a in avisos] == [2]
+
+
+def test_29_de_febrero():
+    alerta = _alerta(ancla="2028-02-29")
+    # Año no bisiesto: cae el 28 de febrero.
+    assert _avisos([alerta], date(2029, 1, 29)) == [(1, "2029-02-28", 30, 30, date(2029, 2, 28))]
+    # El siguiente bisiesto vuelve al 29.
+    assert _avisos([alerta], date(2032, 1, 30)) == [(1, "2032-02-29", 30, 30, date(2032, 2, 29))]
+
+
+def test_no_reescribe_la_alerta():
+    alerta = _alerta(ancla="2026-10-20")
+    copia = dict(alerta)
+    _avisos([alerta], date(2027, 9, 20))
+    assert alerta == copia
+
+
+def test_umbrales_salen_de_la_fila():
+    assert _avisos([_alerta(umbrales=[5])], date(2026, 11, 2)) == []
+    assert _avisos([_alerta(umbrales=[5])], date(2026, 11, 28)) == [(1, "2026-12-02", 5, 4, date(2026, 12, 2))]
+
+
+@pytest.mark.parametrize("cambios", [
+    {"activo": False},
+    {"modo": "km"},
+    {"fecha_objetivo": None},
+    {"umbrales_dias": None},
+    {"umbrales_dias": []},
+    {"recurrencia": "ninguna", "fecha_objetivo": "2026-10-01"},   # sin recurrencia y ya pasó
+])
+def test_alertas_que_no_avisan(cambios):
+    alerta = _alerta()
+    alerta.update(cambios)
+    assert _avisos([alerta], date(2026, 11, 2)) == []
+
+
+def test_sin_recurrencia_futura_avisa():
+    assert _avisos([_alerta(recurrencia="ninguna")], date(2026, 11, 2))[0][1] == "2026-12-02"
+
+
+@pytest.mark.parametrize("tipo, dias, esperado", [
+    ("soat", 15, "Tu SOAT vence en 15 días (2 de diciembre de 2026). Renuévalo para evitar multas."),
+    ("tecno", 1, "Tu tecnomecánica vence mañana (2 de diciembre de 2026). Renuévala para evitar multas."),
+    ("credito", 3, "Tu cuota vence en 3 días (2 de diciembre de 2026). "
+                   "Págala a tiempo para evitar intereses de mora."),
+    ("credito", 0, "Tu cuota vence hoy (2 de diciembre de 2026). "
+                   "Págala a tiempo para evitar intereses de mora."),
+])
+def test_texto_aviso_alerta(tipo, dias, esperado):
+    texto = alertas_motero.texto_aviso_alerta(tipo, date(2026, 12, 2), dias)
+    assert texto["cuerpo"] == esperado
+    assert texto["titulo"] == alertas_motero.TIPOS_ALERTA_FECHA[tipo]["aviso"]["titulo"]
+
+
+def test_todos_los_tipos_por_fecha_tienen_aviso():
+    for reglas in alertas_motero.TIPOS_ALERTA_FECHA.values():
+        assert set(reglas["aviso"]) == {"titulo", "sujeto", "cierre"}
+
+
+# ---------------------------------------------- Fase B: el job de envío
+
+def _cargar_job():
+    import importlib.util
+    ruta = Path(__file__).resolve().parent.parent / "scripts" / "enviar_alertas.py"
+    spec = importlib.util.spec_from_file_location("enviar_alertas", ruta)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+@pytest.fixture
+def job(monkeypatch):
+    """El job con el repositorio y el push reemplazados; devuelve (módulo, registro)."""
+    modulo = _cargar_job()
+    reg = {"alertas": [], "avisos": [], "dispositivos": [], "registrados": [],
+           "desactivados": [], "enviados": [], "estados": {}}
+    repo = modulo.repositorios
+    monkeypatch.setattr(repo, "listar_alertas_fecha_activas", lambda: reg["alertas"])
+    monkeypatch.setattr(repo, "listar_avisos_alertas", lambda ids: reg["avisos"])
+    monkeypatch.setattr(repo, "listar_dispositivos_activos",
+                        lambda ids: [d for d in reg["dispositivos"] if d["usuario_id"] in ids])
+    monkeypatch.setattr(repo, "registrar_aviso_alerta",
+                        lambda *a: reg["registrados"].append(a))
+
+    def desactivar(endpoint):
+        reg["desactivados"].append(endpoint)
+        return 1
+    monkeypatch.setattr(repo, "desactivar_dispositivos_por_endpoint", desactivar)
+
+    def enviar(suscripcion, titulo, cuerpo, url):
+        endpoint = suscripcion["endpoint"]
+        reg["enviados"].append((endpoint, cuerpo, url))
+        estado = reg["estados"].get(endpoint, 201)
+        return {"ok": estado < 400, "estado": estado, "endpoint": endpoint, "detalle": ""}
+    monkeypatch.setattr(modulo.push, "enviar_a_suscripcion", enviar)
+    return modulo, reg
+
+
+def _correr(modulo, monkeypatch, *argv):
+    monkeypatch.setattr("sys.argv", ["enviar_alertas.py", "--hoy", "2026-11-02", *argv])
+    try:
+        modulo.main()
+    except SystemExit as e:
+        return e.code
+    return 0
+
+
+def _disp(id, endpoint, usuario="u1"):
+    return {"id": id, "usuario_id": usuario, "endpoint": endpoint, "suscripcion": {"endpoint": endpoint}}
+
+
+def test_job_envia_a_todos_los_dispositivos_y_registra(job, monkeypatch):
+    modulo, reg = job
+    reg["alertas"] = [_alerta()]
+    reg["dispositivos"] = [_disp(1, "e1"), _disp(2, "e2"), _disp(3, "otro", usuario="u2")]
+    assert _correr(modulo, monkeypatch) == 0
+    assert [e[0] for e in reg["enviados"]] == ["e1", "e2"]
+    assert all(e[2] == "/mi-espacio" for e in reg["enviados"])
+    assert reg["registrados"] == [(1, "2026-12-02", 30)]
+
+
+def test_job_suscripcion_muerta_desactiva_y_registra_si_otro_recibio(job, monkeypatch):
+    modulo, reg = job
+    reg["alertas"] = [_alerta()]
+    reg["dispositivos"] = [_disp(1, "e1"), _disp(2, "e2")]
+    reg["estados"] = {"e1": 410}
+    assert _correr(modulo, monkeypatch) == 0
+    assert reg["desactivados"] == ["e1"]
+    assert reg["registrados"] == [(1, "2026-12-02", 30)]
+
+
+def test_job_error_pasajero_no_registra(job, monkeypatch):
+    modulo, reg = job
+    reg["alertas"] = [_alerta()]
+    reg["dispositivos"] = [_disp(1, "e1")]
+    reg["estados"] = {"e1": 503}
+    assert _correr(modulo, monkeypatch) == 1
+    assert reg["registrados"] == [] and reg["desactivados"] == []
+
+
+def test_job_sin_dispositivo_no_registra(job, monkeypatch):
+    modulo, reg = job
+    reg["alertas"] = [_alerta()]
+    assert _correr(modulo, monkeypatch) == 0
+    assert reg["enviados"] == [] and reg["registrados"] == []
+
+
+def test_job_dry_run_no_envia_ni_escribe(job, monkeypatch):
+    modulo, reg = job
+    reg["alertas"] = [_alerta()]
+    reg["dispositivos"] = [_disp(1, "e1")]
+    assert _correr(modulo, monkeypatch, "--dry-run") == 0
+    assert reg["enviados"] == [] and reg["registrados"] == [] and reg["desactivados"] == []
+
+
+def test_job_respeta_ya_enviados(job, monkeypatch):
+    modulo, reg = job
+    reg["alertas"] = [_alerta()]
+    reg["avisos"] = [{"alerta_id": 1, "ciclo": "2026-12-02", "umbral": 30}]
+    reg["dispositivos"] = [_disp(1, "e1")]
+    assert _correr(modulo, monkeypatch) == 0
+    assert reg["enviados"] == []
