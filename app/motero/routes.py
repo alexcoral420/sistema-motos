@@ -11,10 +11,11 @@ nada que los arrastre). Lo verifica tests/test_cuentas_motero.py.
 Rutas: /registro, /ingresar, /salir (POST), /mi-espacio, el CRUD de
 motos (POST /mi-espacio/motos, /mi-espacio/motos/<id>/editar y /borrar),
 las notificaciones (POST /mi-espacio/dispositivos) y las alertas
-(POST /mi-espacio/alertas/credito y /mi-espacio/alertas/<id>/borrar).
+(POST /mi-espacio/alertas/credito, /mi-espacio/motos/<id>/alertas/<tipo>
+para SOAT y tecno, y /mi-espacio/alertas/<id>/borrar).
 """
 
-from flask import Blueprint, current_app, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, g, jsonify, redirect, render_template, request, url_for
 from supabase import AuthError, PostgrestAPIError
 
 from app.motero import repositorio
@@ -129,14 +130,21 @@ def _pagina_mi_espacio(estado=200, **extra):
     token = g.motero["access_token"]
     perfil = repositorio.obtener_perfil(token)
     motos = repositorio.listar_motos(token)
-    alertas = alertas_motero.para_mostrar(repositorio.listar_alertas(token))
-    fecha_min, fecha_max = alertas_motero.rango_fecha_credito()
+    alertas, alertas_por_moto = alertas_motero.separar_alertas(
+        alertas_motero.para_mostrar(repositorio.listar_alertas(token)))
+    rangos = {tipo: tuple(f.isoformat() for f in alertas_motero.rango_fecha(tipo))
+              for tipo in alertas_motero.TIPOS_ALERTA_FECHA}
     return render_template(
         "mi_espacio.html", motero=g.motero, perfil=perfil, motos=motos,
         max_motos=cuentas_motero.MAX_MOTOS_POR_MOTERO,
         anio_min=cuentas_motero.ANIO_MIN, anio_max=cuentas_motero.anio_maximo(),
-        alertas=alertas, max_alertas=alertas_motero.MAX_ALERTAS_POR_MOTERO,
-        fecha_cuota_min=fecha_min.isoformat(), fecha_cuota_max=fecha_max.isoformat(),
+        alertas=alertas, alertas_por_moto=alertas_por_moto,
+        tipos_por_moto=alertas_motero.TIPOS_POR_MOTO, nombres_tipo=alertas_motero.NOMBRES_TIPO,
+        alertas_credito=sum(1 for a in alertas if a.get("tipo") == alertas_motero.TIPO_CREDITO),
+        max_alertas_credito=alertas_motero.MAX_ALERTAS_CREDITO,
+        fecha_cuota_min=rangos["credito"][0], fecha_cuota_max=rangos["credito"][1],
+        rangos_fecha=rangos,
+        umbrales_tipo={t: r["umbrales"] for t, r in alertas_motero.TIPOS_ALERTA_FECHA.items()},
         dispositivos_activos=repositorio.contar_dispositivos(token),
         vapid_publica=current_app.config.get("VAPID_PUBLIC_KEY") or "",
         **extra), estado
@@ -249,7 +257,8 @@ def crear_alerta_credito():
     valores = {"fecha_cuota": request.form.get("fecha_cuota", "")}
     try:
         datos = alertas_motero.validar_alerta_credito(request.form)
-        if repositorio.contar_alertas(token) >= alertas_motero.MAX_ALERTAS_POR_MOTERO:
+        if (repositorio.contar_alertas(token, alertas_motero.TIPO_CREDITO)
+                >= alertas_motero.MAX_ALERTAS_CREDITO):
             raise ErrorValidacion(alertas_motero.MENSAJE_TOPE_ALERTAS)
         # usuario_id sale de la sesión, nunca del formulario.
         repositorio.crear_alerta(token, g.motero["id"], datos)
@@ -273,4 +282,54 @@ def borrar_alerta(alerta_id):
         return _pagina_mi_espacio(400, error_lista_alertas=alertas_motero.mensaje_error_alerta(e.code))
     if fila is None:
         return _pagina_mi_espacio(404, error_lista_alertas=alertas_motero.MENSAJE_ALERTA_NO_ENCONTRADA)
+    # La de una moto vuelve a la tarjeta de esa moto; las demás, a la lista.
+    if fila.get("moto_usuario_id"):
+        return redirect(url_for("motero.mi_espacio") + f"#moto-{fila['moto_usuario_id']}")
     return redirect(url_for("motero.mi_espacio") + "#alertas")
+
+
+@motero_bp.route("/mi-espacio/motos/<int:moto_id>/alertas/<tipo>", methods=["POST"])
+@limiter.limit(LIMITE_ALERTAS)
+@login_requerido_motero
+def guardar_alerta_moto(moto_id, tipo):
+    """
+    Pone o cambia la fecha de vencimiento del SOAT o la tecno de una moto:
+    si la moto ya tiene esa alerta se actualiza, si no se crea. Si otra
+    petición la creó en el medio, el índice único (migración 024) rechaza
+    el insert con 23505 y se actualiza la que quedó.
+    """
+    if not alertas_motero.es_tipo_por_moto(tipo):
+        abort(404)
+    token = g.motero["access_token"]
+    error = {"alerta_moto_error": (moto_id, tipo),
+             "valores_alerta_moto": {"fecha": request.form.get("fecha", "")}}
+    try:
+        datos = alertas_motero.validar_alerta_moto(tipo, moto_id, request.form)
+        fila = _crear_o_actualizar_alerta_moto(token, moto_id, tipo, datos)
+    except ErrorValidacion as e:
+        return _pagina_mi_espacio(400, error_alerta_moto=e.mensaje, **error)
+    except PostgrestAPIError as e:
+        obtener_logger().info("Motero %s: alerta %s de moto %s rechazada (%s)",
+                              g.motero["id"], tipo, moto_id, e.code)
+        if e.code in alertas_motero.CODIGOS_MOTO_AJENA:
+            return _pagina_mi_espacio(404, error_lista=cuentas_motero.MENSAJE_MOTO_NO_ENCONTRADA)
+        return _pagina_mi_espacio(400, error_alerta_moto=alertas_motero.mensaje_error_alerta(e.code), **error)
+    if fila is None:
+        return _pagina_mi_espacio(404, error_lista=cuentas_motero.MENSAJE_MOTO_NO_ENCONTRADA)
+    return redirect(url_for("motero.mi_espacio") + f"#moto-{moto_id}")
+
+
+def _crear_o_actualizar_alerta_moto(token, moto_id, tipo, datos):
+    existente = repositorio.obtener_alerta_de_moto(token, moto_id, tipo)
+    if existente:
+        return repositorio.actualizar_fecha_alerta(token, existente["id"], datos["fecha_objetivo"])
+    try:
+        # usuario_id sale de la sesión; que la moto sea suya lo exige RLS.
+        return repositorio.crear_alerta(token, g.motero["id"], datos)
+    except PostgrestAPIError as e:
+        if e.code != alertas_motero.CODIGO_DUPLICADA:
+            raise
+        existente = repositorio.obtener_alerta_de_moto(token, moto_id, tipo)
+        if existente is None:
+            return None
+        return repositorio.actualizar_fecha_alerta(token, existente["id"], datos["fecha_objetivo"])

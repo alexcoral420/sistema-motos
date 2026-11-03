@@ -6,10 +6,13 @@ Lo usa el blueprint del motero, que tiene prohibido el cliente service_role:
 NO importa app.db.repositorios ni nada que lo arrastre (lo verifica
 tests/test_cuentas_motero.py). Solo módulos neutrales de app.seguridad.
 
-Fase A: solo la alerta de crédito. El motero pone la fecha de su próxima
-cuota (sin monto ni entidad: no se piden datos financieros que no hacen
-falta) y la alerta queda mensual, con aviso 3 días y 1 día antes. El envío
-es la Fase B.
+Alertas por fecha (el envío es la Fase B):
+  - Crédito: el motero pone la fecha de su próxima cuota (sin monto ni
+    entidad: no se piden datos financieros que no hacen falta). Mensual,
+    aviso 3 días y 1 día antes.
+  - SOAT y tecnomecánica, por moto: la fecha de vencimiento. Anuales,
+    aviso 30, 15, 7 y 1 día antes. Una de cada tipo por moto (índice
+    único parcial, migración 024).
 """
 
 import calendar
@@ -19,21 +22,67 @@ from app.seguridad.suscripcion_push import validar_suscripcion
 from app.seguridad.tiempo import fecha_legible, hoy_colombia
 from app.seguridad.validadores import ErrorValidacion
 
-# Alerta de crédito: lo fijo lo decide el servidor, no el formulario.
+# Reglas de cada alerta por fecha: única fuente para la validación, la
+# fila que se guarda y los límites del formulario. Recurrencia y umbrales
+# los fija el servidor; el formulario solo manda la fecha.
+#
+# Hacia atrás se tolera un mes en todas: quien acaba de pagar la cuota (o
+# tiene el documento recién vencido) igual recibe el aviso del ciclo
+# siguiente. Hacia adelante: un año para la cuota y el SOAT (dura un año);
+# dos para la tecno (la moto nueva hace la primera revisión a los 2 años
+# de matriculada).
+TIPOS_ALERTA_FECHA = {
+    "credito": {
+        "recurrencia": "mensual",
+        "umbrales": (3, 1),
+        "dias_atras": 31,
+        "dias_adelante": 366,
+        "campo": "fecha_cuota",
+        "mensajes": {
+            "vacia": "Pon la fecha de tu próxima cuota.",
+            "invalida": "La fecha de la cuota no es válida.",
+            "pasada": "Esa fecha ya pasó hace más de un mes. Pon la de tu próxima cuota.",
+            "futura": "La fecha no puede estar a más de un año. Pon la de tu próxima cuota.",
+        },
+    },
+    "soat": {
+        "recurrencia": "anual",
+        "umbrales": (30, 15, 7, 1),
+        "dias_atras": 31,
+        "dias_adelante": 366,
+        "campo": "fecha",
+        "mensajes": {
+            "vacia": "Pon la fecha de vencimiento del SOAT.",
+            "invalida": "La fecha de vencimiento del SOAT no es válida.",
+            "pasada": "Ese SOAT venció hace más de un mes. Si ya lo renovaste, pon la fecha del nuevo.",
+            "futura": "Un SOAT dura un año: la fecha no puede estar a más de un año.",
+        },
+    },
+    "tecno": {
+        "recurrencia": "anual",
+        "umbrales": (30, 15, 7, 1),
+        "dias_atras": 31,
+        "dias_adelante": 730,
+        "campo": "fecha",
+        "mensajes": {
+            "vacia": "Pon la fecha de vencimiento de la tecnomecánica.",
+            "invalida": "La fecha de vencimiento de la tecnomecánica no es válida.",
+            "pasada": "Esa tecnomecánica venció hace más de un mes. Si ya la renovaste, pon la fecha de la nueva.",
+            "futura": "La fecha no puede estar a más de dos años.",
+        },
+    },
+}
+
 TIPO_CREDITO = "credito"
-UMBRALES_CREDITO = (3, 1)
+# Alertas que van colgadas de una moto (una por tipo y moto).
+TIPOS_POR_MOTO = ("soat", "tecno")
 
-# Rango de la fecha de la próxima cuota. Hacia atrás se tolera un mes
-# (alguien que acaba de pagar pone la fecha de la cuota que pagó: como la
-# alerta es mensual, igual le avisa de la siguiente); hacia adelante, un año.
-DIAS_ATRAS_MAX_CREDITO = 31
-DIAS_ADELANTE_MAX_CREDITO = 366
+# El tope cuenta solo las de crédito: SOAT y tecno ya están acotadas a una
+# por tipo y moto, y las motos tienen su propio tope.
+MAX_ALERTAS_CREDITO = 20
 
-MAX_ALERTAS_POR_MOTERO = 20
-
-MENSAJE_TOPE_ALERTAS = f"Puedes tener hasta {MAX_ALERTAS_POR_MOTERO} alertas."
+MENSAJE_TOPE_ALERTAS = f"Puedes tener hasta {MAX_ALERTAS_CREDITO} alertas de crédito."
 MENSAJE_ALERTA_NO_ENCONTRADA = "Esa alerta no existe o no es tuya."
-MENSAJE_FECHA_CUOTA_INVALIDA = "La fecha de la cuota no es válida."
 
 # Errores de PostgREST (campo `code` de APIError) al escribir una alerta o
 # un dispositivo. Lo que no está aquí cae en el genérico.
@@ -43,6 +92,13 @@ MENSAJES_ERROR_ALERTA = {
     "PGRST301": "Tu sesión venció. Ingresa de nuevo.",
 }
 MENSAJE_ERROR_GENERICO = "No pudimos guardar el cambio. Intenta de nuevo en un momento."
+
+# Al escribir la alerta de una moto: RLS (WITH CHECK) rechaza una moto
+# ajena con 42501 y la FK una que no existe con 23503. Para el motero las
+# dos son lo mismo: esa moto no es suya.
+CODIGOS_MOTO_AJENA = ("42501", "23503")
+# El índice único de la 024: otra petición creó la misma alerta antes.
+CODIGO_DUPLICADA = "23505"
 
 NOMBRES_TIPO = {
     "credito": "Cuota del crédito",
@@ -59,11 +115,52 @@ def _hoy() -> date:
     return hoy_colombia()
 
 
-def rango_fecha_credito(hoy: date = None):
-    """(mínima, máxima) aceptadas para la fecha de la cuota; el formulario las usa como min/max."""
+def es_tipo_por_moto(tipo) -> bool:
+    return tipo in TIPOS_POR_MOTO
+
+
+def rango_fecha(tipo: str, hoy: date = None):
+    """(mínima, máxima) aceptadas para la fecha de ese tipo; el formulario las usa como min/max."""
+    reglas = TIPOS_ALERTA_FECHA[tipo]
     hoy = hoy or _hoy()
-    return (hoy - timedelta(days=DIAS_ATRAS_MAX_CREDITO),
-            hoy + timedelta(days=DIAS_ADELANTE_MAX_CREDITO))
+    return (hoy - timedelta(days=reglas["dias_atras"]),
+            hoy + timedelta(days=reglas["dias_adelante"]))
+
+
+def rango_fecha_credito(hoy: date = None):
+    return rango_fecha(TIPO_CREDITO, hoy)
+
+
+def validar_fecha_alerta(tipo: str, valor) -> date:
+    """Valida la fecha de una alerta de ese tipo (ISO, dentro de su rango) o lanza ErrorValidacion."""
+    reglas = TIPOS_ALERTA_FECHA[tipo]
+    campo, mensajes = reglas["campo"], reglas["mensajes"]
+    if valor in (None, ""):
+        raise ErrorValidacion(mensajes["vacia"], campo)
+    if not isinstance(valor, str):
+        raise ErrorValidacion(mensajes["invalida"], campo)
+    try:
+        fecha = date.fromisoformat(valor.strip())
+    except ValueError:
+        raise ErrorValidacion(mensajes["invalida"], campo)
+
+    minima, maxima = rango_fecha(tipo)
+    if fecha < minima:
+        raise ErrorValidacion(mensajes["pasada"], campo)
+    if fecha > maxima:
+        raise ErrorValidacion(mensajes["futura"], campo)
+    return fecha
+
+
+def _fila_alerta(tipo: str, fecha: date) -> dict:
+    reglas = TIPOS_ALERTA_FECHA[tipo]
+    return {
+        "tipo": tipo,
+        "modo": "fecha",
+        "recurrencia": reglas["recurrencia"],
+        "fecha_objetivo": fecha.isoformat(),
+        "umbrales_dias": list(reglas["umbrales"]),
+    }
 
 
 def validar_alerta_credito(form) -> dict:
@@ -73,31 +170,21 @@ def validar_alerta_credito(form) -> dict:
     sesión). Tipo, modo, recurrencia y umbrales los fija el servidor:
     aunque el formulario los mande, se ignoran.
     """
-    valor = form.get("fecha_cuota")
-    if valor in (None, ""):
-        raise ErrorValidacion("Pon la fecha de tu próxima cuota.", "fecha_cuota")
-    if not isinstance(valor, str):
-        raise ErrorValidacion(MENSAJE_FECHA_CUOTA_INVALIDA, "fecha_cuota")
-    try:
-        fecha = date.fromisoformat(valor.strip())
-    except ValueError:
-        raise ErrorValidacion(MENSAJE_FECHA_CUOTA_INVALIDA, "fecha_cuota")
+    campo = TIPOS_ALERTA_FECHA[TIPO_CREDITO]["campo"]
+    return _fila_alerta(TIPO_CREDITO, validar_fecha_alerta(TIPO_CREDITO, form.get(campo)))
 
-    minima, maxima = rango_fecha_credito()
-    if fecha < minima:
-        raise ErrorValidacion(
-            "Esa fecha ya pasó hace más de un mes. Pon la de tu próxima cuota.", "fecha_cuota")
-    if fecha > maxima:
-        raise ErrorValidacion(
-            "La fecha no puede estar a más de un año. Pon la de tu próxima cuota.", "fecha_cuota")
 
-    return {
-        "tipo": TIPO_CREDITO,
-        "modo": "fecha",
-        "recurrencia": "mensual",
-        "fecha_objetivo": fecha.isoformat(),
-        "umbrales_dias": list(UMBRALES_CREDITO),
-    }
+def validar_alerta_moto(tipo: str, moto_id: int, form) -> dict:
+    """
+    Valida el formulario de la alerta de SOAT o tecno de una moto (solo
+    `fecha`) y devuelve la fila a insertar, sin usuario_id. Que la moto
+    sea del motero no se decide aquí: lo exige el WITH CHECK de RLS.
+    """
+    if not es_tipo_por_moto(tipo):
+        raise ValueError(f"Tipo de alerta por moto desconocido: {tipo}")
+    campo = TIPOS_ALERTA_FECHA[tipo]["campo"]
+    fecha = validar_fecha_alerta(tipo, form.get(campo))
+    return {**_fila_alerta(tipo, fecha), "moto_usuario_id": moto_id}
 
 
 def validar_dispositivo(datos) -> dict:
@@ -161,3 +248,19 @@ def para_mostrar(alertas, hoy: date = None) -> list:
         fila["proxima"] = fecha_legible(proxima) if proxima else None
         resultado.append(fila)
     return resultado
+
+
+def separar_alertas(alertas):
+    """
+    Reparte las alertas (ya pasadas por para_mostrar) entre la lista
+    general y las tarjetas de las motos:
+    (sin_moto, {moto_id: {tipo: alerta}}).
+    """
+    sin_moto, por_moto = [], {}
+    for a in alertas:
+        moto_id = a.get("moto_usuario_id")
+        if moto_id is None:
+            sin_moto.append(a)
+        else:
+            por_moto.setdefault(moto_id, {})[a.get("tipo")] = a
+    return sin_moto, por_moto

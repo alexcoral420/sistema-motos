@@ -5,6 +5,8 @@ Filtrar a mano además de RLS daría una falsa sensación de seguridad: si la
 política faltara, el filtro escondería el agujero en vez de mostrarlo.
 """
 
+from datetime import datetime, timezone
+
 from app.motero.cliente import cliente_motero
 
 _SELECT_MOTO = "id, marca, modelo, placa, anio, creado_en"
@@ -100,11 +102,13 @@ def contar_dispositivos(access_token) -> int:
 
 # ---------- alertas ----------
 
-_SELECT_ALERTA = "id, tipo, modo, fecha_objetivo, recurrencia, umbrales_dias, activo, creado_en"
+_SELECT_ALERTA = ("id, moto_usuario_id, tipo, modo, fecha_objetivo, recurrencia, "
+                  "umbrales_dias, activo, creado_en")
 
 # Columnas que el motero puede escribir al crear (usuario_id aparte: lo
-# pone la ruta desde la sesión y el WITH CHECK de RLS lo valida igual).
-_COLUMNAS_ALERTA = ("tipo", "modo", "recurrencia", "fecha_objetivo", "umbrales_dias")
+# pone la ruta desde la sesión y el WITH CHECK de RLS lo valida igual, como
+# que moto_usuario_id, si viene, sea una moto del motero).
+_COLUMNAS_ALERTA = ("moto_usuario_id", "tipo", "modo", "recurrencia", "fecha_objetivo", "umbrales_dias")
 
 
 def listar_alertas(access_token):
@@ -116,9 +120,11 @@ def listar_alertas(access_token):
     return resultado.data or []
 
 
-def contar_alertas(access_token) -> int:
+def contar_alertas(access_token, tipo) -> int:
+    """Alertas del motero de ese tipo (RLS cuenta solo las suyas)."""
     resultado = (cliente_motero(access_token).table("alertas")
                  .select("id", count="exact")
+                 .eq("tipo", tipo)
                  .limit(1)
                  .execute())
     return resultado.count or 0
@@ -135,6 +141,34 @@ def borrar_alerta(access_token, alerta_id):
     """Borra una alerta y devuelve la fila borrada, o None si no era suya o no existía."""
     resultado = (cliente_motero(access_token).table("alertas")
                  .delete()
+                 .eq("id", alerta_id)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_alerta_de_moto(access_token, moto_id, tipo):
+    """La alerta de ese tipo de la moto, o None (tampoco si la moto es ajena: RLS no la muestra)."""
+    resultado = (cliente_motero(access_token).table("alertas")
+                 .select(_SELECT_ALERTA)
+                 .eq("moto_usuario_id", moto_id)
+                 .eq("tipo", tipo)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def actualizar_fecha_alerta(access_token, alerta_id, fecha_objetivo):
+    """
+    Cambia la fecha de una alerta (y la reactiva) y devuelve la fila, o
+    None si no afectó ninguna. Solo toca columnas con GRANT de UPDATE.
+    """
+    cambios = {
+        "fecha_objetivo": fecha_objetivo,
+        "activo": True,
+        "actualizado_en": datetime.now(timezone.utc).isoformat(),
+    }
+    resultado = (cliente_motero(access_token).table("alertas")
+                 .update(cambios)
                  .eq("id", alerta_id)
                  .execute())
     return resultado.data[0] if resultado.data else None
