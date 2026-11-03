@@ -344,6 +344,7 @@
         .servicio-card h3 { color: var(--naranja); font-size: 22px; margin-bottom: 12px; text-transform: uppercase; }
         .servicio-card p { color: var(--texto-suave); font-size: 14px; line-height: 1.6; }
         .servicio-card p a { color: var(--naranja); font-weight: 600; }
+        .servicio-card .btn-servicio { margin-top: 16px; padding: 10px 18px; font-size: 14px; text-transform: none; letter-spacing: 0; }
 
         /* ===== Cómo funciona la financiación ===== */
         .pasos { background: var(--negro-700); border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); padding: 80px 24px; }
@@ -606,7 +607,8 @@
             <div class="servicio-card">
                 <div class="servicio-icon"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-llave"/></svg></div>
                 <h3>Taller y repuestos</h3>
-                <p>Técnicos certificados y repuestos originales para todas las marcas, tanto para mantenimiento como para reparación. Y para que no se te pasen las fechas: <a href="{{ url_for('publico.recordatorio_soat') }}">Recordatorio de SOAT y tecnomecánica</a>.</p>
+                <p>Técnicos certificados y repuestos originales para todas las marcas, tanto para mantenimiento como para reparación. Y para que no se te pasen las fechas del SOAT y la tecnomecánica:</p>
+                <a href="{{ url_for('motero.mi_espacio') }}" class="btn btn-outline btn-servicio">Mi espacio — los recordatorios de tu moto</a>
             </div>
         </div>
     </section>
