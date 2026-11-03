@@ -1619,3 +1619,93 @@ def registrar_aviso(recordatorio_id: int, tipo: str, umbral: int):
         if e.code == "23505":
             raise RegistroDuplicado(e.message) from e
         raise
+
+
+# ============================================================
+#  ALERTAS DEL MOTERO: envío (scripts/enviar_alertas.py)
+#  service_role: el job lee las alertas y dispositivos de todos los
+#  moteros. El blueprint del motero no pasa por aquí (usa RLS).
+# ============================================================
+
+def _en_tandas(tabla: str, columnas: str, columna_in: str, valores: list, filtros=()) -> list:
+    """SELECT ... WHERE columna_in IN (valores) [AND col = val ...], en tandas y paginado."""
+    supabase = get_supabase_admin()
+    filas = []
+    for i in range(0, len(valores), _TANDA_IDS):
+        tanda = valores[i:i + _TANDA_IDS]
+        inicio = 0
+        while True:
+            consulta = supabase.table(tabla).select(columnas).in_(columna_in, tanda)
+            for columna, valor in filtros:
+                consulta = consulta.eq(columna, valor)
+            resultado = consulta.order("id").range(inicio, inicio + _PAGINA - 1).execute()
+            filas.extend(resultado.data or [])
+            if len(resultado.data or []) < _PAGINA:
+                break
+            inicio += _PAGINA
+    return filas
+
+
+def listar_alertas_fecha_activas() -> list:
+    """
+    Alertas activas en modo 'fecha' (usa alertas_fecha_activas_idx). No se
+    filtran por fecha: el ancla de una recurrente puede estar en el pasado;
+    qué ocurrencia toca la calcula el servicio.
+    """
+    supabase = get_supabase_admin()
+    filas, inicio = [], 0
+    while True:
+        resultado = (supabase.table("alertas")
+                     .select("id, usuario_id, moto_usuario_id, tipo, modo, fecha_objetivo, "
+                             "recurrencia, umbrales_dias, activo")
+                     .eq("activo", True)
+                     .eq("modo", "fecha")
+                     .order("id")
+                     .range(inicio, inicio + _PAGINA - 1)
+                     .execute())
+        filas.extend(resultado.data or [])
+        if len(resultado.data or []) < _PAGINA:
+            break
+        inicio += _PAGINA
+    return filas
+
+
+def listar_avisos_alertas(alerta_ids: list) -> list:
+    """Avisos ya enviados (alerta_id, ciclo, umbral) de esas alertas."""
+    return _en_tandas("alertas_avisos", "alerta_id, ciclo, umbral", "alerta_id", alerta_ids)
+
+
+def registrar_aviso_alerta(alerta_id: int, ciclo: str, umbral: int):
+    """
+    Registra un aviso de alerta enviado. Lanza RegistroDuplicado si ese
+    (alerta_id, ciclo, umbral) ya estaba registrado.
+    """
+    supabase = get_supabase_admin()
+    try:
+        supabase.table("alertas_avisos").insert({
+            "alerta_id": alerta_id, "ciclo": ciclo, "umbral": umbral,
+        }).execute()
+    except APIError as e:
+        if e.code == "23505":
+            raise RegistroDuplicado(e.message) from e
+        raise
+
+
+def listar_dispositivos_activos(usuario_ids: list) -> list:
+    """Dispositivos (suscripciones push) activos de esos moteros."""
+    return _en_tandas("dispositivos", "id, usuario_id, suscripcion, endpoint", "usuario_id",
+                      usuario_ids, filtros=(("activo", True),))
+
+
+def desactivar_dispositivos_por_endpoint(endpoint: str) -> int:
+    """
+    Marca activo=false en los dispositivos con ese endpoint (el servicio de
+    push respondió 404/410; usa dispositivos_endpoint_idx). Devuelve cuántos.
+    """
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("dispositivos")
+                 .update({"activo": False})
+                 .eq("endpoint", endpoint)
+                 .eq("activo", True)
+                 .execute())
+    return len(resultado.data or [])

@@ -6,13 +6,18 @@ Lo usa el blueprint del motero, que tiene prohibido el cliente service_role:
 NO importa app.db.repositorios ni nada que lo arrastre (lo verifica
 tests/test_cuentas_motero.py). Solo módulos neutrales de app.seguridad.
 
-Alertas por fecha (el envío es la Fase B):
+Alertas por fecha (el envío diario es scripts/enviar_alertas.py; aquí
+vive su decisión pura, avisos_a_enviar):
   - Crédito: el motero pone la fecha de su próxima cuota (sin monto ni
     entidad: no se piden datos financieros que no hacen falta). Mensual,
     aviso 3 días y 1 día antes.
   - SOAT y tecnomecánica, por moto: la fecha de vencimiento. Anuales,
     aviso 30, 15, 7 y 1 día antes. Una de cada tipo por moto (índice
     único parcial, migración 024).
+
+fecha_objetivo es el ancla y nunca se reescribe, ni al pasar un ciclo: la
+fecha de cada ocurrencia la calcula proxima_ocurrencia() desde el ancla, y
+esa fecha (ISO) es el `ciclo` con el que se registra cada aviso enviado.
 """
 
 import calendar
@@ -38,6 +43,11 @@ TIPOS_ALERTA_FECHA = {
         "dias_atras": 31,
         "dias_adelante": 366,
         "campo": "fecha_cuota",
+        "aviso": {
+            "titulo": "Se acerca tu cuota",
+            "sujeto": "Tu cuota",
+            "cierre": "Págala a tiempo para evitar intereses de mora.",
+        },
         "mensajes": {
             "vacia": "Pon la fecha de tu próxima cuota.",
             "invalida": "La fecha de la cuota no es válida.",
@@ -51,6 +61,11 @@ TIPOS_ALERTA_FECHA = {
         "dias_atras": 31,
         "dias_adelante": 366,
         "campo": "fecha",
+        "aviso": {
+            "titulo": "Tu SOAT vence pronto",
+            "sujeto": "Tu SOAT",
+            "cierre": "Renuévalo para evitar multas.",
+        },
         "mensajes": {
             "vacia": "Pon la fecha de vencimiento del SOAT.",
             "invalida": "La fecha de vencimiento del SOAT no es válida.",
@@ -64,6 +79,11 @@ TIPOS_ALERTA_FECHA = {
         "dias_atras": 31,
         "dias_adelante": 730,
         "campo": "fecha",
+        "aviso": {
+            "titulo": "Tu tecnomecánica vence pronto",
+            "sujeto": "Tu tecnomecánica",
+            "cierre": "Renuévala para evitar multas.",
+        },
         "mensajes": {
             "vacia": "Pon la fecha de vencimiento de la tecnomecánica.",
             "invalida": "La fecha de vencimiento de la tecnomecánica no es válida.",
@@ -74,6 +94,8 @@ TIPOS_ALERTA_FECHA = {
 }
 
 TIPO_CREDITO = "credito"
+# A dónde lleva tocar la notificación de una alerta.
+URL_AVISO_ALERTA = "/mi-espacio"
 # Alertas que van colgadas de una moto (una por tipo y moto).
 TIPOS_POR_MOTO = ("soat", "tecno")
 
@@ -264,3 +286,65 @@ def separar_alertas(alertas):
         else:
             por_moto.setdefault(moto_id, {})[a.get("tipo")] = a
     return sin_moto, por_moto
+
+
+def _como_fecha(valor):
+    if valor in (None, ""):
+        return None
+    if isinstance(valor, date):
+        return valor
+    return date.fromisoformat(valor)
+
+
+def avisos_a_enviar(alertas, hoy: date, ya_enviados) -> list:
+    """
+    Decide qué avisos de alertas salen hoy. Función pura, sin I/O.
+
+    Por cada alerta activa en modo 'fecha':
+      - ocurrencia = proxima_ocurrencia(ancla, recurrencia, hoy): la fecha
+        de este ciclo (hoy o después). Sin ocurrencia (una alerta sin
+        recurrencia que ya pasó) no hay aviso.
+      - dias = ocurrencia - hoy; el umbral es el más chico de los
+        `umbrales_dias` de la fila que sea >= dias ("bucket"). Hace de
+        catch-up: si el job no corrió el día 30, el aviso de 30 sale el 29;
+        y una vez enviado no se repite.
+      - ciclo = la ocurrencia en ISO. Se saltea si (alerta_id, ciclo,
+        umbral) está en ya_enviados; el ciclo siguiente vuelve a avisar.
+
+    Devuelve [(alerta_id, ciclo, umbral, dias, ocurrencia), ...].
+    """
+    avisos = []
+    for a in alertas:
+        if not a.get("activo", True) or a.get("modo") != "fecha":
+            continue
+        ancla = _como_fecha(a.get("fecha_objetivo"))
+        umbrales = sorted(a.get("umbrales_dias") or [])
+        if ancla is None or not umbrales:
+            continue
+        ocurrencia = proxima_ocurrencia(ancla, a.get("recurrencia") or "ninguna", hoy)
+        if ocurrencia is None:
+            continue
+        dias = (ocurrencia - hoy).days
+        umbral = next((u for u in umbrales if u >= dias), None)
+        if umbral is None:
+            continue
+        ciclo = ocurrencia.isoformat()
+        if (a["id"], ciclo, umbral) in ya_enviados:
+            continue
+        avisos.append((a["id"], ciclo, umbral, dias, ocurrencia))
+    return avisos
+
+
+def texto_aviso_alerta(tipo: str, ocurrencia: date, dias: int) -> dict:
+    """Título y cuerpo de la notificación de una alerta, según su tipo (TIPOS_ALERTA_FECHA)."""
+    aviso = TIPOS_ALERTA_FECHA[tipo]["aviso"]
+    if dias == 0:
+        cuando = "vence hoy"
+    elif dias == 1:
+        cuando = "vence mañana"
+    else:
+        cuando = f"vence en {dias} días"
+    return {
+        "titulo": aviso["titulo"],
+        "cuerpo": f"{aviso['sujeto']} {cuando} ({fecha_legible(ocurrencia)}). {aviso['cierre']}",
+    }

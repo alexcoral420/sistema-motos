@@ -27,14 +27,12 @@ claro UNA sola vez y en la base queda solo su SHA-256.
 """
 
 import hashlib
-import json
 import secrets
 from datetime import date, datetime, timedelta
 
-from pywebpush import WebPushException, webpush
-
-from config import Config
 from app.db import repositorios
+from app.servicios import push
+from app.servicios.push import ESTADOS_SUSCRIPCION_MUERTA  # noqa: F401 (lo usa el script de envío)
 from app.seguridad.suscripcion_push import validar_suscripcion
 from app.seguridad.tiempo import HORA_COLOMBIA, fecha_legible, hoy_colombia
 from app.seguridad.validadores import ErrorValidacion, validar_placa_moto
@@ -44,14 +42,6 @@ from app.seguridad.validadores import ErrorValidacion, validar_placa_moto
 # próximo); hacia adelante, SOAT y tecno se renuevan cada año o menos.
 DIAS_ATRAS_MAX = 365
 DIAS_ADELANTE_MAX = 2 * 365
-
-# Envío (Fase 2). Si el dispositivo está apagado, el servicio de push
-# guarda el mensaje hasta TTL_PUSH segundos; pasado eso se descarta.
-TTL_PUSH = 24 * 60 * 60
-TIMEOUT_PUSH = 10
-# Respuestas del servicio de push que significan "esta suscripción ya no
-# existe" (el usuario revocó el permiso, desinstaló, limpió datos...).
-ESTADOS_SUSCRIPCION_MUERTA = (404, 410)
 
 # Envío automático (Fase 3): días antes del vencimiento en que se avisa.
 UMBRALES_AVISO = (30, 15, 7, 1)
@@ -146,33 +136,16 @@ def enviar_push(recordatorio: dict, titulo: str, cuerpo: str, url: str = "/") ->
     recordatorios con ese endpoint. Otros errores no tocan la base (pueden
     ser pasajeros: 429, 5xx, red).
     """
-    if not (Config.VAPID_PRIVATE_KEY and Config.VAPID_SUBJECT):
-        raise RuntimeError("Faltan VAPID_PRIVATE_KEY / VAPID_SUBJECT en el entorno.")
-
-    # Se revalida aunque venga de la base: una fila escrita por fuera del
-    # servicio no debe poder hacer que el servidor le pegue a cualquier URL.
-    suscripcion = validar_suscripcion(recordatorio.get("suscripcion"))
-    payload = json.dumps({"title": titulo, "body": cuerpo, "url": url}, ensure_ascii=False)
-
-    try:
-        respuesta = webpush(
-            subscription_info=suscripcion,
-            data=payload,
-            vapid_private_key=Config.VAPID_PRIVATE_KEY,
-            # Dict nuevo en cada envío: pywebpush le agrega aud/exp.
-            vapid_claims={"sub": Config.VAPID_SUBJECT},
-            ttl=TTL_PUSH,
-            timeout=TIMEOUT_PUSH,
-        )
-        return {"ok": True, "estado": getattr(respuesta, "status_code", None),
-                "desactivados": 0, "detalle": "enviado"}
-    except WebPushException as e:
-        estado = e.status_code
-        desactivados = 0
-        if estado in ESTADOS_SUSCRIPCION_MUERTA:
-            desactivados = repositorios.desactivar_recordatorios_por_endpoint(
-                suscripcion["endpoint"], datetime.now(HORA_COLOMBIA).isoformat())
-        return {"ok": False, "estado": estado, "desactivados": desactivados, "detalle": str(e)}
+    # El envío (VAPID, revalidación del endpoint) vive en push.py, compartido
+    # con las alertas del motero; aquí queda la reacción propia de los
+    # recordatorios a una suscripción muerta.
+    resultado = push.enviar_a_suscripcion(recordatorio.get("suscripcion"), titulo, cuerpo, url)
+    desactivados = 0
+    if not resultado["ok"] and push.suscripcion_muerta(resultado["estado"]):
+        desactivados = repositorios.desactivar_recordatorios_por_endpoint(
+            resultado["endpoint"], datetime.now(HORA_COLOMBIA).isoformat())
+    return {"ok": resultado["ok"], "estado": resultado["estado"],
+            "desactivados": desactivados, "detalle": resultado["detalle"]}
 
 
 def _como_fecha(valor):
