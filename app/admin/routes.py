@@ -211,7 +211,7 @@ def permuta():
 @requiere_rol("admin")
 def editar(id):
     """Formulario para editar una moto existente, con validación de entrada."""
-    moto = inventario.obtener_moto(id)
+    moto = inventario.obtener_moto_admin(id)
     if not moto:
         abort(404)
     # 'por_publicar' no se cambia desde editar: solo publicar_moto lo saca.
@@ -401,7 +401,7 @@ def detalle_moto_admin(id):
     """
     from app.servicios import contratos
 
-    moto = inventario.obtener_moto(id)
+    moto = inventario.obtener_moto_admin(id)
     fotos = inventario.obtener_galeria(id)
 
     puede_cargar_contrato = False

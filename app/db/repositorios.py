@@ -59,14 +59,24 @@ def obtener_todas_las_motos():
     return resultado.data
 
 
-def obtener_moto_por_id(id: int):
-    """Una moto por su id, con los datos de su sede."""
-    supabase = get_supabase_publico()
+def _moto_por_id(supabase, id: int):
     resultado = supabase.table("motos")\
         .select("*, sedes(nombre, direccion)")\
         .eq("id", id)\
         .execute()
     return resultado.data[0] if resultado.data else None
+
+
+def obtener_moto_por_id(id: int):
+    """Una moto por su id, con los datos de su sede (conexión pública:
+    la RLS de anon solo deja ver motos 'disponible')."""
+    return _moto_por_id(get_supabase_publico(), id)
+
+
+def obtener_moto_por_id_admin(id: int):
+    """Una moto por su id en cualquier estado (conexión administrativa).
+    Solo para el panel, detrás de login."""
+    return _moto_por_id(get_supabase_admin(), id)
 
 
 def obtener_fotos_moto(moto_id: int):
@@ -630,14 +640,16 @@ def buscar_motos_admin(moto_id=None, placa=None, estado=None, sede=None):
     Todas las motos del panel, con filtros opcionales por id, placa,
     estado o sede.
 
-    Es una LECTURA -> conexión pública (mínimo privilegio: leer no
-    requiere la llave administrativa).
+    Usa la conexión ADMINISTRATIVA aunque sea una lectura: la política
+    RLS de anon solo deja ver motos 'disponible', y el panel necesita
+    todos los estados (por_publicar, reservado, vendido). Solo se llama
+    desde el panel, detrás de login.
 
     'estado' y 'sede_id' se asumen ya validados por el servicio (estado
     dentro de la lista blanca de estados; sede_id como entero). Aquí no
     se confía en texto crudo del cliente.
     """
-    supabase = get_supabase_publico()
+    supabase = get_supabase_admin()
     consulta = supabase.table("motos").select("*, sedes(nombre)")
 
     if moto_id is not None:
