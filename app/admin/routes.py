@@ -14,7 +14,7 @@ Las operaciones de ESCRITURA están en modo prueba (ver inventario.py):
 no tocan la base de datos todavía.
 """
 
-from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file, jsonify
+from flask import Blueprint, request, render_template, redirect, url_for, session, abort, send_file, jsonify, Response
 from app.servicios import inventario
 
 from app.servicios import sedes
@@ -51,6 +51,19 @@ def index():
     """Panel principal: lista las motos, con filtros opcionales."""
     datos = busqueda.buscar(request.args)
     return render_template("index.html", **datos)
+
+
+@admin_bp.route("/inventario.csv")
+@requiere_rol("admin")
+def exportar_inventario():
+    """Descarga el inventario en CSV con los filtros de sede y estado
+    actuales (todas las filas que cumplen, no solo la pantalla)."""
+    contenido, nombre = busqueda.exportar_csv(request.args)
+    obtener_logger().info("Inventario exportado a CSV por %s.", session.get("usuario_nombre"))
+    return Response(contenido, mimetype="text/csv", headers={
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": f'attachment; filename="{nombre}"',
+    })
 
 
 @admin_bp.route("/agregar", methods=["GET", "POST"])
