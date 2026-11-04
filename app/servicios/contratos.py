@@ -211,7 +211,7 @@ def moto_en_alcance(moto_id: int):
     if alcance is None:
         return None  # usuario mal configurado: no opera nada
 
-    moto = repositorios.obtener_moto_por_id(moto_id)
+    moto = repositorios.obtener_moto_por_id_admin(moto_id)
     if not moto:
         return None
 

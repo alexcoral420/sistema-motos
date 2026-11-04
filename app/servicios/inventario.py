@@ -49,8 +49,15 @@ def listar_todas_las_motos():
 
 
 def obtener_moto(id: int):
-    """Una moto por su id, o None si no existe."""
+    """Una moto por su id, o None si no existe o no es visible para
+    anon (solo 'disponible'). Para el sitio público y la API."""
     return repositorios.obtener_moto_por_id(id)
+
+
+def obtener_moto_admin(id: int):
+    """Una moto por su id en cualquier estado, o None si no existe.
+    Solo para el panel."""
+    return repositorios.obtener_moto_por_id_admin(id)
 
 
 def obtener_moto_publica(id: int):
@@ -144,7 +151,7 @@ def publicar_moto(id: int):
     publicada_en. Valida existencia, alcance de sede (moto_en_alcance),
     estado y que tenga foto y precio. Lanza ErrorValidacion si no.
     """
-    moto = repositorios.obtener_moto_por_id(id)
+    moto = repositorios.obtener_moto_por_id_admin(id)
     if not moto:
         raise ErrorValidacion("La moto no existe.")
 
@@ -188,7 +195,7 @@ def moto_para_vender(id: int) -> dict:
     usuario de una sede podría vender motos de otra. El alcance reutiliza
     moto_en_alcance (contratos.py), que usa la sede de la SESIÓN.
     """
-    moto = repositorios.obtener_moto_por_id(id)
+    moto = repositorios.obtener_moto_por_id_admin(id)
     if not moto:
         raise ErrorValidacion("La moto no existe.")
 
@@ -272,7 +279,7 @@ def subir_fotos_moto(moto_id: int, lista_archivos: list) -> dict:
 
     Devuelve un resumen: {"subidas": n, "rechazadas": [motivos...]}
     """
-    moto = repositorios.obtener_moto_por_id(moto_id)
+    moto = repositorios.obtener_moto_por_id_admin(moto_id)
     if not moto:
         return {"subidas": 0, "rechazadas": ["La moto no existe."]}
 
@@ -364,7 +371,7 @@ def eliminar_portada(moto_id: int) -> bool:
     primera SUBE automáticamente a ocupar su lugar (opción A), para
     que la moto nunca quede sin imagen si tiene otras disponibles.
     """
-    moto = repositorios.obtener_moto_por_id(moto_id)
+    moto = repositorios.obtener_moto_por_id_admin(moto_id)
     if not moto or not moto.get("foto_url"):
         return False
 
@@ -398,7 +405,7 @@ def hacer_portada(moto_id: int, foto_id: int) -> bool:
     no un reemplazo destructivo. Así nunca pierdes una foto por elegir
     otra portada.
     """
-    moto = repositorios.obtener_moto_por_id(moto_id)
+    moto = repositorios.obtener_moto_por_id_admin(moto_id)
     foto = repositorios.obtener_foto_galeria(foto_id)
 
     if not moto or not foto:
