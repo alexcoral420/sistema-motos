@@ -2,10 +2,12 @@
 
 Sistema en producción para una compraventa de motocicletas usadas en Bogotá.
 Gestiona el inventario, atiende al público en un catálogo web, y capta clientes
-interesados en financiación mediante un asistente conversacional con IA.
+interesados en financiación mediante un asistente conversacional con IA. Además
+ofrece a los clientes un espacio propio ("Mi espacio") con avisos push de
+vencimiento de SOAT, tecnomecánica y cuotas de crédito.
 
 **En producción:** [universalmotors.online](https://universalmotors.online)
-**Stack:** Python · Flask · PostgreSQL (Supabase) · API de Anthropic · Railway
+**Stack:** Python · Flask · PostgreSQL (Supabase + Supabase Auth) · API de Anthropic · Web Push (PWA) · Railway
 
 No es un proyecto de práctica: opera sobre datos reales de un negocio con dos
 sedes, más de 120 motos en inventario y varios asesores usándolo a diario.
@@ -18,6 +20,8 @@ sedes, más de 120 motos en inventario y varios asesores usándolo a diario.
 - [Arquitectura](#arquitectura)
 - [Seguridad](#seguridad)
 - [Asistente de IA](#asistente-de-ia)
+- [Mi espacio del motero](#mi-espacio-del-motero)
+- [PWA y notificaciones push](#pwa-y-notificaciones-push)
 - [Datos personales y cumplimiento](#datos-personales-y-cumplimiento)
 - [SEO y captación](#seo-y-captación)
 - [Decisiones deliberadas](#decisiones-deliberadas)
@@ -32,26 +36,27 @@ Antes del sistema, el inventario vivía en hojas de cálculo y fotos de WhatsApp
 
 El sistema centraliza la operación y convierte los datos generados diariamente por el negocio en información útil para la operación y la toma de decisiones.
 
-El sistema cubre cuatro frentes:
+El sistema cubre estos frentes:
 
-Frente	Qué hace
-Inventario	Alta, edición, galería de fotos, estados y gestión de inventario por dos sedes.
-Catálogo público	Vitrina filtrable por marca, cilindraje, año y precio.
-Operaciones	Registro de ventas, compras y permutas con trazabilidad por asesor.
-Captación	Asistente de IA que guía al cliente y registra leads interesados en financiación.
-Información para la toma de decisiones
+| Frente | Qué hace |
+|---|---|
+| Inventario | Alta, edición, galería de fotos (compresión en el navegador, miniaturas, visor 360), ciclo de publicación (`por_publicar` → publicada) y gestión por sede. Exportación del inventario filtrado a CSV (solo admin). |
+| Catálogo público | Vitrina filtrable por marca, cilindraje, año, precio y sede, con filtrado instantáneo por fetch (mejora progresiva). |
+| Operaciones | Registro de ventas, compras y permutas con trazabilidad por asesor, verificación por el encargado de sede, generación automática de contratos de compraventa y módulo de gastos (taller + manuales). |
+| Captación | Asistente de IA que guía al cliente y registra leads interesados en financiación. Estimador público "¿cuánto vale mi moto?" basado en agregados del inventario. |
+| Mi espacio | Cuenta del cliente (motero) con sus motos y alertas push de SOAT, tecnomecánica y cuotas de crédito. |
 
-A partir de los datos registrados por la operación, el sistema permite generar información para analizar el comportamiento del negocio y apoyar la toma de decisiones de gerencia.
+### Información para la toma de decisiones
 
-Entre otros datos, permite consultar:
+A partir de los datos registrados por la operación, el panel de gerencia
+ofrece vistas con gráficos (Chart.js) y filtros de fecha, entre ellas:
 
-Modelos de motocicletas con mayor volumen de ventas en un período determinado.
-Tiempo que una motocicleta permanece en inventario antes de ser vendida.
-Rendimiento de los asesores comerciales.
-Rendimiento y comportamiento de las diferentes sedes.
-Información histórica de las operaciones comerciales.
-Datos relacionados con la captación y los leads generados.
-Indicadores derivados de la información registrada en el sistema.
+- Ritmo de ventas y ventas acumuladas.
+- Ventas, compras y permutas por asesor.
+- Motos más consultadas e interés por marca.
+- Interés por rango de precio: tasa de clics por moto, mes a mes.
+- Modelos recibidos en permuta.
+- Detalle de ventas y compras (solo lectura) y gastos por sede.
 
 Esto permite que la información generada durante la operación diaria no se limite al registro de datos, sino que pueda utilizarse posteriormente para analizar el comportamiento del negocio y apoyar decisiones operativas y comerciales.
 
@@ -65,7 +70,8 @@ ruta (blueprint)  →  servicio  →  repositorio  →  Supabase
    orquesta          decide       consulta        almacena
 ```
 
-**Rutas** (`app/admin`, `app/publico`, `app/api`, `app/auth`): reciben la
+**Rutas** (`app/admin`, `app/publico`, `app/api`, `app/auth`, `app/webhook`,
+`app/motero`): reciben la
 petición, delegan y devuelven la respuesta. No validan ni consultan.
 
 **Servicios** (`app/servicios`): contienen la lógica de negocio y la validación
@@ -85,7 +91,20 @@ no se enteraron de que existía un concepto nuevo.
 - `admin` — panel de gestión (prefijo `/admin`, protegido por rol)
 - `auth` — login y sesiones
 - `api` — API REST para integraciones externas (autenticada por API key)
-- `webhook` — recepción de eventos de mensajería
+- `webhook` — recepción de eventos de mensajería (WhatsApp / Meta)
+- `motero` — "Mi espacio" del cliente: `/registro`, `/ingresar`, `/salir`,
+  `/mi-espacio`. Las cuentas viven en Supabase Auth, no en `usuarios`.
+
+### Dos clientes de Supabase, distinto privilegio
+
+- `get_supabase_publico()` — clave `anon`, solo lectura, sujeta a RLS. La usa
+  el catálogo público, la superficie más expuesta. La RLS de `anon` sobre
+  `motos` solo deja ver las motos disponibles.
+- `get_supabase_admin()` — `service_role`, salta la RLS. Solo se usa desde
+  código detrás del login (el inventario del panel la usa para ver todos los
+  estados).
+- El motero usa un tercer camino: clave `anon` + su propio JWT, en un cliente
+  nuevo por petición. La RLS (`auth.uid()`) es la barrera real.
 
 ### Fuentes únicas de verdad
 
@@ -137,7 +156,9 @@ otorgar a `service_role`.
 **Excepciones razonadas, no por comodidad.** La ruta del chat está exenta de
 CSRF porque no modifica datos del usuario: solo consulta. La misma lógica por
 la que la API está exenta. Lo que sí modifica —verificar una venta, por
-ejemplo— lleva token.
+ejemplo— lleva token. Del mismo modo, `GET /api/avaluo` (solo agregados) y
+`POST /api/recordatorios` son públicos y se protegen con rate limit en lugar
+de API key: los llama el navegador, y una clave en la página quedaría expuesta.
 
 **Defensa en profundidad.** Los datos financieros sensibles están protegidos
 por cuatro capas independientes: RLS impide el acceso, el cifrado los vuelve
@@ -212,6 +233,76 @@ todo su contexto, obtendría información que ya está en el catálogo.
 
 El radio de daño lo define el código disponible, no el prompt: las funciones
 que puede invocar son específicas y estrechas. Nunca genéricas.
+
+---
+
+## Mi espacio del motero
+
+Un espacio propio para el cliente final (`app/motero/`): registra sus motos y
+recibe alertas de vencimiento en el celular.
+
+### Aislamiento por diseño
+
+El módulo **nunca importa** el cliente `service_role` ni los repositorios del
+panel, ni directa ni transitivamente; un test lo verifica en un subproceso
+limpio. Todo acceso a datos va con la clave `anon` y el JWT del motero, así que
+las consultas no filtran por usuario a mano: lo hace la RLS. Un error en el
+código del motero no puede leer datos de otro cliente.
+
+- **Un cliente de Supabase por petición.** supabase-py guarda la sesión dentro
+  del cliente; compartirlo haría que un login cambiara el JWT de todas las
+  consultas posteriores, incluido el catálogo público.
+- **Tokens cifrados en la sesión.** La cookie de Flask está firmada, no
+  cifrada; los tokens del motero se guardan cifrados con Fernet y se refrescan
+  cuando están por vencer.
+- **Sesión compartida, cierre selectivo.** Panel, sitio público y motero
+  comparten cookie: cada uno borra solo sus propias claves al cerrar sesión.
+- **Consentimiento sellado por la base.** La versión de la política aceptada la
+  escribe un trigger al crear la cuenta, y el rol `authenticated` no tiene
+  permiso de modificar esas columnas.
+
+### Alertas
+
+Un modelo genérico de alertas con las reglas de cada tipo en una sola tabla
+(`TIPOS_ALERTA_FECHA`):
+
+| Tipo | Recurrencia | Avisos |
+|---|---|---|
+| Cuota de crédito | Mensual | 3 y 1 días antes |
+| SOAT | Anual, una por moto | 30, 15, 7 y 1 días antes |
+| Tecnomecánica | Anual, una por moto | 30, 15, 7 y 1 días antes |
+
+La fecha registrada es un ancla que **nunca se reescribe**: cada ciclo se
+calcula a partir de ella. Correr el ancla mes a mes desplazaría para siempre
+una fecha de día 31 o de 29 de febrero.
+
+El envío lo hace un job diario (`scripts/enviar_alertas.py`, con `--dry-run`).
+La decisión de qué avisar es una función pura y probada; se deduplica por
+alerta, ciclo y umbral, de modo que un aviso no se repite aunque el job corra
+dos veces, y si el job falla un día, el siguiente se pone al día.
+
+---
+
+## PWA y notificaciones push
+
+El sitio público es una PWA instalable. El service worker se sirve desde la
+raíz porque su alcance es la carpeta desde la que se sirve; el panel de
+administración queda fuera de la PWA a propósito.
+
+Además de las alertas de Mi espacio, un visitante anónimo puede suscribirse a
+recordatorios de SOAT y tecnomecánica (`/recordatorio-soat`):
+
+- **Token de un solo uso visible.** El dispositivo recibe un token secreto para
+  editar o borrar su recordatorio; en la base solo queda su hash SHA-256.
+- **Protección contra SSRF.** El servidor hará un POST al endpoint de la
+  suscripción, así que solo acepta `https` en una lista blanca de servicios de
+  push, y reconstruye la suscripción campo por campo en lugar de guardarla tal
+  como llega.
+- **Limpieza automática.** Si el servicio de push responde 404/410, el
+  dispositivo se desactiva.
+
+El envío Web Push (firma VAPID, revalidación del endpoint) vive en un único
+servicio compartido por ambos sistemas.
 
 ---
 
@@ -322,9 +413,12 @@ el contexto histórico de la operación
 
 El sistema está en producción y en uso diario. Estos son sus límites conocidos:
 
-**Sin pruebas automatizadas.** Cada cambio se verifica manualmente. Es la deuda
-más significativa: a medida que el sistema crece, aumenta la probabilidad de
-introducir regresiones que no sean detectadas durante la verificación manual.
+**Cobertura de pruebas parcial.** Existe una suite de pytest (`tests/`) que
+cubre la lógica pura de servicios —personas, avalúo, búsqueda y exportación
+CSV, recordatorios, alertas y el aislamiento del módulo del motero— y corre en
+GitHub Actions en cada push y PR. Las pruebas nunca tocan Supabase: los
+repositorios se reemplazan con `monkeypatch`. Rutas, plantillas y flujos
+completos todavía se verifican manualmente; es la deuda más significativa.
 
 **Desarrollo y producción separados.** Desarrollo y producción utilizan
 proyectos distintos de Supabase. El esquema inicial está documentado en
@@ -333,12 +427,17 @@ levantar una base de datos inicial a partir del repositorio. Lo que falta es
 mantener este proceso sincronizado mediante migraciones versionadas en cada
 cambio futuro del esquema.
 
-**Migraciones sin versionar.** Después del esquema inicial, parte de la
-evolución de la base de datos se realizó mediante cambios aplicados
-directamente sobre la base, sin quedar registrados en el repositorio. Esto ya
-produjo un incidente: código y esquema quedaron desincronizados por un nombre
-de columna incorrecto, provocando un fallo que solo fue detectado al revisar
-los logs.
+**Historial de migraciones incompleto.** Hoy cada cambio de esquema entra como
+migración numerada en `migraciones/` (001 a 024). Pero al principio parte de
+la evolución de la base se aplicó directamente, sin quedar en el repositorio.
+Eso ya produjo un incidente: código y esquema quedaron desincronizados por un
+nombre de columna incorrecto, y el fallo solo se detectó al revisar los logs.
+Reconstruir esos cambios faltantes sigue pendiente.
+
+**Dos sistemas de recordatorios.** Los recordatorios anónimos y las alertas de
+Mi espacio conviven por ahora. Comparten el envío push, pero tienen tablas y
+jobs separados; la idea es que un recordatorio anónimo pueda reclamarse desde
+una cuenta y, con el tiempo, unificarlos.
 
 **Backups sin verificar.** Existen los backups automáticos del proveedor,
 pero todavía no se ha realizado una restauración de prueba. Un backup que
@@ -372,11 +471,31 @@ SUPABASE_ANON_KEY=       # rol público
 ANTHROPIC_API_KEY=       # asistente de IA
 CLAVE_CIFRADO=           # clave Fernet para datos sensibles
 WHATSAPP_CONTACTO=       # número de contacto público
+VAPID_PUBLIC_KEY=        # Web Push (generar una vez)
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=           # mailto:...
 ```
 
+Más las credenciales de WhatsApp (Twilio / Meta Cloud API); la lista completa
+está en `.env.example`.
+
 ```bash
-python run.py
+python run.py                       # http://127.0.0.1:5000
+python scripts/crear_usuario.py     # crear un usuario del panel
+python -m pytest tests/             # correr las pruebas
 ```
+
+Jobs diarios (cada uno con su propio cron):
+
+```bash
+python scripts/enviar_recordatorios.py   # recordatorios anónimos
+python scripts/enviar_alertas.py         # alertas de Mi espacio (--dry-run, --hoy AAAA-MM-DD)
+```
+
+En producción (Railway) la app corre con `gunicorn run:app` según el `Procfile`.
+
+> **Sobre las claves VAPID:** cambiarlas invalida todas las suscripciones push
+> existentes.
 
 > **Sobre `CLAVE_CIFRADO`:** si se pierde, los datos cifrados quedan
 > irrecuperables. No existe forma de descifrarlos sin ella. Debe respaldarse
@@ -387,7 +506,6 @@ python run.py
 ## Sobre el proyecto
 
 Desarrollado desde cero por una sola persona, en producción y en uso diario por
-un negocio real. Más de 100 commits documentan la evolución: desde el cierre
-sistemático de vulnerabilidades hasta la construcción del asistente con IA.
-
-.
+un negocio real. Más de 280 commits documentan la evolución: desde el cierre
+sistemático de vulnerabilidades y el asistente con IA hasta la PWA y el
+espacio del motero con alertas push.
