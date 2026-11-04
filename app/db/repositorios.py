@@ -1721,3 +1721,23 @@ def desactivar_dispositivos_por_endpoint(endpoint: str) -> int:
                  .eq("activo", True)
                  .execute())
     return len(resultado.data or [])
+
+
+def motos_para_exportar(estado=None, sede=None):
+    """
+    Placa, modelo, año y precio de TODAS las motos que cumplen los
+    filtros (sin el corte de 1000 de Supabase), para el CSV del panel.
+    Conexión administrativa: el panel ve todos los estados. 'estado' y
+    'sede' llegan ya validados por el servicio.
+    """
+    supabase = get_supabase_admin()
+
+    def consulta():
+        q = supabase.table("motos").select("placa, modelo, anio, precio")
+        if estado:
+            q = q.eq("estado", estado)
+        if sede:
+            q = q.eq("sede_id", sede)
+        return q.order("id")
+
+    return _traer_todas(consulta)

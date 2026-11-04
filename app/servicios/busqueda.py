@@ -9,11 +9,14 @@ validación se DESCARTA en silencio. Un filtro raro no debe romper el
 panel; simplemente no se aplica.
 """
 
+import csv
+import io
 import re
 
 from app.db import repositorios
 from app.servicios import sedes
 from app.servicios.inventario import ESTADOS_MOTO
+from app.seguridad.tiempo import hoy_colombia
 
 # Placas colombianas: letras y números, sin símbolos. Lista blanca
 # estricta -> nada de comas, comillas ni caracteres con significado
@@ -67,3 +70,47 @@ def buscar(args) -> dict:
                     "estado": estado, "sede": sede},
         "sedes": sedes.listar_sedes(),
     }
+
+
+# ============================================================
+#  EXPORTAR CSV (inventario del panel)
+# ============================================================
+
+COLUMNAS_CSV = (("placa", "placa"), ("modelo", "modelo"),
+                ("año", "anio"), ("precio", "precio"))
+
+# Excel interpreta como fórmula una celda que empieza con estos
+# caracteres (inyección CSV): se neutraliza con una comilla delante.
+_INICIO_FORMULA = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _celda_csv(valor):
+    if valor is None:
+        return ""
+    if isinstance(valor, str) and valor.startswith(_INICIO_FORMULA):
+        return "'" + valor
+    return valor
+
+
+def generar_csv(filas) -> bytes:
+    """CSV con las columnas de COLUMNAS_CSV. UTF-8 con BOM para que
+    Excel lea bien las tildes."""
+    salida = io.StringIO()
+    escritor = csv.writer(salida, lineterminator="\r\n")
+    escritor.writerow([titulo for titulo, _ in COLUMNAS_CSV])
+    for fila in filas:
+        escritor.writerow([_celda_csv(fila.get(campo)) for _, campo in COLUMNAS_CSV])
+    return salida.getvalue().encode("utf-8-sig")
+
+
+def exportar_csv(args):
+    """
+    (contenido, nombre_archivo) del CSV del inventario con los filtros
+    de sede y estado de la URL, validados igual que en buscar(). Trae
+    TODAS las filas que cumplen, no solo las que se ven en pantalla.
+    """
+    estado = _limpiar_estado(args.get("estado"))
+    sede = _limpiar_sede(args.get("sede"))
+    filas = repositorios.motos_para_exportar(estado, sede)
+    nombre = f"inventario_{hoy_colombia():%Y%m%d}.csv"
+    return generar_csv(filas), nombre

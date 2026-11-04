@@ -66,6 +66,7 @@
                    value="{{ filtros.placa or '' }}" maxlength="10" aria-label="Buscar por placa">
             <select name="estado" aria-label="Filtrar por estado">
                 <option value="">Todos los estados</option>
+                <option value="por_publicar" {% if filtros.estado == 'por_publicar' %}selected{% endif %}>Por publicar</option>
                 <option value="disponible" {% if filtros.estado == 'disponible' %}selected{% endif %}>Disponible</option>
                 <option value="reservado"  {% if filtros.estado == 'reservado'  %}selected{% endif %}>Reservado</option>
                 <option value="vendido"    {% if filtros.estado == 'vendido'    %}selected{% endif %}>Vendido</option>
@@ -78,6 +79,11 @@
             </select>
             <button type="submit" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-lupa"/></svg> Buscar</button>
             <a href="{{ url_for('admin.index') }}" class="btn btn-ghost">Limpiar</a>
+            {% if session.rol == 'admin' %}
+            {# Exporta con los filtros de sede y estado aplicados (no id/placa). #}
+            <a href="{{ url_for('admin.exportar_inventario', estado=filtros.estado or None, sede=filtros.sede or None) }}"
+               class="btn btn-ghost" download>Exportar CSV</a>
+            {% endif %}
         </form>
 
         <div class="seccion-titulo">Inventario</div>
