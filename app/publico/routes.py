@@ -225,12 +225,20 @@ def manifest():
     íconos salgan de url_for. Los íconos los genera
     scripts/generar_iconos_pwa.py.
     """
-    def icono(nombre, lado):
+    # Una entrada por propósito: "any maskable" en una sola hace que el
+    # navegador use el ícono con margen también donde no recorta.
+    def icono(nombre, lado, proposito):
         return {"src": url_for("static", filename=f"pwa/{nombre}"),
                 "sizes": f"{lado}x{lado}", "type": "image/png",
-                "purpose": "any maskable"}
+                "purpose": proposito}
+
+    iconos = [icono(nombre, lado, proposito)
+              for proposito in ("any", "maskable")
+              for nombre, lado in (("icon-192.png", 192), ("icon-512.png", 512))]
 
     datos = {
+        # Identidad estable de la app instalada, independiente de start_url.
+        "id": "/",
         "name": "Universal Motors",
         "short_name": "U. Motors",
         "start_url": "/",
@@ -240,7 +248,7 @@ def manifest():
         # (--negro-900) en la pantalla de carga, para que no destelle.
         "theme_color": "#ff7a00",
         "background_color": "#050505",
-        "icons": [icono("icon-192.png", 192), icono("icon-512.png", 512)],
+        "icons": iconos,
     }
     respuesta = jsonify(datos)
     respuesta.mimetype = "application/manifest+json"
