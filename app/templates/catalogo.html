@@ -29,11 +29,30 @@
             --texto: #ededed;
             --texto-suave: #b0b0b0;
             --texto-tenue: #8c8c8c;
+
+            /* Zona clara del catálogo (filtros, resultados, paginación).
+               El fondo va de un gris cálido arriba a casi blanco abajo, así
+               el tono cambia al hacer scroll sin JavaScript. Navbar, hero y
+               footer conservan su fondo oscuro propio. */
+            --fondo-arriba: #d9d4ca;
+            --fondo-medio: #e9e6e0;
+            --fondo-abajo: #fbfaf8;
+            --tinta: #2b2620;
+            --tinta-suave: #5a554d;
+            --borde-claro: #cdc8be;
+            /* El naranja de marca sobre fondo claro no da contraste para
+               texto pequeño; esta variante oscura sí. */
+            --naranja-texto: #a14200;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
+        body {
+            font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; color: var(--texto);
+            background-color: var(--fondo-abajo);
+            background-image: linear-gradient(180deg, var(--fondo-arriba) 0%, var(--fondo-medio) 45%, var(--fondo-abajo) 100%);
+        }
+        .filtros-form, #resultados { color: var(--tinta); }
         h1, h2, h3, h4, .btn-nav, .card-title, .card-price, .btn-filtrar { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
 
         a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
@@ -90,10 +109,10 @@
            pocos resultados, porque el campo queda cerrado. */
         .aviso-busqueda {
             text-align: center; padding: 18px 20px 0;
-            color: var(--texto-suave); font-size: 15px;
+            color: var(--tinta-suave); font-size: 15px;
         }
-        .aviso-busqueda b { color: var(--texto); }
-        .aviso-busqueda a { color: var(--naranja); text-decoration: none; }
+        .aviso-busqueda b { color: var(--tinta); }
+        .aviso-busqueda a { color: var(--naranja-texto); text-decoration: none; }
         .aviso-busqueda a:hover { text-decoration: underline; }
 
         .busqueda-barra {
@@ -207,25 +226,27 @@
         .contador b { color: var(--naranja); font-weight: 700; }
 
         /* ===== Filtros horizontales con desplegable ===== */
-        /* La fila se desliza lateralmente: en un movil angosto los cuatro
-           botones no entran sin achicarse hasta ser ilegibles. */
+        /* Dos filas centradas, en ladrillo: Marca, Cilindraje y Año arriba;
+           Precio y Sede abajo, quedando entre los de arriba. El .salto
+           (ancho 100%) fuerza el cambio de fila después del tercero; ocupa
+           una fila de alto 0, por eso el gap vertical es la mitad. */
         .fila-filtros {
-            display: flex; gap: 10px; overflow-x: auto;
-            padding: 16px 20px 4px; max-width: 940px; margin: 0 auto;
-            scrollbar-width: none;
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 10px;
+            padding: 10px 20px 4px; max-width: 940px; margin: 0 auto;
         }
-        .fila-filtros::-webkit-scrollbar { display: none; }
+        .fila-filtros .salto { flex-basis: 100%; height: 0; }
 
         .btn-desplegable {
             display: inline-flex; align-items: center; gap: 7px;
-            padding: 11px 18px; border-radius: 24px; cursor: pointer;
-            background: var(--negro-600); border: 1px solid var(--borde);
-            color: var(--texto-suave); font-size: 15px; white-space: nowrap;
+            padding: 9px 22px; border-radius: 28px; cursor: pointer;
+            background: #ffffff; border: 1px solid var(--borde-claro);
+            color: var(--tinta); font-size: 17px; font-weight: 700; white-space: nowrap;
             flex-shrink: 0; font-family: inherit;
+            box-shadow: 0 1px 3px rgba(40,30,20,0.08);
         }
-        .btn-desplegable:hover { border-color: var(--naranja); color: var(--naranja); }
+        .btn-desplegable:hover { border-color: var(--naranja); color: var(--naranja-texto); }
         .btn-desplegable.activo,
-        .btn-desplegable.abierto { border-color: var(--naranja); color: var(--naranja); }
+        .btn-desplegable.abierto { border-color: var(--naranja); color: var(--naranja-texto); }
         .btn-desplegable .flecha { font-size: 11px; transition: transform 0.2s; }
         .btn-desplegable.abierto .flecha { transform: rotate(180deg); }
         .btn-desplegable .cuenta {
@@ -236,8 +257,8 @@
         .panel-desplegable {
             display: none;
             max-width: 940px; margin: 10px auto 0; padding: 18px 20px;
-            background: var(--negro-700); border: 1px solid var(--borde);
-            border-radius: 14px;
+            background: #ffffff; border: 1px solid var(--borde-claro);
+            border-radius: 14px; box-shadow: 0 8px 22px rgba(40,30,20,0.10);
         }
         .panel-desplegable.abierto { display: block; }
         .panel-desplegable .opciones { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -251,8 +272,8 @@
         }
 
         @media (max-width: 600px) {
-            .fila-filtros { padding: 14px 16px 4px; }
-            .btn-desplegable { font-size: 14px; padding: 10px 15px; }
+            .fila-filtros { padding: 8px 16px 4px; gap: 4px 8px; }
+            .btn-desplegable { font-size: 15px; padding: 9px 15px; }
             .panel-desplegable { margin: 10px 16px 0; padding: 16px; }
         }
         /* Pastillas de filtros aplicados: hacen visible qué está activo
@@ -264,17 +285,17 @@
         .aplicados a {
             display: inline-flex; align-items: center; gap: 8px;
             background: rgba(255,122,0,0.12); border: 1px solid var(--naranja);
-            color: var(--naranja); border-radius: 20px; padding: 7px 14px;
+            color: var(--naranja-texto); border-radius: 20px; padding: 7px 14px;
             font-size: 14px; text-decoration: none;
         }
         .aplicados a:hover { background: rgba(255,122,0,0.22); }
         .aplicados .quitar { font-size: 17px; line-height: 1; opacity: 0.8; }
 
         .resultado-cuenta {
-            color: var(--texto-tenue); font-size: 14px;
+            color: var(--tinta-suave); font-size: 14px;
             margin-top: 10px; text-transform: uppercase; letter-spacing: 1px;
         }
-        .resultado-cuenta b { color: var(--naranja); }
+        .resultado-cuenta b { color: #17140f; font-weight: 800; }
 
         @media (max-width: 600px) {
         }
@@ -326,15 +347,15 @@
         .opciones { display: flex; flex-wrap: wrap; gap: 10px; }
         .opcion {
             display: inline-flex; align-items: center; gap: 8px;
-            background: var(--negro-600); border: 1px solid var(--borde);
+            background: #f4f2ee; border: 1px solid var(--borde-claro);
             border-radius: 24px; padding: 9px 16px; cursor: pointer;
-            font-size: 14px; color: var(--texto-suave); user-select: none;
+            font-size: 14px; color: var(--tinta); user-select: none;
         }
         .opcion:hover { border-color: var(--naranja); }
         .opcion input { accent-color: var(--naranja); width: 16px; height: 16px; cursor: pointer; }
         /* Cuando la casilla está marcada, resaltamos toda la pastilla */
         .opcion:has(input:checked) {
-            border-color: var(--naranja); color: var(--naranja);
+            border-color: var(--naranja); color: var(--naranja-texto);
             background: rgba(255,122,0,0.10);
         }
         .acciones-panel { display: flex; gap: 10px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--borde); }
@@ -350,10 +371,10 @@
             .opcion { font-size: 13px; padding: 8px 14px; }
         }
         /* ===== Filtros (GET a servidor) ===== */
-        .filtros-form { max-width: 940px; margin: 0 auto; padding: 16px 20px 0; }
+        .filtros-form { max-width: 940px; margin: 0 auto; padding: 4px 20px 0; }
         /* Contador y pastillas: antes vivían dentro del form; ahora están en
            #resultados, con el mismo ancho y el espacio inferior del form. */
-        .resumen-resultados { max-width: 940px; margin: 0 auto; padding: 0 20px 32px; }
+        .resumen-resultados { max-width: 940px; margin: 0 auto; padding: 0 20px 6px; }
 
         /* Mientras llega el fragmento por fetch. */
         #resultados { transition: opacity 0.15s; }
@@ -391,15 +412,11 @@
         .btn-limpiar:hover { border-color: var(--naranja); color: var(--naranja); }
 
 
-        /* Panel blanco del catálogo: el espacio ENTRE cards queda blanco.
-           El fondo negro de la página solo asoma como marco a los lados
-           (margen horizontal) y arriba/abajo contra filtros y paginación. */
-        .container {
-            max-width: 1180px; margin: 0 auto; padding: 30px 22px 50px;
-            background: #ffffff; border-radius: 16px;
-        }
+        /* Sin fondo propio: entre cards y a los lados se ve el mismo
+           degradado del body, como un solo fondo continuo. */
+        .container { max-width: 1180px; margin: 0 auto; padding: 12px 22px 50px; }
         @media (max-width: 900px) { .container { margin: 0 14px; } }
-        @media (max-width: 600px) { .container { margin: 0 10px; padding: 18px 12px 36px; border-radius: 14px; } }
+        @media (max-width: 600px) { .container { margin: 0 10px; padding: 10px 12px 36px; } }
         .select-marcas {
             width: 100%; padding: 10px 14px; border-radius: 10px;
             background: var(--negro-600); border: 1px solid var(--borde);
@@ -424,7 +441,7 @@
             --card-meta: #171410;
             background: var(--card-bg); border: 1.5px solid #141210; border-radius: 14px;
             position: relative;
-            overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.10);
+            overflow: hidden; box-shadow: 0 2px 10px rgba(40,30,20,0.12);
             transition: transform 0.2s, box-shadow 0.2s;
         }
         .card:hover { transform: translateY(-6px); box-shadow: 0 14px 30px rgba(0,0,0,0.20); }
@@ -502,11 +519,12 @@
         }
         .paginacion a, .paginacion span {
             padding: 10px 16px; border-radius: 10px;
-            border: 1px solid var(--borde); color: var(--texto-suave);
+            border: 1px solid var(--borde-claro); color: var(--tinta);
+            background: rgba(255,255,255,0.7);
             text-decoration: none; font-size: 15px; min-width: 44px;
             text-align: center;
         }
-        .paginacion a:hover { border-color: var(--naranja); color: var(--naranja); }
+        .paginacion a:hover { border-color: var(--naranja); color: var(--naranja-texto); }
         .paginacion .actual {
             background: var(--naranja); color: #000;
             border-color: var(--naranja); font-weight: 700;
@@ -624,6 +642,8 @@
                 {% if filtros.anio %}<span class="cuenta">{{ filtros.anio|length }}</span>{% endif %}
                 <span class="flecha">&#9660;</span>
             </button>
+
+            <span class="salto" aria-hidden="true"></span>
 
             <button type="button" class="btn-desplegable {% if filtros.precio %}activo{% endif %}"
                     onclick="alternarFiltro('precio')" id="btn-precio"

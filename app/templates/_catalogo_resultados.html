@@ -17,7 +17,7 @@
 <div class="resumen-resultados">
     <p class="resultado-cuenta">
         {# data-n: el JS anima el número de 0 a este total. Sin JS se ve tal cual. #}
-        <b data-n="{{ total_motos }}">{{ total_motos }}</b> {{ 'moto encontrada' if total_motos == 1 else 'motos encontradas' }}
+        <b data-n="{{ total_motos }}">{{ total_motos }}</b> {{ 'resultado' if total_motos == 1 else 'resultados' }}
     </p>
     {% if filtros_aplicados %}
     <div class="aplicados">
