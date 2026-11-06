@@ -34,7 +34,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; background: var(--negro-800); color: var(--texto); }
-        h1, h2, h3, h4, .btn-nav, .card-title, .card-price, .btn-filtrar, .btn-detalle, .btn-whatsapp { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
+        h1, h2, h3, h4, .btn-nav, .card-title, .card-price, .btn-filtrar { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.3px; }
 
         a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--naranja); outline-offset: 2px; }
 
@@ -419,12 +419,11 @@
            el fondo negro como una galería. */
         .card {
             --card-bg: #e3e0d9;
-            --card-borde: #e6e4df;
             --card-img-bg: #ecebe7;
             --card-titulo: #17140f;
             --card-meta: #171410;
-            --card-desc: #2b2620;
             background: var(--card-bg); border: 1.5px solid #141210; border-radius: 14px;
+            position: relative;
             overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.10);
             transition: transform 0.2s, box-shadow 0.2s;
         }
@@ -433,45 +432,37 @@
         .card-no-img { width: 100%; height: 200px; background: var(--card-img-bg); display: flex; align-items: center; justify-content: center; color: #b7b4ad; border-bottom: 1.5px solid #141210; }
         .card-no-img .ico { width: 56px; height: 56px; }
 
-        .card-body { padding: 18px 18px 20px; }
-        .card-title { font-size: 21px; font-weight: 700; color: var(--card-titulo); margin-bottom: 4px; text-transform: uppercase; }
-        .card-title:hover { color: var(--naranja); }
-        .card-price { font-size: 27px; color: var(--naranja); font-weight: 800; margin-bottom: 0; }
+        .card-body { padding: 18px 18px 20px; text-align: center; }
+        /* Enlace "estirado": su ::after cubre toda la card, así cualquier
+           toque abre el detalle sin anidar enlaces. */
+        .card-link { text-decoration: none; }
+        .card-link::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+        .card-link:focus-visible { outline: none; }
+        .card-link:focus-visible::after { outline: 3px solid var(--naranja); outline-offset: -3px; border-radius: 14px; }
+        .card-title { font-size: 21px; font-weight: 700; color: var(--card-titulo); margin-bottom: 4px; text-transform: uppercase; transition: color 0.2s; }
+        .card:hover .card-title { color: var(--naranja); }
+        /* Kilometraje y sede: línea discreta entre el título y el precio. */
+        .card-meta { font-size: 13px; color: #5a554d; margin-bottom: 6px; }
+        .card-meta .sep { margin: 0 6px; }
+        .card-price { font-size: 27px; color: var(--card-titulo); font-weight: 800; margin-bottom: 0; }
         .card-price.consultar { font-size: 19px; color: var(--card-meta); }
-        /* Separador con degradado oscuro que divide precio y ficha técnica.
-           Se dibuja con ::after, así no hay que tocar el HTML/Jinja de la card. */
+        /* Separador simétrico (oscuro al centro, se desvanece a los lados)
+           para acompañar el contenido centrado. */
         .card-price::after {
             content: ""; display: block; height: 3px; border-radius: 2px; margin: 12px 0 14px;
-            background: linear-gradient(to right, #141210 0%, #141210 45%, rgba(20,18,16,0.04) 100%);
+            background: linear-gradient(to right, rgba(20,18,16,0.04) 0%, #141210 30%, #141210 70%, rgba(20,18,16,0.04) 100%);
         }
 
-        /* Meta en pastillas sutiles gris claro (antes eran chips oscuros). */
-        .card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-        .tag {
-            display: inline-flex; align-items: center; gap: 7px;
-            background: #f2f1ec; border: 1px solid var(--card-borde); color: var(--card-meta);
-            padding: 6px 13px; border-radius: 14px; font-size: 14px; font-weight: 500;
-        }
-        .tag .ico { width: 15px; height: 15px; color: var(--naranja); }
-        .card-desc { font-size: 14px; color: var(--card-desc); line-height: 1.55; margin-bottom: 16px; display: flex; gap: 7px; }
-        .card-desc .ico { width: 15px; height: 15px; margin-top: 2px; flex-shrink: 0; color: var(--card-meta); }
-
-        .card-btns { display: flex; flex-direction: column; gap: 10px; }
-        .btn-detalle {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 12px; text-align: center; border-radius: 8px;
-            text-decoration: none; font-size: 15px; font-weight: 700; text-transform: uppercase;
-            border: 2px solid #d9d7d1; color: var(--card-titulo); transition: all 0.2s;
-        }
-        .btn-detalle:hover { border-color: var(--naranja); color: var(--naranja); }
-        
+        /* Botón de WhatsApp solo con el ícono. Va por encima del enlace
+           estirado (z-index) para que su toque no abra el detalle. */
         .btn-whatsapp {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 12px; text-align: center; border-radius: 8px;
-            text-decoration: none; font-size: 15px; font-weight: 700; text-transform: uppercase;
-            background: #25D366; color: #06331a; transition: background 0.2s;
+            position: relative; z-index: 2;
+            display: flex; align-items: center; justify-content: center;
+            width: 44px; height: 44px; border-radius: 50%;
+            background: #128C3E; color: #fff; transition: background 0.2s, transform 0.2s;
         }
-        .btn-whatsapp:hover { background: #1ebe57; }
+        .btn-whatsapp .ico { width: 22px; height: 22px; }
+        .btn-whatsapp:hover { background: #0E6F31; transform: scale(1.08); }
 
         .empty { text-align: center; padding: 100px 20px; color: #57534c; }
         .empty .ico { width: 64px; height: 64px; color: #c9c6bf; }

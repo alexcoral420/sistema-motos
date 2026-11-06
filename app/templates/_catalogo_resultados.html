@@ -35,48 +35,41 @@
         <div class="grid">
             {% for moto in motos %}
             <div class="card">
-                <a href="/moto/{{ moto.id }}">
-                    {% if moto.foto_url %}
-                        <img src="{{ moto.foto_url | miniatura }}" data-original="{{ moto.foto_url }}" onerror="this.onerror=null; this.src=this.dataset.original" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
-                    {% else %}
-                        <div class="card-no-img"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
-                    {% endif %}
-                </a>
+                {% if moto.foto_url %}
+                    <img src="{{ moto.foto_url | miniatura }}" data-original="{{ moto.foto_url }}" onerror="this.onerror=null; this.src=this.dataset.original" alt="{{ moto.marca }} {{ moto.modelo }}" loading="lazy">
+                {% else %}
+                    <div class="card-no-img"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-moto"/></svg></div>
+                {% endif %}
 
                 <div class="card-body">
-                    <a href="/moto/{{ moto.id }}" style="text-decoration:none">
-                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}{% if moto.cilindraje %} {{ moto.cilindraje }}cc{% endif %}{% if moto.anio %} {{ moto.anio }}{% endif %}</div>
+                    <!-- Toda la card abre el detalle: el ::after de .card-link se
+                         estira sobre la card (no se puede anidar el enlace de
+                         WhatsApp dentro de otro <a>). -->
+                    <a href="/moto/{{ moto.id }}" class="card-link">
+                        <div class="card-title">{{ moto.marca }} {{ moto.modelo }}{% if moto.anio %} {{ moto.anio }}{% endif %}</div>
                     </a>
+                    {# La vista catalogo_ordenado trae la sede aplanada en sede_nombre. #}
+                    {% if moto.kilometraje or moto.sede_nombre %}
+                    <div class="card-meta">
+                        {%- if moto.kilometraje %}<span>{{ "{:,}".format(moto.kilometraje) }} km</span>{% endif -%}
+                        {%- if moto.kilometraje and moto.sede_nombre %}<span class="sep" aria-hidden="true">·</span>{% endif -%}
+                        {%- if moto.sede_nombre %}<span>{{ moto.sede_nombre }}</span>{% endif -%}
+                    </div>
+                    {% endif %}
                     {% if moto.precio %}
                     <div class="card-price">${{ "{:,}".format(moto.precio) }}</div>
                     {% else %}
                     <div class="card-price consultar">Consultar precio</div>
                     {% endif %}
 
-                    <div class="card-tags">
-                        {% if moto.anio %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-calendario"/></svg> {{ moto.anio }}</span>{% endif %}
-                        {% if moto.kilometraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-km"/></svg> {{ "{:,}".format(moto.kilometraje) }} km</span>{% endif %}
-                        {% if moto.color %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-color"/></svg> {{ moto.color }}</span>{% endif %}
-                        {% if moto.cilindraje %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-motor"/></svg> {{ moto.cilindraje }}cc</span>{% endif %}
-                        {% if moto.sedes %}<span class="tag"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-edificio"/></svg> {{ moto.sedes.nombre }}</span>{% endif %}
-                    </div>
-
-                    {% if moto.descripcion %}
-                    <div class="card-desc"><svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-nota"/></svg> {{ moto.descripcion }}</div>
+                    <!-- IMPORTANTE: va a /consultar/{id}, que registra el interés
+                         antes de redirigir a WhatsApp. NUNCA a wa.me directo. -->
+                    {% if not session.rol %}
+                    <a href="/consultar/{{ moto.id }}" class="btn-whatsapp" target="_blank" rel="noopener"
+                       aria-label="Preguntar por esta moto por WhatsApp" title="Preguntar por esta moto">
+                        <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg>
+                    </a>
                     {% endif %}
-
-                    <div class="card-btns">
-                        <a href="/moto/{{ moto.id }}" class="btn-detalle">
-                            <svg class="ico ico-trazo" aria-hidden="true"><use href="#ico-lupa"/></svg> Ver detalle y fotos
-                        </a>
-                        <!-- IMPORTANTE: va a /consultar/{id}, que registra el interés
-                             antes de redirigir a WhatsApp. NUNCA a wa.me directo. -->
-                             {% if not session.rol %}
-                        <a href="/consultar/{{ moto.id }}" class="btn-whatsapp" target="_blank" rel="noopener">
-                            <svg class="ico ico-solido" aria-hidden="true"><use href="#ico-whatsapp"/></svg> Preguntar por esta moto
-                        </a>
-                        {% endif %}
-                    </div>
                 </div>
             </div>
             {% endfor %}
