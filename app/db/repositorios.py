@@ -127,11 +127,6 @@ def actualizar_moto_si_estado(id: int, estado_actual: str, datos: dict):
     return resultado.data
 
 
-def marcar_como_vendida(id: int):
-    """Cambia el estado a 'vendido'."""
-    return actualizar_moto(id, {"estado": "vendido"})
-
-
 def eliminar_moto(moto_id: int) -> bool:
     """
     Borra una moto Y todos sus archivos del bucket (foto principal,
@@ -609,10 +604,38 @@ def obtener_pagos_de_compra(compra_id: int):
     return resultado.data
 
 
-def registrar_permuta(datos: dict):
-    """Guarda el registro histórico de una permuta."""
+def registrar_permuta_moto(moto_saliente_id: int, moto_entrante: dict,
+                           usuario_id: int, usuario_nombre: str,
+                           asesor_id: int, asesor_nombre: str,
+                           datos_contrato: dict = None) -> dict:
+    """
+    Llama a la función registrar_permuta_moto (migración 025): bloquea la
+    moto saliente, verifica que siga disponible, crea la entrante (con
+    sus datos de contrato del RUNT, si vienen), marca vendida la saliente
+    y registra la permuta en UNA transacción.
+    Devuelve {"permuta_id", "moto_entrante_id"}.
+
+    Mismo manejo de errores que registrar_venta_moto: P0001 (raise
+    exception con mensaje en español) -> ErrorValidacion; cualquier otro
+    error se registra y sigue subiendo tal cual.
+    """
     supabase = get_supabase_admin()
-    resultado = supabase.table("permutas").insert(datos).execute()
+    try:
+        resultado = supabase.rpc("registrar_permuta_moto", {
+            "p_moto_saliente_id": moto_saliente_id,
+            "p_moto": moto_entrante,
+            "p_usuario_id": usuario_id,
+            "p_usuario_nombre": usuario_nombre,
+            "p_asesor_id": asesor_id,
+            "p_asesor_nombre": asesor_nombre,
+            "p_datos_contrato": datos_contrato,
+        }).execute()
+    except APIError as e:
+        if e.code == "P0001":
+            raise ErrorValidacion(e.message) from e
+        obtener_logger().error("Error al llamar a registrar_permuta_moto: %s (código %s)",
+                               e.message, e.code)
+        raise
     return resultado.data
 
     # ============================================================
@@ -750,7 +773,7 @@ def reporte_permutas_por_usuario(desde=None, hasta=None):
     agregar en Python. Antes leía una vista pre-agregada que no permitía
     filtrar por fecha. hasta ya viene con +1 día: se filtra con < (lt).
     """
-    consulta = get_supabase_admin().table("permutas").select("usuario_nombre, created_at")
+    consulta = get_supabase_admin().table("permutas").select("asesor_nombre, created_at")
     if desde:
         consulta = consulta.gte("created_at", desde)
     if hasta:

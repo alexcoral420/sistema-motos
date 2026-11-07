@@ -236,7 +236,6 @@
                 {% endif %}
                 {% if session.rol == 'asesor' %}
                 <a href="{{ url_for('admin.comprar') }}" class="nav-item {% if nav_activo == 'comprar' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Comprar moto</a>
-                <a href="{{ url_for('admin.permuta') }}" class="nav-item {% if nav_activo == 'permuta' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg> Permuta</a>
                 {% endif %}
                 <a href="{{ url_for('publico.catalogo_publico') }}" class="nav-item" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#ico-externo"/></svg> Ver sitio público</a>
             </nav>
@@ -246,6 +245,9 @@
             <div class="sidebar-grupo">
                 <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg> Registrar</div>
                 <a href="{{ url_for('admin.compra_nueva') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg></span> Nueva compra</a>
+                {% if session.rol in ['admin', 'encargado_sede'] %}
+                <a href="{{ url_for('admin.permuta') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg></span> Nueva permuta</a>
+                {% endif %}
                 <a href="{{ url_for('admin.ver_gastos') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-etiqueta"/></svg></span> Agregar gasto</a>
                 {% if session.rol == 'admin' %}
                 <a href="{{ url_for('admin.agregar') }}" class="accion-item"><span class="ico-cuadro"><svg class="ico" aria-hidden="true"><use href="#ico-mas"/></svg></span> Agregar moto</a>
