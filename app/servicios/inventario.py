@@ -15,6 +15,7 @@ from app.seguridad.validadores import ErrorValidacion
 from app.seguridad.logging_config import obtener_logger
 from app.seguridad import validadores
 from app.servicios import sedes
+from app.servicios import contratos
 from app.servicios.contratos import moto_en_alcance
 
 
@@ -489,75 +490,101 @@ def comprar_moto(datos: dict, usuario_id: int, usuario_nombre: str):
 
     return moto_creada
 
-def _describir_moto(moto: dict) -> str:
-    """
-    Congela la descripción de la moto (marca modelo año), su placa y el
-    nombre del vendedor como TEXTO, para que el reporte siga siendo legible
-    aunque después se borre la moto o cambie el usuario.
-    Se guarda como texto en compras/ventas/permutas para que el
-    reporte siga legible aunque después se borre la moto.
-    """
-    partes = [moto.get("marca") or "", moto.get("modelo") or ""]
-    if moto.get("anio"):
-        partes.append(str(moto["anio"]))
-    return " ".join(p for p in partes if p).strip()
-
     # ============================================================
-#  PERMUTAS (asesor cierra compra + venta en una negociación)
+#  PERMUTAS (admin o encargado registran compra + venta en un negocio)
 # ============================================================
 
-def registrar_permuta(datos_entrante: dict, placa_saliente: str,
-                       usuario_id: int, usuario_nombre: str):
+def asesores_para_permuta() -> list:
     """
-    Cierra una permuta: el cliente entrega una moto (entrante) y se
+    Asesores que se pueden elegir en el formulario de permuta, con el
+    nombre de su sede ('sede_nombre') para distinguirlos. El encargado
+    ve solo los de su sede; admin y gerencia, todos. Es ayuda visual:
+    registrar_permuta revalida el asesor contra la sede de la moto.
+    """
+    from app.servicios.detalle_ventas import _sede_del_alcance, TODAS_LAS_SEDES
+
+    alcance = _sede_del_alcance()
+    if alcance is None:
+        return []
+    sede_id = None if alcance is TODAS_LAS_SEDES else alcance
+    nombres = {s["id"]: s["nombre"] for s in sedes.listar_sedes()}
+    asesores = repositorios.listar_asesores_activos(sede_id)
+    for a in asesores:
+        a["sede_nombre"] = nombres.get(a.get("sede_id"), "")
+    return asesores
+
+
+def registrar_permuta(form, usuario_id: int, usuario_nombre: str) -> dict:
+    """
+    Registra una permuta: el cliente entrega una moto (entrante) y se
     lleva una del inventario (saliente), en una sola negociación.
 
-    Hace TRES operaciones:
-      1. Crea la moto entrante en el inventario.
-      2. Marca la moto saliente como vendida.
-      3. Registra la permuta (enlaza ambas motos + asesor).
+    Valida en Python lo que da mensajes claros:
+      1. La placa saliente corresponde a una moto disponible...
+      2. ...dentro del alcance de sede de quien registra.
+      3. Los datos de la moto entrante (misma regla que agregar/comprar).
+         Su sede es la de la saliente, no la del formulario: el negocio
+         se cerró en esa sede.
+      4. El asesor que hizo el negocio: existe, es asesor, está activo y
+         es de la sede de la moto. Viene del form, por eso se revalida.
+      5. El RUNT de la entrante (opcional): se vuelve a parsear del texto
+         pegado, nunca se toma lo que muestre el formulario, y su placa
+         debe coincidir con la de la entrante.
 
-    Estrategia de atomicidad: validamos la placa saliente ANTES de
-    escribir nada. Si la placa no corresponde a una moto disponible,
-    salimos sin haber tocado la base. Así el único error probable
-    (placa mal tecleada) se detecta antes de la primera escritura.
+    Escribir es UNA llamada a registrar_permuta_moto (migración 025),
+    que bloquea la saliente: dos registros simultáneos no pueden
+    entregar la misma moto. Los datos de contrato van en la misma
+    transacción: no queda una moto creada sin su RUNT por un fallo.
 
-    Devuelve la moto entrante creada, o None si la placa no es válida.
-    La identidad del asesor sale SIEMPRE de la sesión, nunca del form.
+    usuario_* (quién registra) vienen de la SESIÓN, nunca del form.
+    Devuelve {"permuta_id", "moto_entrante_id"}. Lanza ErrorValidacion.
     """
-    # --- VALIDAR PRIMERO (antes de escribir nada) ---
-    # La placa se normaliza a mayúsculas para que el match exacto
-    # funcione aunque el asesor la escriba en minúsculas.
-    placa_saliente = placa_saliente.strip().upper()
+    placa_saliente = validadores.validar_texto(
+        form.get("placa_saliente"), "placa de la moto que sale",
+        min_len=1, max_len=10).strip().upper()
+
     moto_saliente = repositorios.obtener_disponible_por_placa(placa_saliente)
-    if not moto_saliente:
-        # No existe una moto disponible con esa placa: abortamos limpio.
-        return None
+    if not moto_saliente or moto_en_alcance(moto_saliente["id"]) is None:
+        # Mismo mensaje para "no existe" y "es de otra sede": no se le
+        # confirma al encargado qué hay en el inventario ajeno.
+        raise ErrorValidacion(
+            f"No hay una moto disponible con placa {placa_saliente} en su sede.",
+            "placa_saliente")
 
-    # --- ESCRIBIR DESPUÉS (la validación ya pasó) ---
-    # 1. Crear la moto entrante (reutiliza la lógica de inventario).
-    moto = repositorios.agregar_moto(datos_entrante)
-    moto_entrante = moto[0] if isinstance(moto, list) else moto
+    sede_id = moto_saliente.get("sede_id")
+    # Copia campo a campo (form.get da el primer valor también en un
+    # MultiDict) con la sede ya decidida encima.
+    campos = {clave: form.get(clave) for clave in form}
+    datos_entrante = validar_datos_moto({**campos, "sede_id": sede_id}, "por_publicar")
+    asesor = _validar_asesor_de_venta(form.get("asesor_id"), sede_id)
 
-    # 2. Marcar la moto saliente como vendida.
-    repositorios.marcar_como_vendida(moto_saliente["id"])
+    datos_contrato = None
+    texto_runt = (form.get("texto_runt") or "").strip()
+    if texto_runt:
+        datos_runt = contratos.validar_runt_para_placa(texto_runt, datos_entrante.get("placa"))
+        datos_contrato = {columna: datos_runt.get(columna) for columna in contratos.COLUMNAS}
 
-    # 3. Congelar descripciones de ambas motos (mismo patrón que ventas).
-    descripcion_entrante = _describir_moto(moto_entrante)
-    descripcion_saliente = _describir_moto(moto_saliente)
+    return repositorios.registrar_permuta_moto(
+        moto_saliente["id"], datos_entrante,
+        usuario_id, usuario_nombre,
+        asesor["id"], asesor.get("nombre_completo"),
+        datos_contrato)
 
-    # 4. Registrar la permuta con la identidad del asesor (de sesión).
-    repositorios.registrar_permuta({
-        "moto_entrante_id": moto_entrante["id"],
-        "moto_saliente_id": moto_saliente["id"],
-        "descripcion_entrante": descripcion_entrante,
-        "descripcion_saliente": descripcion_saliente,
-        "usuario_id": usuario_id,
-        "usuario_nombre": usuario_nombre,
-    })
 
-    return moto_entrante
-    
+def prellenar_permuta_desde_runt(form) -> dict:
+    """
+    Valores para volver a pintar el formulario de permuta con los datos
+    de la moto entrante tomados del RUNT pegado. Conserva lo que ya se
+    había escrito (placa saliente, asesor, precio...) y solo pisa los
+    campos que el RUNT sí trae. Lanza ErrorValidacion si el texto no sirve.
+    """
+    datos_runt = contratos.parsear_texto_runt(form.get("texto_runt"))
+    valores = {clave: form.get(clave) for clave in form}
+    for campo, valor in contratos.moto_desde_runt(datos_runt).items():
+        if valor is not None:
+            valores[campo] = str(valor)
+    return valores
+
     # ============================================================
 #  INTENCIONES
 # ============================================================

@@ -12,15 +12,16 @@
 
         .contenedor { max-width: 600px; padding-top: 24px; }
         .card { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(28,31,38,0.06); }
-        .preview { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; }
-        .upload-area { border: 2px dashed var(--borde); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; margin-bottom: 8px; background: var(--superficie-2); color: var(--texto-suave); }
-        .upload-area:hover { border-color: var(--naranja); }
         .btn-full { width: 100%; padding: 14px; font-size: 16px; margin-top: 8px; }
+        .btn-full:disabled { opacity: 0.6; cursor: not-allowed; }
         .row { display: flex; gap: 12px; }
         .row .campo { flex: 1; }
 
         .seccion { border-left: 4px solid var(--naranja); padding-left: 12px; margin: 20px 0 12px; font-size: 16px; font-weight: bold; color: var(--texto); }
         .bloque-saliente { background: var(--naranja-suave); border: 1px solid #f5d3b8; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+        .vacio { color: var(--texto-tenue); font-size: 14px; }
+        .runt-bloque { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--borde); }
+        .runt-textarea { width: 100%; min-height: 140px; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; resize: vertical; }
     </style>
 </head>
 <body>
@@ -35,24 +36,54 @@
                     ⚠️ {{ error }}
                 </div>
                 {% endif %}
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" id="form-permuta">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <!-- BLOQUE MOTO SALIENTE (la que se lleva el cliente) -->
                 <div class="bloque-saliente">
                     <div class="campo" style="margin-bottom:0">
-                        <label>🏍️ Placa de la moto que SALE del inventario *</label>
-                        <input type="text" name="placa_saliente" placeholder="ABC123"
-                            style="text-transform:uppercase"
+                        <label for="placa_saliente">🏍️ Placa de la moto que SALE del inventario *</label>
+                        <input type="text" name="placa_saliente" id="placa_saliente" placeholder="ABC123"
+                            style="text-transform:uppercase" maxlength="10"
                             value="{{ datos.placa_saliente if datos else '' }}" required>
                         <p class="nota" style="margin-top:6px">
-                            Debe ser una moto disponible en el inventario.
+                            Debe ser una moto disponible de su sede. La moto que entra
+                            queda en la misma sede, pendiente de publicar.
                         </p>
                     </div>
                 </div>
 
+                <!-- ASESOR QUE HIZO EL NEGOCIO -->
+                <div class="campo">
+                    <label for="asesor_id">Asesor que hizo el negocio *</label>
+                    {% if asesores %}
+                    <select name="asesor_id" id="asesor_id" required>
+                        <option value="">— selecciona —</option>
+                        {% for a in asesores %}
+                        <option value="{{ a.id }}"
+                            {% if datos and datos.asesor_id == a.id|string %}selected{% endif %}>
+                            {{ a.nombre_completo }}{% if session.rol != 'encargado_sede' and a.sede_nombre %} · {{ a.sede_nombre }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="nota" style="margin-top:6px">Debe ser de la sede de la moto que sale.</p>
+                    {% else %}
+                    <p class="vacio">No hay asesores activos para elegir.</p>
+                    {% endif %}
+                </div>
+
                 <!-- BLOQUE MOTO ENTRANTE (la que entrega el cliente) -->
                 <div class="seccion">Datos de la moto que ENTRA (la del cliente)</div>
+
+                <!-- RUNT de la moto que entra: prellena y se guarda como datos de contrato. -->
+                <div class="runt-bloque">
+                    <label for="texto_runt">Consulta RUNT (opcional)</label>
+                    <p class="nota">Pegue la consulta de la placa de la moto que entra para prellenar sus datos. Al registrar, se guarda como sus datos de contrato.</p>
+                    <textarea name="texto_runt" id="texto_runt" class="runt-textarea"
+                              placeholder="Pegue aquí el texto de la consulta RUNT...">{{ datos.texto_runt if datos and datos.texto_runt else '' }}</textarea>
+                    <button type="submit" class="btn btn-full btn-runt"
+                            formaction="{{ url_for('admin.permuta_desde_runt') }}" formnovalidate>📋 Cargar del RUNT</button>
+                </div>
 
                 <div class="row">
                     <div class="campo">
@@ -67,7 +98,7 @@
                 <div class="row">
                     <div class="campo">
                         <label>Año *</label>
-                        <input type="number" name="anio" placeholder="2022" min="1990" max="2026" value="{{ datos.anio if datos else '' }}" required>
+                        <input type="number" name="anio" placeholder="2022" min="1990" max="{{ anio_max }}" value="{{ datos.anio if datos else '' }}" required>
                     </div>
                     <div class="campo">
                         <label>Cilindraje (cc) *</label>
@@ -78,26 +109,13 @@
                         <input type="text" name="color" placeholder="Rojo, Negro..." value="{{ datos.color if datos else '' }}" required>
                     </div>
                 </div>
-                    <div class="row">
+                <div class="row">
                     <div class="campo">
-                    <label>Placa</label>
-                     <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase" value="{{ datos.placa if datos else '' }}">
-                     </div>
-                        </div>
-                        <div class="row">
-                    <div class="campo">
-                        <label>Sede *</label>
-                        <select name="sede_id" required>
-                            {% for sede in sedes %}
-                            <option value="{{ sede.id }}"
-                                {% if datos and datos.sede_id == sede.id|string %}selected{% endif %}>
-                                {{ sede.nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <label>Placa</label>
+                        <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase" maxlength="10" value="{{ datos.placa if datos else '' }}">
                     </div>
                 </div>
-                
+
                 <div class="row">
                     <div class="campo">
                         <label>Precio (COP) *</label>
@@ -122,32 +140,21 @@
                     <label>Descripción</label>
                     <textarea name="descripcion" rows="3" placeholder="Estado general, extras, observaciones...">{{ datos.descripcion if datos else '' }}</textarea>
                 </div>
-                <div class="campo">
-                    <label>Foto</label>
-                    <div class="upload-area" onclick="document.getElementById('foto').click()">
-                        <p>📷 Toca aquí para subir una foto</p>
-                        <p class="nota">JPG, PNG — máx 5MB</p>
-                    </div>
-                    <input type="file" id="foto" name="foto" accept="image/*" style="display:none" onchange="previewFoto(this)">
-                    <img id="preview" class="preview">
-                    <input type="hidden" name="foto_url" id="foto_url">
-                </div>
-                <button type="submit" class="btn btn-primary btn-full">🔄 Registrar permuta</button>
+                <p class="nota">Las fotos de la moto que entra se cargan en su detalle, después de registrar.</p>
+                <button type="submit" class="btn btn-primary btn-full" id="btn-permuta"
+                        {% if not asesores %}disabled{% endif %}>🔄 Registrar permuta</button>
             </form>
         </div>
     </div>
     <script>
-        function previewFoto(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('preview');
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
+        // Un solo envío; la base igual bloquea la moto que sale mientras registra.
+        // Solo el botón de registrar; "Cargar del RUNT" no registra nada.
+        document.getElementById("form-permuta").addEventListener("submit", (evento) => {
+            if (evento.submitter && evento.submitter.id !== "btn-permuta") return;
+            const boton = document.getElementById("btn-permuta");
+            boton.disabled = true;
+            boton.textContent = "Registrando...";
+        });
     </script>
 </body>
 </html>

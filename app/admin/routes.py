@@ -168,57 +168,62 @@ def comprar():
     return render_template("comprar.html", sedes=sedes.listar_sedes())  
 
 @admin_bp.route("/permuta", methods=["GET", "POST"])
-@requiere_rol("asesor")
+@requiere_rol("admin", "encargado_sede")
 def permuta():
     """
-    El asesor cierra una permuta: el cliente entrega una moto (entrante,
-    nueva en el sistema) y se lleva una del inventario (saliente).
-    Todo en una sola pantalla. La identidad del asesor sale de la SESIÓN.
+    Admin o encargado registran una permuta: el cliente entrega una moto
+    (entrante, nueva en el sistema) y se lleva una del inventario
+    (saliente). El asesor que hizo el negocio se elige en el formulario
+    y lo revalida el servicio; quién registra sale de la SESIÓN.
     """
+    error = None
     if request.method == "POST":
         try:
-            # Datos de la moto ENTRANTE (la del cliente): misma validación
-            # que comprar/agregar, cada campo limpio antes de tocar nada.
-            datos = inventario.validar_datos_moto(request.form, "por_publicar")
-
-            # DIFERENCIA 1: la placa de la moto SALIENTE (la del inventario
-            # que se lleva el cliente). Es obligatoria: sin ella no hay permuta.
-            placa_saliente = validadores.validar_texto(
-                request.form.get("placa_saliente"), "placa de la moto que sale",
-                min_len=1, max_len=10)
-
-            # DIFERENCIA 2: llamamos a registrar_permuta. Devuelve None si
-            # la placa saliente no corresponde a una moto disponible.
             resultado = inventario.registrar_permuta(
-                datos,
-                placa_saliente,
+                request.form,
                 session.get("usuario_id"),
                 session.get("usuario_nombre"),
             )
-
-            # DIFERENCIA 3: si el servicio devolvió None, la placa saliente
-            # no era válida. Avisamos al asesor sin registrar nada.
-            if resultado is None:
-                raise ErrorValidacion(
-                    f"No hay una moto disponible con placa {placa_saliente}.",
-                    "placa_saliente")
-
             obtener_logger().info(
-                "%s cerró una permuta (entra %s %s, sale placa %s).",
-                session.get("usuario_nombre"),
-                datos["marca"], datos["modelo"], placa_saliente)
-            return redirect(url_for("admin.index"))
-
+                "%s registró la permuta id=%s (entra moto id=%s, sale placa %s).",
+                session.get("usuario_nombre"), resultado["permuta_id"],
+                resultado["moto_entrante_id"],
+                (request.form.get("placa_saliente") or "").strip().upper())
+            # La entrante queda por publicar: se sigue a su detalle para
+            # cargar fotos, RUNT y publicarla.
+            return redirect(url_for("admin.detalle_moto_admin",
+                                    id=resultado["moto_entrante_id"]))
         except ErrorValidacion as e:
-            return render_template(
-                "permuta.html",
-                error=e.mensaje,
-                datos=request.form,
-                sedes=sedes.listar_sedes(),
-            )
+            error = e.mensaje
 
-    # GET: mostrar el formulario vacío.
-    return render_template("permuta.html", sedes=sedes.listar_sedes())
+    return _formulario_permuta(
+        datos=request.form if request.method == "POST" else None, error=error)
+
+
+@admin_bp.route("/permuta/desde-runt", methods=["POST"])
+@requiere_rol("admin", "encargado_sede")
+def permuta_desde_runt():
+    """
+    Prellena los datos de la moto que entra con la consulta RUNT pegada,
+    sin perder lo ya escrito (placa saliente, asesor). No registra nada:
+    el RUNT se vuelve a parsear y se guarda al registrar la permuta.
+    """
+    try:
+        datos = inventario.prellenar_permuta_desde_runt(request.form)
+    except ErrorValidacion as e:
+        return _formulario_permuta(datos=request.form, error=e.mensaje)
+    return _formulario_permuta(datos=datos)
+
+
+def _formulario_permuta(datos=None, error=None):
+    """Pinta el formulario de permuta con lo cargado y, si hay, el error."""
+    return render_template(
+        "permuta.html",
+        error=error,
+        datos=datos,
+        asesores=inventario.asesores_para_permuta(),
+        anio_max=inventario.anio_maximo(),
+    )
 
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])
 @requiere_rol("admin")
