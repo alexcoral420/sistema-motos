@@ -691,22 +691,28 @@ def buscar_motos_admin(moto_id=None, placa=None, estado=None, sede=None):
 
     return consulta.order("created_at", desc=True).execute().data
 
-def obtener_disponible_por_placa(placa: str):
+def obtener_motos_por_placa(placa: str):
     """
-    Busca UNA moto disponible por placa EXACTA (no parcial).
+    Todas las motos con esa placa EXACTA (no parcial), en cualquier
+    estado y con el nombre de su sede, las más recientes primero.
 
-    A diferencia de buscar_motos_admin (que usa ilike parcial para el
-    buscador del panel), aquí necesitamos identidad exacta: una placa
-    corresponde a una sola moto disponible, o a ninguna. Se usa en la
-    permuta, donde no puede haber ambigüedad sobre qué moto sale.
+    A diferencia de buscar_motos_admin (ilike parcial, para el buscador
+    del panel), aquí se necesita identidad exacta. Puede devolver varias:
+    una placa se repite entre motos vendidas (idx_placa_unica_disponible
+    solo la hace única entre las disponibles). Se usa en la permuta para
+    explicar con precisión por qué una placa no sirve (no existe, no
+    está disponible, es de otra sede).
+
+    Conexión ADMINISTRATIVA: la RLS de anon solo deja ver 'disponible',
+    y aquí hace falta ver los demás estados. Solo se llama desde el panel.
     """
-    supabase = get_supabase_publico()
-    resultado = supabase.table("motos")\
-        .select("*")\
-        .eq("placa", placa)\
-        .eq("estado", "disponible")\
-        .execute()
-    return resultado.data[0] if resultado.data else None
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("motos")
+                 .select("*, sedes(nombre)")
+                 .eq("placa", placa)
+                 .order("created_at", desc=True)
+                 .execute())
+    return resultado.data
 
     # ============================================================
 #  DESTACADAS INTELIGENTES (por intención de compra)
@@ -1436,9 +1442,8 @@ def obtener_venta_por_id(venta_id: int):
 
 def obtener_moto_por_placa(placa: str):
     """
-    Busca UNA moto por placa EXACTA, sin importar su estado (a
-    diferencia de obtener_disponible_por_placa): una moto ya vendida
-    también puede tener gastos históricos.
+    Busca UNA moto por placa EXACTA, sin importar su estado: una moto
+    ya vendida también puede tener gastos históricos.
 
     Conexión ADMINISTRATIVA: la RLS de anon solo deja ver 'disponible',
     así que con la pública una moto vendida, reservada o por publicar

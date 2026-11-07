@@ -18,7 +18,8 @@ SEDE_NORTE = 1
 SEDE_SUR = 2
 
 MOTO_SALIENTE = {"id": 50, "placa": "XYZ987", "sede_id": SEDE_NORTE,
-                 "estado": "disponible", "marca": "HONDA", "modelo": "CB190", "anio": 2021}
+                 "estado": "disponible", "marca": "HONDA", "modelo": "CB190", "anio": 2021,
+                 "sedes": {"nombre": "av 1 de mayo"}}
 
 ASESORES = {
     7: {"id": 7, "rol": "asesor", "activo": True, "sede_id": SEDE_NORTE, "nombre_completo": "Ana Asesora"},
@@ -48,8 +49,8 @@ def entorno(monkeypatch):
     llamadas = []
 
     monkeypatch.setattr(sedes, "ids_validos", lambda: {str(SEDE_NORTE), str(SEDE_SUR)})
-    monkeypatch.setattr(repositorios, "obtener_disponible_por_placa",
-                        lambda placa: dict(MOTO_SALIENTE) if placa == "XYZ987" else None)
+    monkeypatch.setattr(repositorios, "obtener_motos_por_placa",
+                        lambda placa: [dict(MOTO_SALIENTE)] if placa == "XYZ987" else [])
     monkeypatch.setattr(inventario, "moto_en_alcance", lambda moto_id: dict(MOTO_SALIENTE))
     monkeypatch.setattr(repositorios, "obtener_usuario_por_id", lambda uid: ASESORES.get(uid))
 
@@ -94,17 +95,35 @@ def test_asesor_de_otra_sede_inactivo_o_no_asesor_se_rechaza(entorno, asesor_id)
     assert entorno == []
 
 
-def test_placa_saliente_inexistente_no_registra(entorno):
-    with pytest.raises(ErrorValidacion, match="NOEXISTE"):
+def test_placa_saliente_inexistente_dice_que_no_existe(entorno):
+    with pytest.raises(ErrorValidacion, match="No existe ninguna moto con placa NOEXISTE"):
         inventario.registrar_permuta(formulario(placa_saliente="noexiste"), 3, "Encargado")
     assert entorno == []
 
 
-def test_saliente_de_otra_sede_se_rechaza_con_el_mismo_mensaje(entorno, monkeypatch):
-    monkeypatch.setattr(inventario, "moto_en_alcance", lambda moto_id: None)
-    with pytest.raises(ErrorValidacion, match="No hay una moto disponible con placa XYZ987"):
+@pytest.mark.parametrize("estado", ["por_publicar", "reservado", "vendido"])
+def test_saliente_no_disponible_dice_su_estado(entorno, monkeypatch, estado):
+    monkeypatch.setattr(repositorios, "obtener_motos_por_placa",
+                        lambda placa: [{**MOTO_SALIENTE, "estado": estado}])
+    with pytest.raises(ErrorValidacion, match=f"no está disponible: su estado es '{estado}'"):
         inventario.registrar_permuta(formulario(), 3, "Encargado")
     assert entorno == []
+
+
+def test_saliente_de_otra_sede_dice_de_que_sede_es(entorno, monkeypatch):
+    monkeypatch.setattr(inventario, "moto_en_alcance", lambda moto_id: None)
+    with pytest.raises(ErrorValidacion, match="es de la sede av 1 de mayo, no de la suya"):
+        inventario.registrar_permuta(formulario(), 3, "Encargado")
+    assert entorno == []
+
+
+def test_placa_repetida_usa_la_disponible_y_no_la_vendida(entorno, monkeypatch):
+    vendida = {**MOTO_SALIENTE, "id": 10, "estado": "vendido"}
+    # La vendida es la más reciente, pero la que sale es la disponible.
+    monkeypatch.setattr(repositorios, "obtener_motos_por_placa",
+                        lambda placa: [vendida, dict(MOTO_SALIENTE)])
+    inventario.registrar_permuta(formulario(), 3, "Encargado")
+    assert entorno[0][0] == 50
 
 
 def test_datos_invalidos_de_la_entrante_no_registran(entorno):
