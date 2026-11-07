@@ -514,14 +514,41 @@ def asesores_para_permuta() -> list:
     return asesores
 
 
+def _moto_saliente_de_permuta(placa: str) -> dict:
+    """
+    La moto que sale en una permuta: la disponible con esa placa, dentro
+    del alcance de sede del usuario en sesión. Si no sirve, lanza
+    ErrorValidacion diciendo exactamente por qué (no existe, no está
+    disponible, o es de otra sede) y deja el motivo en el log.
+    """
+    motos = repositorios.obtener_motos_por_placa(placa)
+    disponible = next((m for m in motos if m.get("estado") == "disponible"), None)
+
+    if not motos:
+        motivo = f"No existe ninguna moto con placa {placa} en el inventario."
+    elif not disponible:
+        estado = motos[0].get("estado")
+        motivo = (f"La moto con placa {placa} no está disponible: su estado es "
+                  f"'{estado}'. Solo puede salir en permuta una moto disponible.")
+    elif moto_en_alcance(disponible["id"]) is None:
+        sede = (disponible.get("sedes") or {}).get("nombre") or f"id {disponible.get('sede_id')}"
+        motivo = f"La moto con placa {placa} es de la sede {sede}, no de la suya."
+    else:
+        return disponible
+
+    obtener_logger().info("Permuta rechazada (placa saliente %s): %s", placa, motivo)
+    raise ErrorValidacion(motivo, "placa_saliente")
+
+
 def registrar_permuta(form, usuario_id: int, usuario_nombre: str) -> dict:
     """
     Registra una permuta: el cliente entrega una moto (entrante) y se
     lleva una del inventario (saliente), en una sola negociación.
 
     Valida en Python lo que da mensajes claros:
-      1. La placa saliente corresponde a una moto disponible...
-      2. ...dentro del alcance de sede de quien registra.
+      1-2. La placa saliente corresponde a una moto disponible dentro del
+         alcance de sede de quien registra (_moto_saliente_de_permuta,
+         con un mensaje distinto para cada causa).
       3. Los datos de la moto entrante (misma regla que agregar/comprar).
          Su sede es la de la saliente, no la del formulario: el negocio
          se cerró en esa sede.
@@ -543,14 +570,7 @@ def registrar_permuta(form, usuario_id: int, usuario_nombre: str) -> dict:
         form.get("placa_saliente"), "placa de la moto que sale",
         min_len=1, max_len=10).strip().upper()
 
-    moto_saliente = repositorios.obtener_disponible_por_placa(placa_saliente)
-    if not moto_saliente or moto_en_alcance(moto_saliente["id"]) is None:
-        # Mismo mensaje para "no existe" y "es de otra sede": no se le
-        # confirma al encargado qué hay en el inventario ajeno.
-        raise ErrorValidacion(
-            f"No hay una moto disponible con placa {placa_saliente} en su sede.",
-            "placa_saliente")
-
+    moto_saliente = _moto_saliente_de_permuta(placa_saliente)
     sede_id = moto_saliente.get("sede_id")
     # Copia campo a campo (form.get da el primer valor también en un
     # MultiDict) con la sede ya decidida encima.
