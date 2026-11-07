@@ -1444,11 +1444,19 @@ def obtener_moto_por_placa(placa: str):
     """
     Busca UNA moto por placa EXACTA, sin importar su estado: una moto
     ya vendida también puede tener gastos históricos.
+
+    Conexión ADMINISTRATIVA: la RLS de anon solo deja ver 'disponible',
+    así que con la pública una moto vendida, reservada o por publicar
+    "no existía" en gastos. Solo se llama desde el panel, detrás de login.
+
+    Si la placa se repite (entre motos vendidas puede pasar), devuelve
+    la más reciente: la que se recompró es la que está en inventario.
     """
-    supabase = get_supabase_publico()
+    supabase = get_supabase_admin()
     resultado = (supabase.table("motos")
                  .select("*")
                  .eq("placa", placa)
+                 .order("created_at", desc=True)
                  .limit(1)
                  .execute())
     return resultado.data[0] if resultado.data else None
