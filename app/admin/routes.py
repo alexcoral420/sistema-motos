@@ -195,6 +195,13 @@ def permuta():
                                     id=resultado["moto_entrante_id"]))
         except ErrorValidacion as e:
             error = e.mensaje
+            # WARNING: en producción el nivel INFO no se registra.
+            obtener_logger().warning(
+                "Permuta no registrada: %s | usuario_id=%s rol=%s sede_sesion=%s "
+                "asesor_id_form=%r placa_saliente=%r",
+                e.mensaje, session.get("usuario_id"), session.get("rol"),
+                session.get("sede_id"), request.form.get("asesor_id"),
+                (request.form.get("placa_saliente") or "").strip().upper())
 
     return _formulario_permuta(
         datos=request.form if request.method == "POST" else None, error=error)
