@@ -7,6 +7,9 @@ se reemplazan con monkeypatch.
 Correr desde la raíz del proyecto:  python -m pytest tests/
 """
 
+import re
+from pathlib import Path
+
 import pytest
 from postgrest.exceptions import APIError
 from werkzeug.datastructures import ImmutableMultiDict
@@ -61,6 +64,20 @@ def entorno(monkeypatch):
 
     monkeypatch.setattr(repositorios, "registrar_permuta_moto", registrar)
     return llamadas
+
+
+def test_formulario_registra_en_permuta_y_solo_runt_usa_formaction():
+    """Tras "Cargar del RUNT" la URL es /desde-runt: sin action, registrar caería ahí."""
+    plantilla = (Path(__file__).parent.parent / "app/templates/permuta.html").read_text(encoding="utf-8")
+
+    formulario_html = re.search(r"<form\b[^>]*>", plantilla).group(0)
+    assert "action=\"{{ url_for('admin.permuta') }}\"" in formulario_html
+
+    botones = re.findall(r"<button\b.*?</button>", plantilla, re.DOTALL)
+    runt = next(b for b in botones if "Cargar del RUNT" in b)
+    registrar = next(b for b in botones if 'id="btn-permuta"' in b)
+    assert "url_for('admin.permuta_desde_runt')" in runt and "formnovalidate" in runt
+    assert "formaction" not in registrar
 
 
 class _ClienteQueFalla:
