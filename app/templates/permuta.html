@@ -9,19 +9,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <style>
-
-        .contenedor { max-width: 600px; padding-top: 24px; }
-        .card { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(28,31,38,0.06); }
+        .contenedor { max-width: 760px; padding-top: 24px; }
+        .bloque { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .bloque h2 { font-size: 18px; color: var(--texto); margin-bottom: 14px; }
+        .bloque-saliente { background: var(--naranja-suave); border-color: #f5d3b8; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+        @media (max-width: 560px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
         .btn-full { width: 100%; padding: 14px; font-size: 16px; margin-top: 8px; }
         .btn-full:disabled { opacity: 0.6; cursor: not-allowed; }
-        .row { display: flex; gap: 12px; }
-        .row .campo { flex: 1; }
-
-        .seccion { border-left: 4px solid var(--naranja); padding-left: 12px; margin: 20px 0 12px; font-size: 16px; font-weight: bold; color: var(--texto); }
-        .bloque-saliente { background: var(--naranja-suave); border: 1px solid #f5d3b8; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
         .vacio { color: var(--texto-tenue); font-size: 14px; }
-        .runt-bloque { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--borde); }
         .runt-textarea { width: 100%; min-height: 140px; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; resize: vertical; }
+        .runt-tabla { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 14px; }
+        .runt-tabla td { padding: 6px 8px; border-bottom: 1px solid var(--borde); }
+        .runt-tabla td:first-child { color: var(--texto-tenue); width: 45%; }
+        .runt-faltante { color: var(--texto-tenue); font-style: italic; }
+
+        .pago-fila { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 12px; }
+        @media (max-width: 640px) { .pago-fila { grid-template-columns: 1fr; } }
+        .pago-fila .campo { margin-bottom: 0; }
+        .pago-entidad.oculto { visibility: hidden; }
+        .btn-quitar { background: transparent; border: 1px solid var(--rojo); color: var(--rojo); padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .btn-agregar { background: var(--superficie); border: 1px dashed var(--borde); color: var(--texto-suave); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%; }
+        .suma-caja { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 12px 16px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: 8px; font-size: 15px; }
+        .suma-caja .valor { font-variant-numeric: tabular-nums; font-weight: 700; }
+        .suma-ok { color: var(--verde); }
+        .suma-desc { color: var(--naranja); }
     </style>
 </head>
 <body>
@@ -30,39 +43,34 @@
         <a href="{{ url_for('admin.index') }}" class="btn-back">← Volver</a>
     </div>
     <div class="contenedor">
-        <div class="card">
-            {% if error %}
-                <div class="aviso aviso-error">
-                    ⚠️ {{ error }}
-                </div>
-                {% endif %}
-            <!-- action explícito: tras "Cargar del RUNT" la página queda en /desde-runt. -->
-            <form method="POST" action="{{ url_for('admin.permuta') }}" id="form-permuta">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if error %}
+        <div class="aviso aviso-error">⚠️ {{ error }}</div>
+        {% endif %}
+        <!-- action explícito: tras "Cargar del RUNT" la página queda en /desde-runt. -->
+        <form method="POST" action="{{ url_for('admin.permuta') }}" id="form-permuta">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <!-- BLOQUE MOTO SALIENTE (la que se lleva el cliente) -->
-                <div class="bloque-saliente">
-                    <div class="campo" style="margin-bottom:0">
-                        <label for="placa_saliente">🏍️ Placa de la moto que SALE del inventario *</label>
-                        <input type="text" name="placa_saliente" id="placa_saliente" placeholder="ABC123"
-                            style="text-transform:uppercase" maxlength="10"
-                            value="{{ datos.placa_saliente if datos else '' }}" required>
-                        <p class="nota" style="margin-top:6px">
-                            Debe ser una moto disponible de su sede. La moto que entra
-                            queda en la misma sede, pendiente de publicar.
-                        </p>
-                    </div>
+            <div class="bloque bloque-saliente">
+                <div class="campo" style="margin-bottom:0">
+                    <label for="placa_saliente">🏍️ Placa de la moto que SALE del inventario *</label>
+                    <input type="text" name="placa_saliente" id="placa_saliente" placeholder="ABC123"
+                           style="text-transform:uppercase" maxlength="10"
+                           value="{{ datos.get('placa_saliente') or '' }}" required>
+                    <p class="nota" style="margin-top:6px">
+                        Debe estar disponible, ser de su sede y tener el RUNT cargado.
+                    </p>
                 </div>
+            </div>
 
-                <!-- ASESOR QUE HIZO EL NEGOCIO -->
-                <div class="campo">
+            <div class="bloque">
+                <div class="campo" style="margin-bottom:0">
                     <label for="asesor_id">Asesor que hizo el negocio *</label>
                     {% if asesores %}
                     <select name="asesor_id" id="asesor_id" required>
                         <option value="">— selecciona —</option>
                         {% for a in asesores %}
                         <option value="{{ a.id }}"
-                            {% if datos and datos.asesor_id == a.id|string %}selected{% endif %}>
+                            {% if datos.get('asesor_id') == a.id|string %}selected{% endif %}>
                             {{ a.nombre_completo }}{% if session.rol != 'encargado_sede' and a.sede_nombre %} · {{ a.sede_nombre }}{% endif %}
                         </option>
                         {% endfor %}
@@ -72,82 +80,202 @@
                     <p class="vacio">No hay asesores activos para elegir.</p>
                     {% endif %}
                 </div>
+            </div>
 
-                <!-- BLOQUE MOTO ENTRANTE (la que entrega el cliente) -->
-                <div class="seccion">Datos de la moto que ENTRA (la del cliente)</div>
+            <div class="bloque">
+                <h2>Moto que ENTRA (la del cliente)</h2>
+                <label for="texto_runt">Consulta RUNT *</label>
+                <p class="nota">Los datos de la moto y del contrato salen de esta consulta. El precio y las fotos se completan después, en el detalle de la moto.</p>
+                <textarea name="texto_runt" id="texto_runt" class="runt-textarea" required
+                          placeholder="Pegue aquí el texto de la consulta RUNT...">{{ datos.get('texto_runt') or '' }}</textarea>
+                <button type="submit" class="btn btn-full btn-runt"
+                        formaction="{{ url_for('admin.permuta_desde_runt') }}" formnovalidate>📋 Cargar del RUNT</button>
 
-                <!-- RUNT de la moto que entra: prellena y se guarda como datos de contrato. -->
-                <div class="runt-bloque">
-                    <label for="texto_runt">Consulta RUNT (opcional)</label>
-                    <p class="nota">Pegue la consulta de la placa de la moto que entra para prellenar sus datos. Al registrar, se guarda como sus datos de contrato.</p>
-                    <textarea name="texto_runt" id="texto_runt" class="runt-textarea"
-                              placeholder="Pegue aquí el texto de la consulta RUNT...">{{ datos.texto_runt if datos and datos.texto_runt else '' }}</textarea>
-                    <button type="submit" class="btn btn-full btn-runt"
-                            formaction="{{ url_for('admin.permuta_desde_runt') }}" formnovalidate>📋 Cargar del RUNT</button>
-                </div>
+                {% if filas_runt %}
+                <table class="runt-tabla">
+                    {% for f in filas_runt %}
+                    <tr>
+                        <td>{{ f.etiqueta }}</td>
+                        <td>{% if f.valor %}{{ f.valor }}{% else %}<span class="runt-faltante">No encontrado en el RUNT</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% endif %}
 
-                <div class="row">
+                <div class="campo" style="margin-top:14px">
+                    <label for="propietario_registrado">Propietario registrado *</label>
+                    <input type="text" name="propietario_registrado" id="propietario_registrado" required maxlength="120"
+                           value="{{ datos.get('propietario_registrado') or '' }}">
+                </div>
+                <div class="grid2">
                     <div class="campo">
-                        <label>Marca *</label>
-                       <input type="text" name="marca" placeholder="Yamaha, Honda..." value="{{ datos.marca if datos else '' }}" required>
+                        <label for="manifiesto_aduana">Manifiesto de aduana (solo importadas)</label>
+                        <input type="text" name="manifiesto_aduana" id="manifiesto_aduana" maxlength="50"
+                               value="{{ datos.get('manifiesto_aduana') or '' }}">
                     </div>
                     <div class="campo">
-                        <label>Modelo *</label>
-                        <input type="text" name="modelo" placeholder="FZ, CB125..." value="{{ datos.modelo if datos else '' }}" required>
+                        <label for="fecha_manifiesto">Fecha del manifiesto</label>
+                        <input type="date" name="fecha_manifiesto" id="fecha_manifiesto"
+                               value="{{ datos.get('fecha_manifiesto') or '' }}">
                     </div>
                 </div>
-                <div class="row">
-                    <div class="campo">
-                        <label>Año *</label>
-                        <input type="number" name="anio" placeholder="2022" min="1990" max="{{ anio_max }}" value="{{ datos.anio if datos else '' }}" required>
-                    </div>
-                    <div class="campo">
-                        <label>Cilindraje (cc) *</label>
-                        <input type="number" name="cilindraje" placeholder="150" min="90" max="1200" value="{{ datos.cilindraje if datos else '' }}" required>
-                    </div>
-                    <div class="campo">
-                        <label>Color *</label>
-                        <input type="text" name="color" placeholder="Rojo, Negro..." value="{{ datos.color if datos else '' }}" required>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="campo">
-                        <label>Placa</label>
-                        <input type="text" name="placa" placeholder="ABC123" style="text-transform:uppercase" maxlength="10" value="{{ datos.placa if datos else '' }}">
-                    </div>
-                </div>
+            </div>
 
-                <div class="row">
-                    <div class="campo">
-                        <label>Precio (COP) *</label>
-                        <input type="number" name="precio" placeholder="8500000" value="{{ datos.precio if datos else '' }}" required>
-                    </div>
-                    <div class="campo">
-                        <label>Kilometraje *</label>
-                        <input type="number" name="kilometraje" placeholder="12000" value="{{ datos.kilometraje if datos else '' }}" required>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="campo">
-                        <label>Vencimiento SOAT</label>
-                        <input type="date" name="soat" value="{{ datos.soat if datos else '' }}">
-                    </div>
-                    <div class="campo">
-                        <label>Vencimiento Tecnomecánica</label>
-                        <input type="date" name="tecno" value="{{ datos.tecno if datos else '' }}">
-                    </div>
-                </div>
+            <div class="bloque">
+                <h2>Cliente</h2>
                 <div class="campo">
-                    <label>Descripción</label>
-                    <textarea name="descripcion" rows="3" placeholder="Estado general, extras, observaciones...">{{ datos.descripcion if datos else '' }}</textarea>
+                    <label for="cliente_nombre">Nombre completo *</label>
+                    <input type="text" name="cliente_nombre" id="cliente_nombre" required maxlength="120"
+                           value="{{ datos.get('cliente_nombre') or '' }}">
                 </div>
-                <p class="nota">Las fotos de la moto que entra se cargan en su detalle, después de registrar.</p>
-                <button type="submit" class="btn btn-primary btn-full" id="btn-permuta"
-                        {% if not asesores %}disabled{% endif %}>🔄 Registrar permuta</button>
-            </form>
-        </div>
+                <div class="grid3">
+                    <div class="campo">
+                        <label for="cliente_cedula">Cédula *</label>
+                        <input type="text" name="cliente_cedula" id="cliente_cedula" required
+                               value="{{ datos.get('cliente_cedula') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="cliente_telefono">Teléfono *</label>
+                        <input type="text" name="cliente_telefono" id="cliente_telefono" required
+                               value="{{ datos.get('cliente_telefono') or '' }}">
+                    </div>
+                    <div class="campo">
+                        <label for="cliente_correo">Correo (opcional)</label>
+                        <input type="email" name="cliente_correo" id="cliente_correo"
+                               value="{{ datos.get('cliente_correo') or '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bloque">
+                <h2>Valores</h2>
+                <div class="grid3">
+                    <div class="campo">
+                        <label for="valor_saliente">Valor moto que sale *</label>
+                        <input type="number" name="valor_saliente" id="valor_saliente" required min="1"
+                               value="{{ datos.get('valor_saliente') or '' }}" oninput="recalcular()">
+                    </div>
+                    <div class="campo">
+                        <label for="valor_entrante">Valor moto que entra *</label>
+                        <input type="number" name="valor_entrante" id="valor_entrante" required min="1"
+                               value="{{ datos.get('valor_entrante') or '' }}" oninput="recalcular()">
+                    </div>
+                    <div class="campo">
+                        <label for="valor_traspaso">Traspaso (lo asume el cliente) *</label>
+                        <input type="number" name="valor_traspaso" id="valor_traspaso" required min="0"
+                               value="{{ datos.get('valor_traspaso', '0') }}" oninput="recalcular()">
+                    </div>
+                </div>
+                <div class="suma-caja">
+                    <span>Neto:</span>
+                    <span class="valor" id="neto-valor">$0</span>
+                </div>
+            </div>
+
+            <div class="bloque">
+                <h2>Pagos</h2>
+                <div id="pagos-lista"></div>
+                <button type="button" class="btn-agregar" onclick="agregarPago()">+ Agregar pago</button>
+                <div class="suma-caja">
+                    <span>Suma de pagos / a pagar:</span>
+                    <span class="valor" id="suma-valor">$0 / $0</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full" id="btn-permuta"
+                    {% if not asesores %}disabled{% endif %}>🔄 Registrar permuta</button>
+        </form>
     </div>
     <script>
+        // Salen de METODOS_PAGO_PERMUTA y ENTIDADES_PRESENTABLES.
+        // Todo lo de esta página es ayuda visual: el servidor valida igual.
+        const METODOS = [
+            {% for valor, m in metodos_pago.items() %}
+            [{{ valor|tojson }}, {{ m.etiqueta|tojson }}, {{ m.solo_paga_cliente|tojson }}],
+            {% endfor %}
+        ];
+        const ENTIDADES = {{ entidades|tojson }};
+        const PAGOS_PREVIOS = {{ pagos|tojson }};
+        const lista = document.getElementById("pagos-lista");
+        const numero = id => parseInt(document.getElementById(id).value, 10) || 0;
+        const pesos = v => "$" + v.toLocaleString("es-CO");
+
+        function agregarPago(previo) {
+            const fila = document.createElement("div");
+            fila.className = "pago-fila";
+            const optMetodos = METODOS.map(([v, t, soloCliente]) =>
+                `<option value="${v}" data-solo-cliente="${soloCliente}">${t}</option>`).join("");
+            const optEntidades = Object.entries(ENTIDADES).map(([v, t]) =>
+                `<option value="${v}">${t}</option>`).join("");
+            fila.innerHTML = `
+                <div class="campo">
+                    <label>Método</label>
+                    <select name="pago_metodo" onchange="mostrarEntidad(this)">${optMetodos}</select>
+                </div>
+                <div class="campo pago-entidad oculto">
+                    <label>Entidad</label>
+                    <select name="pago_entidad"><option value="">— selecciona —</option>${optEntidades}</select>
+                </div>
+                <div class="campo">
+                    <label>Monto</label>
+                    <input type="number" name="pago_monto" min="1" oninput="recalcular()">
+                </div>
+                <button type="button" class="btn-quitar" onclick="quitarPago(this)">Quitar</button>
+            `;
+            // Valores previos: por propiedad, no en el HTML.
+            if (previo) {
+                fila.querySelector('[name="pago_metodo"]').value = previo.metodo || "efectivo";
+                fila.querySelector('[name="pago_entidad"]').value = previo.entidad || "";
+                fila.querySelector('[name="pago_monto"]').value = previo.monto || "";
+            }
+            lista.appendChild(fila);
+            mostrarEntidad(fila.querySelector('[name="pago_metodo"]'));
+            recalcular();
+        }
+
+        function quitarPago(boton) {
+            if (lista.querySelectorAll(".pago-fila").length > 1) {
+                boton.closest(".pago-fila").remove();
+                recalcular();
+            }
+        }
+
+        // La entidad siempre se envía (para que las listas del form queden
+        // alineadas); solo se oculta cuando no es financiado.
+        function mostrarEntidad(select) {
+            const campo = select.closest(".pago-fila").querySelector(".pago-entidad");
+            const financiado = select.value === "financiado";
+            campo.classList.toggle("oculto", !financiado);
+            if (!financiado) campo.querySelector("select").value = "";
+        }
+
+        function recalcular() {
+            const neto = numero("valor_saliente") - numero("valor_entrante") + numero("valor_traspaso");
+            const aPagar = Math.abs(neto);
+            const paga = neto > 0 ? "paga el cliente" : neto < 0 ? "paga la empresa" : "sin pagos";
+            document.getElementById("neto-valor").textContent = pesos(aPagar) + " · " + paga;
+
+            lista.querySelectorAll('option[data-solo-cliente="true"]').forEach(opt => {
+                opt.hidden = neto < 0;
+            });
+
+            let suma = 0;
+            lista.querySelectorAll('input[name="pago_monto"]').forEach(inp => {
+                const v = parseInt(inp.value, 10);
+                if (!isNaN(v) && v > 0) suma += v;
+            });
+            const el = document.getElementById("suma-valor");
+            el.textContent = pesos(suma) + " / " + pesos(aPagar);
+            el.className = "valor " + (suma === aPagar ? "suma-ok" : "suma-desc");
+        }
+
+        if (PAGOS_PREVIOS.length) {
+            PAGOS_PREVIOS.forEach(p => agregarPago(p));
+        } else {
+            agregarPago();
+        }
+        recalcular();
+
         // Un solo envío; la base igual bloquea la moto que sale mientras registra.
         // Solo el botón de registrar; "Cargar del RUNT" no registra nada.
         document.getElementById("form-permuta").addEventListener("submit", (evento) => {

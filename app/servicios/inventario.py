@@ -8,6 +8,7 @@ la diferencia — misma firma, misma forma de datos. Ese era el punto
 de la arquitectura por capas: cambiar la fuente tocando UN archivo.
 """
 
+import re
 from datetime import datetime, timezone
 
 from app.db import repositorios
@@ -16,7 +17,9 @@ from app.seguridad.logging_config import obtener_logger
 from app.seguridad import validadores
 from app.servicios import sedes
 from app.servicios import contratos
+from app.servicios import personas
 from app.servicios.contratos import moto_en_alcance
+from app.servicios.detalle_ventas import ENTIDADES_VALIDAS, _sede_del_alcance, TODAS_LAS_SEDES
 
 
 # Estados posibles de una moto: fuente única para validación, filtros
@@ -540,28 +543,219 @@ def _moto_saliente_de_permuta(placa: str) -> dict:
     raise ErrorValidacion(motivo, "placa_saliente")
 
 
+# Métodos de pago de una permuta: fuente única para validación y
+# formulario. 'permuta' no es un método aquí: esa moto ya está en el
+# cálculo del neto. Financiar solo aplica cuando paga el cliente.
+METODOS_PAGO_PERMUTA = {
+    "efectivo": {"etiqueta": "Efectivo", "solo_paga_cliente": False},
+    "transferencia": {"etiqueta": "Transferencia", "solo_paga_cliente": False},
+    "financiado": {"etiqueta": "Financiado", "solo_paga_cliente": True},
+}
+MAX_MONTO_PERMUTA = 999999999
+
+# Datos del RUNT de la entrante sin los que no se registra: identifican
+# la moto en el inventario y en el contrato.
+OBLIGATORIOS_RUNT_ENTRANTE = {
+    "placa": "la placa",
+    "marca": "la marca",
+    "linea": "la línea",
+    "numero_chasis": "el número de chasis",
+    "numero_motor": "el número de motor",
+}
+
+
+def calcular_neto(valor_saliente: int, valor_entrante: int, valor_traspaso: int) -> int:
+    """Neto = excedente + traspaso. El traspaso lo asume entero el cliente."""
+    return (valor_saliente - valor_entrante) + valor_traspaso
+
+
+def quien_paga(neto: int) -> str:
+    """'cliente' si el neto es positivo, 'empresa' si es negativo, 'nadie' si es 0."""
+    if neto > 0:
+        return "cliente"
+    if neto < 0:
+        return "empresa"
+    return "nadie"
+
+
+def pagos_del_form(form) -> list:
+    """Filas de pago tal como llegan del form (sin validar), en orden."""
+    return [
+        {"metodo": m, "entidad": e, "monto": mo}
+        for m, e, mo in zip(form.getlist("pago_metodo"),
+                            form.getlist("pago_entidad"),
+                            form.getlist("pago_monto"))
+    ]
+
+
+def validar_valores_permuta(form) -> tuple:
+    """(valor_saliente, valor_entrante, valor_traspaso) ya validados."""
+    return (
+        validadores.validar_entero(form.get("valor_saliente"), "valor de la moto que sale",
+                                   minimo=1, maximo=MAX_MONTO_PERMUTA),
+        validadores.validar_entero(form.get("valor_entrante"), "valor de la moto que entra",
+                                   minimo=1, maximo=MAX_MONTO_PERMUTA),
+        validadores.validar_entero(form.get("valor_traspaso"), "valor del traspaso",
+                                   minimo=0, maximo=MAX_MONTO_PERMUTA),
+    )
+
+
+def validar_pagos_permuta(lista: list, valor_saliente: int, valor_entrante: int,
+                          valor_traspaso: int) -> list:
+    """
+    Pagos limpios de la permuta. Su suma debe ser abs(Neto) y los métodos
+    deben servir para quien paga. Las filas sin monto se ignoran: el
+    formulario siempre manda al menos una. Lanza ErrorValidacion.
+    """
+    neto = calcular_neto(valor_saliente, valor_entrante, valor_traspaso)
+    paga = quien_paga(neto)
+    a_pagar = abs(neto)
+    pesos = contratos._formatear_pesos
+    filas = [p for p in lista if str(p.get("monto") or "").strip()]
+
+    if paga == "nadie":
+        if filas:
+            raise ErrorValidacion(
+                "El neto de la permuta es $0: no debe llevar pagos. Quite los pagos cargados.",
+                "pago")
+        return []
+
+    pagos = []
+    for p in filas:
+        metodo = (p.get("metodo") or "").strip().lower()
+        if metodo not in METODOS_PAGO_PERMUTA:
+            raise ErrorValidacion(f"Método de pago inválido: {metodo}", "pago")
+        if METODOS_PAGO_PERMUTA[metodo]["solo_paga_cliente"] and paga == "empresa":
+            raise ErrorValidacion(
+                "Cuando paga la empresa solo se admite efectivo o transferencia.", "pago")
+
+        monto = validadores.validar_entero(p.get("monto"), "monto del pago",
+                                           minimo=1, maximo=MAX_MONTO_PERMUTA)
+
+        entidad = None
+        if metodo == "financiado":
+            entidad = (p.get("entidad") or "").strip().lower()
+            if entidad not in ENTIDADES_VALIDAS:
+                raise ErrorValidacion("Falta la entidad financiera o no es válida.", "pago")
+
+        pagos.append({"metodo": metodo, "entidad": entidad, "monto": monto})
+
+    if not pagos:
+        raise ErrorValidacion(
+            f"Debe registrar los pagos: {'el cliente' if paga == 'cliente' else 'la empresa'} "
+            f"debe pagar ${pesos(a_pagar)}.", "pago")
+
+    suma = sum(p["monto"] for p in pagos)
+    if suma != a_pagar:
+        raise ErrorValidacion(
+            f"Los pagos suman ${pesos(suma)}, pero deben sumar ${pesos(a_pagar)} "
+            f"(moto que sale ${pesos(valor_saliente)} menos moto que entra "
+            f"${pesos(valor_entrante)} más traspaso ${pesos(valor_traspaso)}; paga "
+            f"{'el cliente' if paga == 'cliente' else 'la empresa'}). "
+            f"Diferencia: ${pesos(abs(suma - a_pagar))}.", "pago")
+    return pagos
+
+
+def _validar_cliente_permuta(form) -> dict:
+    """Datos del cliente limpios. El teléfono es obligatorio: va en el contrato."""
+    telefono = re.sub(r"[\s-]", "", form.get("cliente_telefono") or "")
+    if not telefono:
+        raise ErrorValidacion("El teléfono del cliente es obligatorio.", "cliente_telefono")
+    correo = validadores.validar_texto(
+        form.get("cliente_correo"), "correo del cliente", max_len=254, obligatorio=False)
+    if correo and "@" not in correo:
+        raise ErrorValidacion("El correo del cliente no es válido.", "cliente_correo")
+
+    return {
+        "nombre": validadores.validar_texto(
+            form.get("cliente_nombre"), "nombre del cliente", min_len=3, max_len=120),
+        "cedula": personas.normalizar_cedula(form.get("cliente_cedula")),
+        "telefono": validadores.validar_telefono(telefono, "cliente_telefono"),
+        "correo": correo,
+    }
+
+
+def _exigir_runt_saliente(moto: dict):
+    """La saliente debe tener cargado su RUNT: el contrato identifica las dos motos."""
+    datos = repositorios.obtener_datos_contrato(moto["id"]) or {}
+    faltantes = [nombre for campo, nombre in contratos.OBLIGATORIOS_VEHICULO.items()
+                 if not (datos.get(campo) or "").strip()]
+    if faltantes:
+        raise ErrorValidacion(
+            f"La moto que sale (placa {moto.get('placa')}) no tiene cargado el RUNT "
+            f"(falta: {', '.join(faltantes)}). Cárguelo en el detalle de esa moto "
+            "y vuelva a registrar.", "placa_saliente")
+
+
+def entrante_desde_runt(datos_runt: dict, sede_id: int) -> dict:
+    """
+    La moto entrante, solo con lo que trae el RUNT. Exige lo que la
+    identifica; año, color o cilindraje ausentes o fuera de rango quedan
+    vacíos y se completan en su detalle, junto con precio y fotos.
+    """
+    faltantes = [nombre for campo, nombre in OBLIGATORIOS_RUNT_ENTRANTE.items()
+                 if not (datos_runt.get(campo) or "").strip()]
+    if faltantes:
+        raise ErrorValidacion(
+            f"La consulta RUNT de la moto que entra no trae: {', '.join(faltantes)}.",
+            "texto_runt")
+
+    moto = contratos.moto_desde_runt(datos_runt)
+
+    def en_rango(valor, minimo, maximo):
+        return valor if valor is not None and minimo <= valor <= maximo else None
+
+    color = (moto.get("color") or "").strip()
+    return {
+        "marca": validadores.validar_texto(moto["marca"], "marca del RUNT", max_len=50).upper(),
+        "modelo": validadores.validar_texto(moto["modelo"], "línea del RUNT", max_len=50).upper(),
+        "placa": validadores.validar_texto(
+            contratos._placa_comparable(moto["placa"]), "placa del RUNT", max_len=10).upper(),
+        "anio": en_rango(moto.get("anio"), 1950, 2100),
+        "cilindraje": en_rango(moto.get("cilindraje"), 90, 1200),
+        "color": color if 0 < len(color) <= 30 else None,
+        "kilometraje": None,
+        "precio": None,
+        "soat": None,
+        "tecno": None,
+        "descripcion": "",
+        "estado": "por_publicar",
+        "sede_id": sede_id,
+    }
+
+
+def comprobar_runt_entrante(texto_runt):
+    """Lanza ErrorValidacion si el texto pegado no se puede leer como RUNT."""
+    contratos.parsear_texto_runt(texto_runt)
+
+
+def filas_runt_entrante(texto_runt) -> list:
+    """
+    Vista previa de lo que se leyó del RUNT, para mostrar en el
+    formulario: [{etiqueta, valor}]. Es solo visual (al registrar se
+    vuelve a parsear). Vacía si el texto no se puede leer.
+    """
+    try:
+        datos = contratos.parsear_texto_runt(texto_runt)
+    except ErrorValidacion:
+        return []
+    return [{"etiqueta": contratos.ETIQUETAS_VISIBLES[columna], "valor": datos.get(columna)}
+            for columna in contratos.COLUMNAS]
+
+
 def registrar_permuta(form, usuario_id: int, usuario_nombre: str) -> dict:
     """
-    Registra una permuta: el cliente entrega una moto (entrante) y se
-    lleva una del inventario (saliente), en una sola negociación.
+    Registra una permuta completa en un paso: el cliente entrega una moto
+    (entrante) y se lleva una del inventario (saliente).
 
-    Valida en Python lo que da mensajes claros:
-      1-2. La placa saliente corresponde a una moto disponible dentro del
-         alcance de sede de quien registra (_moto_saliente_de_permuta,
-         con un mensaje distinto para cada causa).
-      3. Los datos de la moto entrante (misma regla que agregar/comprar).
-         Su sede es la de la saliente, no la del formulario: el negocio
-         se cerró en esa sede.
-      4. El asesor que hizo el negocio: existe, es asesor, está activo y
-         es de la sede de la moto. Viene del form, por eso se revalida.
-      5. El RUNT de la entrante (opcional): se vuelve a parsear del texto
-         pegado, nunca se toma lo que muestre el formulario, y su placa
-         debe coincidir con la de la entrante.
+    Antes de escribir valida, cada punto con su propio mensaje: la
+    saliente (disponible, de la sede y con RUNT), el RUNT de la entrante
+    (de ahí salen sus datos, nunca de campos del formulario), el
+    propietario registrado, el asesor, el cliente, los valores y que los
+    pagos sumen abs(Neto). La entrante queda en la sede de la saliente.
 
-    Escribir es UNA llamada a registrar_permuta_moto (migración 025),
-    que bloquea la saliente: dos registros simultáneos no pueden
-    entregar la misma moto. Los datos de contrato van en la misma
-    transacción: no queda una moto creada sin su RUNT por un fallo.
+    Escribir es UNA llamada a registrar_permuta_moto (migración 026), que
+    bloquea la saliente y guarda todo en una transacción.
 
     usuario_* (quién registra) vienen de la SESIÓN, nunca del form.
     Devuelve {"permuta_id", "moto_entrante_id"}. Lanza ErrorValidacion.
@@ -571,39 +765,76 @@ def registrar_permuta(form, usuario_id: int, usuario_nombre: str) -> dict:
         min_len=1, max_len=10).strip().upper()
 
     moto_saliente = _moto_saliente_de_permuta(placa_saliente)
+    _exigir_runt_saliente(moto_saliente)
     sede_id = moto_saliente.get("sede_id")
-    # Copia campo a campo (form.get da el primer valor también en un
-    # MultiDict) con la sede ya decidida encima.
-    campos = {clave: form.get(clave) for clave in form}
-    datos_entrante = validar_datos_moto({**campos, "sede_id": sede_id}, "por_publicar")
-    asesor = _validar_asesor_de_venta(form.get("asesor_id"), sede_id)
 
-    datos_contrato = None
-    texto_runt = (form.get("texto_runt") or "").strip()
-    if texto_runt:
-        datos_runt = contratos.validar_runt_para_placa(texto_runt, datos_entrante.get("placa"))
-        datos_contrato = {columna: datos_runt.get(columna) for columna in contratos.COLUMNAS}
+    if not (form.get("texto_runt") or "").strip():
+        raise ErrorValidacion("Pegue la consulta RUNT de la moto que entra: es obligatoria.",
+                              "texto_runt")
+    datos_runt = contratos.parsear_texto_runt(form.get("texto_runt"))
+    moto_entrante = entrante_desde_runt(datos_runt, sede_id)
+
+    datos_contrato = {columna: datos_runt.get(columna) for columna in contratos.COLUMNAS}
+    datos_contrato["propietario_registrado"] = validadores.validar_texto(
+        form.get("propietario_registrado"), "propietario registrado", min_len=3, max_len=120)
+    datos_contrato["manifiesto_aduana"] = validadores.validar_texto(
+        form.get("manifiesto_aduana"), "manifiesto de aduana", max_len=50, obligatorio=False)
+    datos_contrato["fecha_manifiesto"] = validadores.validar_texto(
+        form.get("fecha_manifiesto"), "fecha del manifiesto", max_len=20, obligatorio=False)
+
+    asesor = _validar_asesor_de_venta(form.get("asesor_id"), sede_id)
+    cliente = _validar_cliente_permuta(form)
+
+    valor_saliente, valor_entrante, valor_traspaso = validar_valores_permuta(form)
+    pagos = validar_pagos_permuta(pagos_del_form(form), valor_saliente, valor_entrante,
+                                  valor_traspaso)
+
+    # Todo validado: recién ahora se toca la base.
+    persona_id = personas.obtener_o_crear(cliente)
 
     return repositorios.registrar_permuta_moto(
-        moto_saliente["id"], datos_entrante,
+        moto_saliente["id"], moto_entrante,
         usuario_id, usuario_nombre,
         asesor["id"], asesor.get("nombre_completo"),
-        datos_contrato)
+        datos_contrato, persona_id,
+        valor_saliente, valor_entrante, valor_traspaso, pagos)
 
 
-def prellenar_permuta_desde_runt(form) -> dict:
+def permuta_en_alcance(permuta_id: int):
     """
-    Valores para volver a pintar el formulario de permuta con los datos
-    de la moto entrante tomados del RUNT pegado. Conserva lo que ya se
-    había escrito (placa saliente, asesor, precio...) y solo pisa los
-    campos que el RUNT sí trae. Lanza ErrorValidacion si el texto no sirve.
+    Devuelve la permuta si el usuario en sesión puede verla según su
+    sede, o None (no existe, o es de otra sede). El id viene de la URL.
     """
-    datos_runt = contratos.parsear_texto_runt(form.get("texto_runt"))
-    valores = {clave: form.get(clave) for clave in form}
-    for campo, valor in contratos.moto_desde_runt(datos_runt).items():
-        if valor is not None:
-            valores[campo] = str(valor)
-    return valores
+    alcance = _sede_del_alcance()
+    if alcance is None:
+        return None  # usuario mal configurado: no opera nada
+
+    permuta = repositorios.obtener_permuta_por_id(permuta_id)
+    if not permuta:
+        return None
+
+    if alcance is TODAS_LAS_SEDES or permuta.get("sede_id") == alcance:
+        return permuta
+    return None
+
+
+def resumen_permuta(permuta: dict):
+    """
+    Cliente, neto, quién paga y pagos de una permuta, para la pantalla
+    de confirmación. None si es anterior al registro con contrato.
+    """
+    if not permuta.get("persona_id"):
+        return None
+
+    neto = calcular_neto(permuta["valor_saliente"], permuta["valor_entrante"],
+                         permuta["valor_traspaso"])
+    return {
+        "cliente": repositorios.obtener_persona_por_id(permuta["persona_id"]) or {},
+        "neto": abs(neto),
+        "quien_paga": quien_paga(neto),
+        "pagos": [{"linea": contratos._linea_de_pago(p), "monto": p.get("monto")}
+                  for p in repositorios.obtener_pagos_de_permuta(permuta["id"])],
+    }
 
     # ============================================================
 #  INTENCIONES

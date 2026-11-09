@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permuta registrada · Universal Motors</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .contenedor { max-width: 560px; }
+        .tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-left: 3px solid var(--verde); border-radius: var(--radio); padding: 24px; margin-top: 24px; }
+        .tarjeta h2 { font-size: 20px; color: var(--texto); margin-bottom: 6px; }
+        .tarjeta .meta { color: var(--texto-tenue); font-size: 14px; margin-bottom: 8px; }
+        .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .acciones .btn { text-align: center; padding: 13px 24px; font-size: 16px; }
+        .btn-secundario { background: transparent; color: var(--naranja); border: 1px solid var(--naranja); font-weight: 600; }
+        .btn-secundario:hover { background: var(--naranja); color: var(--barra-bg); }
+    </style>
+</head>
+<body>
+    <div class="barra">
+        <h1>Permuta <span>registrada</span></h1>
+        <a href="{{ url_for('admin.index') }}" class="btn-back">← Inventario</a>
+    </div>
+
+    <div class="contenedor">
+        {% if contrato_error %}
+        <div class="aviso aviso-error">{{ contrato_error }}</div>
+        {% endif %}
+        <div class="tarjeta">
+            <h2>✓ Sale: {{ permuta.descripcion_saliente }}</h2>
+            <div class="meta">Entra: {{ permuta.descripcion_entrante }}</div>
+            <div class="meta">Asesor: {{ permuta.asesor_nombre or '—' }}</div>
+            {% if resumen %}
+            <div class="meta">Cliente: {{ resumen.cliente.nombre or '—' }}</div>
+            <div class="meta">
+                {% if resumen.quien_paga == 'nadie' %}Neto: $0, sin pagos
+                {% else %}Neto: ${{ resumen.neto | pesos }} · paga {{ 'el cliente' if resumen.quien_paga == 'cliente' else 'la empresa' }}{% endif %}
+            </div>
+            {% for p in resumen.pagos %}
+            <div class="meta">{{ p.linea }}: ${{ p.monto | pesos }}</div>
+            {% endfor %}
+            {% endif %}
+            <div class="acciones">
+                <a href="{{ url_for('admin.descargar_contrato_permuta', permuta_id=permuta.id) }}" class="btn btn-primary">📄 Descargar contrato</a>
+                <a href="{{ url_for('admin.detalle_moto_admin', id=permuta.moto_entrante_id) }}" class="btn btn-secundario">Completar la moto que entró (precio y fotos)</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

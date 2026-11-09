@@ -282,6 +282,9 @@ def procesar_y_guardar(moto_id: int, texto_runt: str) -> dict:
 CARPETA_PLANTILLAS = Path(__file__).resolve().parent.parent / "plantillas"
 PLANTILLA_CONTRATO = CARPETA_PLANTILLAS / "contrato.docx"
 PLANTILLA_CONTRATO_COMPRA = CARPETA_PLANTILLAS / "contrato_compra.docx"
+# La provee el negocio. Mientras no exista, la permuta se registra igual
+# y el contrato se podrá generar después, con sus valores congelados.
+PLANTILLA_CONTRATO_PERMUTA = CARPETA_PLANTILLAS / "contrato_permuta.docx"
 
 # Nombres internos (los de detalle_ventas) -> texto presentable en el
 # contrato. Si aparece un valor que no está aquí, se muestra tal cual
@@ -558,3 +561,86 @@ def generar_contrato_compra(compra_id: int):
 
     salida, placa = _renderizar(PLANTILLA_CONTRATO_COMPRA, contexto, f"compra{compra_id}")
     return salida, f"contrato_compra_{placa}.docx"
+
+
+def _con_prefijo(prefijo: str, contexto: dict) -> dict:
+    return {f"{prefijo}_{clave}": valor for clave, valor in contexto.items()}
+
+
+def generar_contrato_permuta(permuta_id: int):
+    """
+    Genera el contrato de permuta en Word: valores congelados de la
+    permuta + cliente (personas) + RUNT de las dos motos + pagos. Solo
+    rellena los marcadores de la plantilla; el texto legal es de ella.
+    Devuelve (BytesIO, nombre_de_archivo). Lanza ErrorValidacion si la
+    permuta no está en el alcance del usuario, es histórica, falta la
+    plantilla o falta algún obligatorio (indicando cuál).
+    """
+    # Import diferido: inventario importa contratos.
+    from app.servicios import inventario
+
+    permuta = inventario.permuta_en_alcance(permuta_id)
+    if not permuta:
+        raise ErrorValidacion("La permuta no existe o no pertenece a su sede.", "permuta")
+
+    if not permuta.get("persona_id") or permuta.get("valor_saliente") is None:
+        raise ErrorValidacion(
+            "Esta permuta es anterior al registro con contrato: no tiene cliente "
+            "ni valores cargados.", "permuta")
+
+    if not PLANTILLA_CONTRATO_PERMUTA.exists():
+        raise ErrorValidacion("La plantilla del contrato de permuta aún no está cargada.",
+                              "permuta")
+
+    saliente, faltan_saliente = _datos_vehiculo(permuta.get("moto_saliente_id"))
+    entrante, faltan_entrante = _datos_vehiculo(permuta.get("moto_entrante_id"))
+    faltantes = ([f"{f} de la moto que sale" for f in faltan_saliente]
+                 + [f"{f} de la moto que entra" for f in faltan_entrante])
+
+    cliente = repositorios.obtener_persona_por_id(permuta["persona_id"]) or {}
+    for campo, nombre in (("nombre", "el nombre del cliente"),
+                          ("cedula", "la cédula del cliente"),
+                          ("telefono", "el teléfono del cliente")):
+        if not (cliente.get(campo) or "").strip():
+            faltantes.append(nombre)
+    if not (entrante.get("propietario_registrado") or "").strip():
+        faltantes.append("el propietario registrado")
+
+    _bloquear_si_falta(faltantes)
+
+    valor_saliente = permuta["valor_saliente"]
+    valor_entrante = permuta["valor_entrante"]
+    valor_traspaso = permuta["valor_traspaso"]
+    excedente = valor_saliente - valor_entrante
+    neto = inventario.calcular_neto(valor_saliente, valor_entrante, valor_traspaso)
+
+    pagos = [
+        {"linea": _linea_de_pago(p), "monto": _formatear_pesos(p.get("monto"))}
+        for p in repositorios.obtener_pagos_de_permuta(permuta_id)
+    ]
+
+    contexto_saliente = _contexto_vehiculo(saliente)
+    contexto = {
+        "fecha": fecha_operacion(permuta.get("created_at")),
+        "nit": current_app.config["NIT"],
+        "cliente": cliente["nombre"].strip(),
+        "cedula": cliente["cedula"].strip(),
+        "telefono": cliente["telefono"].strip(),
+        "propietario": entrante["propietario_registrado"].strip(),
+        "manifiesto": entrante.get("manifiesto_aduana") or "",
+        "fecha_manifiesto": entrante.get("fecha_manifiesto") or "",
+        "placa": contexto_saliente["placa"],
+        **_con_prefijo("saliente", contexto_saliente),
+        **_con_prefijo("entrante", _contexto_vehiculo(entrante)),
+        "valor_saliente": _formatear_pesos(valor_saliente),
+        "valor_entrante": _formatear_pesos(valor_entrante),
+        "excedente": _formatear_pesos(abs(excedente)),
+        "excedente_a_favor": "empresa" if excedente > 0 else "cliente" if excedente < 0 else "",
+        "traspaso": _formatear_pesos(valor_traspaso),
+        "neto": _formatear_pesos(abs(neto)),
+        "quien_paga": inventario.quien_paga(neto),
+        "pagos": pagos,
+    }
+
+    salida, placa = _renderizar(PLANTILLA_CONTRATO_PERMUTA, contexto, f"permuta{permuta_id}")
+    return salida, f"contrato_permuta_{placa}.docx"

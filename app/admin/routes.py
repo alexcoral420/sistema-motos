@@ -189,10 +189,9 @@ def permuta():
                 session.get("usuario_nombre"), resultado["permuta_id"],
                 resultado["moto_entrante_id"],
                 (request.form.get("placa_saliente") or "").strip().upper())
-            # La entrante queda por publicar: se sigue a su detalle para
-            # cargar fotos, RUNT y publicarla.
-            return redirect(url_for("admin.detalle_moto_admin",
-                                    id=resultado["moto_entrante_id"]))
+            # Post/Redirect/Get: recargar la confirmación no registra de nuevo.
+            return redirect(url_for("admin.permuta_registrada",
+                                    permuta_id=resultado["permuta_id"]))
         except ErrorValidacion as e:
             error = e.mensaje
             # WARNING: en producción el nivel INFO no se registra.
@@ -211,25 +210,72 @@ def permuta():
 @requiere_rol("admin", "encargado_sede")
 def permuta_desde_runt():
     """
-    Prellena los datos de la moto que entra con la consulta RUNT pegada,
-    sin perder lo ya escrito (placa saliente, asesor). No registra nada:
-    el RUNT se vuelve a parsear y se guarda al registrar la permuta.
+    Muestra lo que se leyó del RUNT de la moto que entra, sin tocar lo ya
+    cargado (cliente, valores, pagos). No registra nada: el RUNT se
+    vuelve a parsear al registrar la permuta.
     """
     try:
-        datos = inventario.prellenar_permuta_desde_runt(request.form)
+        inventario.comprobar_runt_entrante(request.form.get("texto_runt"))
     except ErrorValidacion as e:
         return _formulario_permuta(datos=request.form, error=e.mensaje)
-    return _formulario_permuta(datos=datos)
+    return _formulario_permuta(datos=request.form)
 
 
 def _formulario_permuta(datos=None, error=None):
-    """Pinta el formulario de permuta con lo cargado y, si hay, el error."""
+    """Pinta el formulario de permuta con todo lo cargado y, si hay, el error."""
+    from app.servicios import contratos
+
     return render_template(
         "permuta.html",
         error=error,
-        datos=datos,
+        datos=datos or {},
+        pagos=inventario.pagos_del_form(datos) if datos else [],
+        filas_runt=inventario.filas_runt_entrante(datos.get("texto_runt")) if datos else [],
         asesores=inventario.asesores_para_permuta(),
-        anio_max=inventario.anio_maximo(),
+        metodos_pago=inventario.METODOS_PAGO_PERMUTA,
+        entidades=contratos.ENTIDADES_PRESENTABLES,
+    )
+
+
+@admin_bp.route("/permuta/<int:permuta_id>/registrada")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def permuta_registrada(permuta_id):
+    """Confirmación tras registrar: descargar el contrato e ir a la moto que entró."""
+    # Muralla: el id viene de la URL.
+    permuta = inventario.permuta_en_alcance(permuta_id)
+    if not permuta:
+        abort(403)
+    return render_template(
+        "permuta_registrada.html",
+        permuta=permuta,
+        resumen=inventario.resumen_permuta(permuta),
+        contrato_error=request.args.get("contrato_error"),
+    )
+
+
+@admin_bp.route("/permuta/<int:permuta_id>/contrato")
+@requiere_rol("admin", "gerencia", "encargado_sede")
+def descargar_contrato_permuta(permuta_id):
+    """
+    Genera y descarga el contrato de permuta en Word, igual que los de
+    venta y compra: no se guarda, se regenera con los valores congelados.
+    Si no se puede, vuelve a la confirmación diciendo por qué.
+    """
+    from app.servicios import contratos
+
+    try:
+        archivo, nombre = contratos.generar_contrato_permuta(permuta_id)
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.permuta_registrada", permuta_id=permuta_id,
+                                contrato_error=e.mensaje))
+
+    obtener_logger().info("Contrato de permuta generado para permuta id=%s por %s.",
+                          permuta_id, session.get("usuario_nombre"))
+    return send_file(
+        archivo,
+        as_attachment=True,
+        download_name=nombre,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 @admin_bp.route("/editar/<int:id>", methods=["GET", "POST"])

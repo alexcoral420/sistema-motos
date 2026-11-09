@@ -604,15 +604,39 @@ def obtener_pagos_de_compra(compra_id: int):
     return resultado.data
 
 
+def obtener_permuta_por_id(permuta_id: int):
+    """Devuelve la permuta con ese id, o None si no existe."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("permutas")
+                 .select("*")
+                 .eq("id", permuta_id)
+                 .limit(1)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def obtener_pagos_de_permuta(permuta_id: int):
+    """Pagos de una permuta, en el orden en que se cargaron."""
+    supabase = get_supabase_admin()
+    resultado = (supabase.table("pagos")
+                 .select("*")
+                 .eq("permuta_id", permuta_id)
+                 .order("id")
+                 .execute())
+    return resultado.data
+
+
 def registrar_permuta_moto(moto_saliente_id: int, moto_entrante: dict,
                            usuario_id: int, usuario_nombre: str,
                            asesor_id: int, asesor_nombre: str,
-                           datos_contrato: dict = None) -> dict:
+                           datos_contrato: dict, persona_id: int,
+                           valor_saliente: int, valor_entrante: int,
+                           valor_traspaso: int, pagos: list) -> dict:
     """
-    Llama a la función registrar_permuta_moto (migración 025): bloquea la
-    moto saliente, verifica que siga disponible, crea la entrante (con
-    sus datos de contrato del RUNT, si vienen), marca vendida la saliente
-    y registra la permuta en UNA transacción.
+    Llama a la función registrar_permuta_moto (migración 026): bloquea la
+    moto saliente, verifica que siga disponible y tenga RUNT, crea la
+    entrante con sus datos de contrato, marca vendida la saliente y
+    registra la permuta con sus valores y pagos en UNA transacción.
     Devuelve {"permuta_id", "moto_entrante_id"}.
 
     P0001 (raise exception con mensaje en español) -> ErrorValidacion con
@@ -623,7 +647,9 @@ def registrar_permuta_moto(moto_saliente_id: int, moto_entrante: dict,
     """
     contexto = (f"saliente_id={moto_saliente_id} usuario_id={usuario_id} "
                 f"usuario_nombre={usuario_nombre!r} asesor_id={asesor_id} "
-                f"asesor_nombre={asesor_nombre!r} con_runt={datos_contrato is not None}")
+                f"asesor_nombre={asesor_nombre!r} persona_id={persona_id} "
+                f"valores={valor_saliente}/{valor_entrante}/{valor_traspaso} "
+                f"pagos={len(pagos or [])}")
     supabase = get_supabase_admin()
     try:
         resultado = supabase.rpc("registrar_permuta_moto", {
@@ -634,6 +660,11 @@ def registrar_permuta_moto(moto_saliente_id: int, moto_entrante: dict,
             "p_asesor_id": asesor_id,
             "p_asesor_nombre": asesor_nombre,
             "p_datos_contrato": datos_contrato,
+            "p_persona_id": persona_id,
+            "p_valor_saliente": valor_saliente,
+            "p_valor_entrante": valor_entrante,
+            "p_valor_traspaso": valor_traspaso,
+            "p_pagos": pagos,
         }).execute()
     except APIError as e:
         if e.code == "P0001":
