@@ -143,6 +143,7 @@ def app(monkeypatch):
     app = Flask(__name__, template_folder=str(RAIZ / "app" / "templates"),
                 static_folder=str(RAIZ / "static"))
     app.config.update(SECRET_KEY="test", TESTING=True)
+    app.jinja_env.globals["csrf_token"] = lambda: "token"
     app.jinja_env.filters["pesos"] = lambda v: "" if v is None else f"{v:,.0f}".replace(",", ".")
     app.register_blueprint(admin_routes.admin_bp)
     app.register_blueprint(auth_bp)
