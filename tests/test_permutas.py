@@ -7,7 +7,11 @@ se reemplazan con monkeypatch.
 Correr desde la raíz del proyecto:  python -m pytest tests/
 """
 
+import re
+from pathlib import Path
+
 import pytest
+from postgrest.exceptions import APIError
 from werkzeug.datastructures import ImmutableMultiDict
 
 from app.db import repositorios
@@ -60,6 +64,55 @@ def entorno(monkeypatch):
 
     monkeypatch.setattr(repositorios, "registrar_permuta_moto", registrar)
     return llamadas
+
+
+def test_formulario_registra_en_permuta_y_solo_runt_usa_formaction():
+    """Tras "Cargar del RUNT" la URL es /desde-runt: sin action, registrar caería ahí."""
+    plantilla = (Path(__file__).parent.parent / "app/templates/permuta.html").read_text(encoding="utf-8")
+
+    formulario_html = re.search(r"<form\b[^>]*>", plantilla).group(0)
+    assert "action=\"{{ url_for('admin.permuta') }}\"" in formulario_html
+
+    botones = re.findall(r"<button\b.*?</button>", plantilla, re.DOTALL)
+    runt = next(b for b in botones if "Cargar del RUNT" in b)
+    registrar = next(b for b in botones if 'id="btn-permuta"' in b)
+    assert "url_for('admin.permuta_desde_runt')" in runt and "formnovalidate" in runt
+    assert "formaction" not in registrar
+
+
+class _ClienteQueFalla:
+    """Cliente Supabase falso cuyo RPC termina en el error indicado."""
+
+    def __init__(self, error):
+        self.error = error
+
+    def rpc(self, nombre, parametros):
+        return self
+
+    def execute(self):
+        raise self.error
+
+
+def _registrar_con_error(monkeypatch, error):
+    monkeypatch.setattr(repositorios, "get_supabase_admin", lambda: _ClienteQueFalla(error))
+    return repositorios.registrar_permuta_moto(50, {}, 3, "Encargado", 7, "Ana Asesora")
+
+
+def test_rpc_p0001_conserva_el_mensaje_de_postgres(monkeypatch):
+    error = APIError({"message": "La moto que sale no existe.", "code": "P0001",
+                      "details": None, "hint": None})
+    with pytest.raises(ErrorValidacion) as e:
+        _registrar_con_error(monkeypatch, error)
+    assert e.value.mensaje == "La moto que sale no existe."
+
+
+def test_rpc_otro_error_muestra_codigo_mensaje_y_detalle(monkeypatch):
+    error = APIError({"message": "null value in column", "code": "23502",
+                      "details": "Failing row contains", "hint": "revisar"})
+    with pytest.raises(ErrorValidacion) as e:
+        _registrar_con_error(monkeypatch, error)
+    for parte in ("23502", "null value in column", "Failing row contains", "revisar"):
+        assert parte in e.value.mensaje
 
 
 def test_registra_con_el_asesor_elegido_y_quien_registra_de_sesion(entorno):

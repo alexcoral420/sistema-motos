@@ -24,3 +24,6 @@ mockup_gerencia.html
 # pytest-cov
 .coverage
 respaldo_db_*.sql
+
+# Notas locales
+/asistente.md

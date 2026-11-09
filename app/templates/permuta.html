@@ -36,7 +36,8 @@
                     ⚠️ {{ error }}
                 </div>
                 {% endif %}
-            <form method="POST" id="form-permuta">
+            <!-- action explícito: tras "Cargar del RUNT" la página queda en /desde-runt. -->
+            <form method="POST" action="{{ url_for('admin.permuta') }}" id="form-permuta">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <!-- BLOQUE MOTO SALIENTE (la que se lleva el cliente) -->

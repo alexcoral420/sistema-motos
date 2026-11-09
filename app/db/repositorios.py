@@ -615,10 +615,15 @@ def registrar_permuta_moto(moto_saliente_id: int, moto_entrante: dict,
     y registra la permuta en UNA transacción.
     Devuelve {"permuta_id", "moto_entrante_id"}.
 
-    Mismo manejo de errores que registrar_venta_moto: P0001 (raise
-    exception con mensaje en español) -> ErrorValidacion; cualquier otro
-    error se registra y sigue subiendo tal cual.
+    P0001 (raise exception con mensaje en español) -> ErrorValidacion con
+    ese mensaje. Cualquier otro error de PostgREST/Postgres -> también
+    ErrorValidacion, pero con código, mensaje, detalle y pista exactos,
+    para que se vea en el formulario. Todo queda en el log con nivel
+    WARNING o superior, el mínimo que se registra en producción.
     """
+    contexto = (f"saliente_id={moto_saliente_id} usuario_id={usuario_id} "
+                f"usuario_nombre={usuario_nombre!r} asesor_id={asesor_id} "
+                f"asesor_nombre={asesor_nombre!r} con_runt={datos_contrato is not None}")
     supabase = get_supabase_admin()
     try:
         resultado = supabase.rpc("registrar_permuta_moto", {
@@ -632,9 +637,17 @@ def registrar_permuta_moto(moto_saliente_id: int, moto_entrante: dict,
         }).execute()
     except APIError as e:
         if e.code == "P0001":
+            obtener_logger().warning("registrar_permuta_moto rechazó la permuta: %s | %s",
+                                     e.message, contexto)
             raise ErrorValidacion(e.message) from e
-        obtener_logger().error("Error al llamar a registrar_permuta_moto: %s (código %s)",
-                               e.message, e.code)
+        detalle = f"[{e.code}] {e.message} | detalle: {e.details} | pista: {e.hint}"
+        obtener_logger().error("Error de base al llamar a registrar_permuta_moto: %s | %s",
+                               detalle, contexto)
+        raise ErrorValidacion(f"Error de base de datos: {detalle}") from e
+    except Exception:
+        # Sin respuesta útil de PostgREST (red, respuesta no JSON...).
+        obtener_logger().exception("Fallo inesperado al llamar a registrar_permuta_moto | %s",
+                                   contexto)
         raise
     return resultado.data
 
