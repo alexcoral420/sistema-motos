@@ -1,0 +1,91 @@
+{% extends "base_gerencia.html" %}
+{% set metrica_activa = "resumen_semanal" %}
+
+{% block titulo %}Resumen semanal{% endblock %}
+
+{% block estilos %}
+        .seccion-titulo { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--texto-suave); font-weight: 700; margin: 6px 0 12px; }
+        .aviso { color: var(--texto-tenue); font-size: 13px; margin: -12px 0 22px; }
+        .bloque-tabla { margin-bottom: 26px; }
+{% endblock %}
+
+{% block contenido %}
+        <div class="vista-cabecera">
+            <div class="vista-titulo">Resumen semanal</div>
+            <div class="vista-sub">{{ resumen.periodo }} · todas las sedes</div>
+        </div>
+
+        <h2 class="seccion-titulo">Ventas</h2>
+        <div class="stats">
+            <div class="stat-card"><h3>{{ resumen.ventas.cantidad }}</h3><p>Motos vendidas</p></div>
+            <div class="stat-card"><h3>${{ resumen.ventas.monto | pesos }}</h3><p>Monto vendido</p></div>
+            <div class="stat-card"><h3>{{ resumen.por_sede | length }}</h3><p>Sedes con ventas</p></div>
+        </div>
+        {% if resumen.ventas.sin_precio %}
+        <p class="aviso">{{ resumen.ventas.sin_precio }} {{ "venta" if resumen.ventas.sin_precio == 1 else "ventas" }} sin precio cargado: {{ "cuenta" if resumen.ventas.sin_precio == 1 else "cuentan" }} en la cantidad pero no en el monto.</p>
+        {% endif %}
+
+        <h2 class="seccion-titulo">Compras y permutas</h2>
+        <div class="stats">
+            <div class="stat-card"><h3>{{ resumen.compras.cantidad }}</h3><p>Motos compradas</p></div>
+            <div class="stat-card"><h3>${{ resumen.compras.monto | pesos }}</h3><p>Monto comprado</p></div>
+            <div class="stat-card"><h3>{{ resumen.permutas.cantidad }}</h3><p>Permutas</p></div>
+        </div>
+        {% if resumen.compras.sin_precio %}
+        <p class="aviso">{{ resumen.compras.sin_precio }} {{ "compra" if resumen.compras.sin_precio == 1 else "compras" }} sin precio registrado: no {{ "suma" if resumen.compras.sin_precio == 1 else "suman" }} en el monto.</p>
+        {% endif %}
+
+        <h2 class="seccion-titulo">Ventas por sede</h2>
+        {% if resumen.por_sede %}
+        <div class="tabla-wrap bloque-tabla">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sede</th>
+                        <th class="num">Ventas</th>
+                        <th class="num">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in resumen.por_sede %}
+                    <tr>
+                        <td>{{ s.sede }}</td>
+                        <td class="num">{{ s.cantidad }}</td>
+                        <td class="num">${{ s.monto | pesos }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio bloque-tabla">Sin ventas esta semana.</div>
+        {% endif %}
+
+        <h2 class="seccion-titulo">Top asesores</h2>
+        {% if resumen.top_asesores %}
+        <div class="tabla-wrap bloque-tabla">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Asesor</th>
+                        <th class="num">Ventas</th>
+                        <th class="num">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in resumen.top_asesores %}
+                    <tr>
+                        <td><span class="pos">{{ loop.index }}</span></td>
+                        <td>{{ a.asesor_nombre }}</td>
+                        <td class="num">{{ a.cantidad }}</td>
+                        <td class="num">${{ a.monto | pesos }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vacio bloque-tabla">Sin ventas esta semana.</div>
+        {% endif %}
+{% endblock %}

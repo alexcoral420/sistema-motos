@@ -647,6 +647,15 @@ def gerencia_permutas():
                            desde=desde, hasta=hasta)
 
 
+@admin_bp.route("/gerencia/resumen-semanal")
+@requiere_rol("admin", "gerencia")
+def gerencia_resumen_semanal():
+    """Resumen de la última semana completa (lunes a domingo), todas las sedes."""
+    desde, hasta = reportes.ultima_semana_completa()
+    return render_template("gerencia/resumen_semanal.html",
+                           resumen=reportes.resumen_semanal(desde, hasta))
+
+
 @admin_bp.route("/gerencia/ritmo")
 @requiere_rol("admin", "gerencia")
 def gerencia_ritmo():
