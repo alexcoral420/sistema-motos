@@ -119,13 +119,6 @@
         /* Estado vacío */
         .vacio { background: var(--superficie); border: 1px dashed var(--borde); border-radius: 12px; padding: 30px; text-align: center; color: var(--texto-tenue); font-size: 15px; }
 
-        /* Notificaciones (sidebar) */
-        .notif-texto { font-size: 13px; color: var(--texto-suave); padding: 0 12px; line-height: 1.4; }
-        .notif-boton { margin: 8px 12px 0; justify-content: center; }
-        .notif-mensaje { margin: 8px 12px 0; font-size: 13px; line-height: 1.4; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--borde); background: var(--superficie-2); color: var(--texto); }
-        .notif-mensaje.exito { border-color: var(--verde); color: var(--verde); }
-        .notif-mensaje.aviso { border-color: var(--ambar); }
-        .notif-mensaje.error { border-color: var(--rojo); color: var(--rojo); }
 
         /* Ranking: posición (la primera, resaltada) */
         .pos { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; border-radius: 6px; background: var(--superficie-2); border: 1px solid var(--borde); font-size: 13px; font-weight: 700; color: var(--texto-suave); font-variant-numeric: tabular-nums; }
@@ -229,15 +222,7 @@
                 <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-alerta"/></svg> Alertas</div>
                 {{ metrica("documentos", "admin.gerencia_documentos", "ico-alerta", "Documentos por vencer") }}
             </nav>
-            {# Ocultarlo a otros roles es solo cosmético: la ruta exige el rol. #}
-            {% if session.rol in ('gerencia', 'admin') %}
-            <section class="sidebar-grupo" aria-label="Notificaciones">
-                <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-campana"/></svg> Notificaciones</div>
-                <p class="notif-texto">Reciba en este dispositivo los avisos del panel.</p>
-                <button type="button" id="btn-notif" class="btn btn-primary notif-boton">Activar notificaciones</button>
-                <div id="notif-mensaje" class="notif-mensaje" role="status" hidden></div>
-            </section>
-            {% endif %}
+            {% include '_notif_staff.html' %}
 
             <!-- Salidas del panel (las tenía el gerencia.html anterior) -->
             <nav class="sidebar-grupo" aria-label="Ir a">
@@ -268,107 +253,6 @@
         })();
     </script>
 
-    {% if session.rol in ('gerencia', 'admin') %}
-    <script src="{{ url_for('static', filename='pwa/suscribir-push.js') }}"></script>
-    <script>
-        (function () {
-            // La llave pública VAPID viene de config (VAPID_PUBLIC_KEY), no del código.
-            const VAPID_PUBLICA = {{ (config.get('VAPID_PUBLIC_KEY') or '') | tojson }};
-            const CSRF = {{ csrf_token() | tojson }};
-            const URL_ACTIVAR = {{ url_for('admin.gerencia_activar_notificaciones') | tojson }};
-            // Qué suscripción de este navegador ya quedó en ESTE usuario (solo
-            // para mostrar el estado; la verdad está en la base).
-            const CLAVE_LOCAL = 'um_notif_staff:' + {{ session.usuario_id | tojson }};
 
-            const boton = document.getElementById('btn-notif');
-            const mensaje = document.getElementById('notif-mensaje');
-
-            // El panel no incluye _pwa_head.html (no debe ser instalable), así
-            // que el Service Worker se registra aquí: sin él, pushManager no
-            // existe. Es el mismo /sw.js del sitio (scope /, sin handler de
-            // fetch): solo muestra las notificaciones.
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(function () {});
-            }
-
-            function mostrar(tipo, html) {
-                mensaje.className = 'notif-mensaje ' + tipo;
-                mensaje.innerHTML = html;
-                mensaje.hidden = false;
-            }
-            function leerLocal() {
-                try { return localStorage.getItem(CLAVE_LOCAL); } catch (e) { return null; }
-            }
-            function guardarLocal(valor) {
-                try { localStorage.setItem(CLAVE_LOCAL, valor); } catch (e) { /* solo afecta el estado mostrado */ }
-            }
-
-            // En iOS solo hay push en la app instalada, y se instala desde el
-            // sitio público (el panel no tiene manifest). La app instalada no
-            // comparte la sesión de Safari: hay que iniciar sesión adentro.
-            const AVISO_IOS = '<b>En iPhone/iPad primero instale la app.</b><br>' +
-                'Abra universalmotors.online en Safari, toque <b>Compartir</b> → <b>Agregar a inicio</b>. ' +
-                'Luego abra Universal Motors desde el ícono, inicie sesión en el panel y active las notificaciones aquí.';
-            const AVISO_BLOQUEADAS = 'Las notificaciones de este sitio están bloqueadas. Habilítelas en la ' +
-                'configuración del navegador (el candado junto a la dirección) y vuelva a intentar.';
-            const AVISO_SIN_SOPORTE = 'Este navegador no permite notificaciones. Pruebe con Chrome, Edge o Firefox.';
-
-            function activas() {
-                boton.hidden = true;
-                mostrar('exito', 'Las notificaciones están activas en este dispositivo.');
-            }
-
-            // Estado inicial: qué puede hacer este navegador.
-            async function revisar() {
-                const caso = PushUM.diagnostico();
-                if (caso === 'ios-sin-instalar') { boton.hidden = true; mostrar('aviso', AVISO_IOS); return; }
-                if (caso === 'sin-soporte') { boton.hidden = true; mostrar('error', AVISO_SIN_SOPORTE); return; }
-                if (PushUM.permiso() === 'denied') { mostrar('aviso', AVISO_BLOQUEADAS); return; }
-                try {
-                    const actual = await PushUM.suscripcionActual();
-                    if (actual && actual.endpoint === leerLocal()) activas();
-                } catch (e) { /* sin estado: se deja el botón */ }
-            }
-
-            boton.addEventListener('click', async function () {
-                boton.disabled = true;
-                try {
-                    const suscripcion = await PushUM.suscribir(VAPID_PUBLICA);
-                    const resp = await fetch(URL_ACTIVAR, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-                        body: JSON.stringify({ suscripcion: suscripcion }),
-                    });
-                    // Sesión vencida o acceso quitado: el panel redirige al login y
-                    // fetch sigue el redirect, así que un 200 con HTML NO es éxito.
-                    const esJSON = (resp.headers.get('Content-Type') || '').includes('application/json');
-                    if (resp.redirected || !esJSON) {
-                        mostrar('error', 'Su sesión venció. Recargue la página e inicie sesión de nuevo.');
-                        return;
-                    }
-                    const datos = await resp.json().catch(function () { return {}; });
-                    if (!resp.ok) {
-                        mostrar('error', datos.error ||
-                            (resp.status === 429 ? 'Demasiados intentos seguidos. Intente en un rato.'
-                                                 : 'No se pudieron activar las notificaciones. Intente de nuevo.'));
-                        return;
-                    }
-                    guardarLocal(suscripcion.endpoint);
-                    activas();
-                } catch (err) {
-                    if (err.codigo === 'denegado') mostrar('aviso', AVISO_BLOQUEADAS);
-                    else if (err.codigo === 'ios-sin-instalar') mostrar('aviso', AVISO_IOS);
-                    else if (err.codigo === 'sin-vapid') mostrar('error', 'Las notificaciones no están disponibles en este momento.');
-                    else if (err.codigo === 'sin-soporte') mostrar('error', AVISO_SIN_SOPORTE);
-                    else mostrar('error', 'No se pudieron activar las notificaciones. Revise su conexión e intente de nuevo.');
-                } finally {
-                    boton.disabled = false;
-                }
-            });
-
-            revisar();
-        })();
-    </script>
-    {% endif %}
 </body>
 </html>

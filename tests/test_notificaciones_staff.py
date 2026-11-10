@@ -83,14 +83,14 @@ def cliente_con_rol(app, rol):
 #  Rol
 # ------------------------------------------------------------
 
-@pytest.mark.parametrize("rol", ["gerencia", "admin"])
-def test_gerencia_y_admin_pueden_activar(app, llamadas, rol):
+@pytest.mark.parametrize("rol", ["gerencia", "admin", "asesor"])
+def test_gerencia_admin_y_asesor_pueden_activar(app, llamadas, rol):
     respuesta = cliente_con_rol(app, rol).post(URL, json={"suscripcion": SUSCRIPCION})
     assert respuesta.status_code == 200 and respuesta.get_json() == {"ok": True}
     assert len(llamadas) == 1
 
 
-@pytest.mark.parametrize("rol", ["asesor", "encargado_sede"])
+@pytest.mark.parametrize("rol", ["encargado_sede"])
 def test_otros_roles_reciben_403_y_no_se_guarda_nada(app, llamadas, rol):
     respuesta = cliente_con_rol(app, rol).post(URL, json={"suscripcion": SUSCRIPCION})
     assert respuesta.status_code == 403

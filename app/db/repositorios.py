@@ -1777,3 +1777,93 @@ def motos_para_exportar(estado=None, sede=None):
         return q.order("id")
 
     return _traer_todas(consulta)
+
+
+# ============================================================
+# Bandeja de leads del chat (migración 029) y aviso push al staff.
+# Todo con service_role: leads_chat y dispositivos_staff no tienen
+# políticas RLS.
+# ============================================================
+
+_COLUMNAS_LEAD_BANDEJA = (
+    "id, created_at, nombre, telefono, correo, moto_id, moto_interes, forma_pago, "
+    "estado, asesor_id, asesor_nombre, tomado_en, gestionado_en, "
+    "motos(marca, modelo, anio, precio)"
+)
+
+
+def listar_leads_bandeja(asesor_id=None, limite: int = 200):
+    """
+    Leads del chat, los más recientes primero. Con asesor_id, solo los
+    que están sin tomar o los que tomó ese asesor; sin él, todos.
+    """
+    consulta = (get_supabase_admin().table("leads_chat")
+                .select(_COLUMNAS_LEAD_BANDEJA)
+                .order("created_at", desc=True)
+                .limit(limite))
+    if asesor_id is not None:
+        consulta = consulta.or_(f"asesor_id.is.null,asesor_id.eq.{int(asesor_id)}")
+    return consulta.execute().data
+
+
+def obtener_lead_bandeja(lead_id: int):
+    """Un lead del chat con su moto, o None."""
+    resultado = (get_supabase_admin().table("leads_chat")
+                 .select(_COLUMNAS_LEAD_BANDEJA)
+                 .eq("id", lead_id)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def tomar_lead_chat(lead_id: int, estado_requerido: str, cambios: dict):
+    """
+    Asigna el lead SOLO si sigue en estado_requerido y sin asesor: la
+    condición va en el mismo UPDATE, así que si dos lo intentan a la vez
+    la base le devuelve la fila a uno solo. Devuelve la fila o None.
+    """
+    resultado = (get_supabase_admin().table("leads_chat")
+                 .update(cambios)
+                 .eq("id", lead_id)
+                 .eq("estado", estado_requerido)
+                 .is_("asesor_id", "null")
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def cambiar_estado_lead_chat(lead_id: int, estados_permitidos: list, cambios: dict,
+                             asesor_id=None):
+    """
+    Actualiza un lead que esté en alguno de estados_permitidos y, si se
+    pasa asesor_id, que además sea de ese asesor. Devuelve la fila o None.
+    """
+    consulta = (get_supabase_admin().table("leads_chat")
+                .update(cambios)
+                .eq("id", lead_id)
+                .in_("estado", estados_permitidos))
+    if asesor_id is not None:
+        consulta = consulta.eq("asesor_id", asesor_id)
+    resultado = consulta.execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def dispositivos_staff_por_rol(rol: str):
+    """
+    Suscripciones push activas de los usuarios que HOY tienen ese rol y
+    están activos (join con usuarios en la misma consulta: una fila de
+    dispositivos_staff no dice nada del acceso actual de su dueño).
+    """
+    resultado = (get_supabase_admin().table("dispositivos_staff")
+                 .select("id, usuario_id, suscripcion, usuarios!inner(rol, activo)")
+                 .eq("activo", True)
+                 .eq("usuarios.rol", rol)
+                 .eq("usuarios.activo", True)
+                 .execute())
+    return resultado.data
+
+
+def desactivar_dispositivo_staff(dispositivo_id: int):
+    """Marca inactiva una suscripción que el servicio de push dio por muerta."""
+    (get_supabase_admin().table("dispositivos_staff")
+     .update({"activo": False})
+     .eq("id", dispositivo_id)
+     .execute())

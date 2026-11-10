@@ -14,6 +14,7 @@ from app.db import repositorios
 from app.seguridad import cifrado
 from app.seguridad.validadores import ErrorValidacion
 from app.servicios import asistente, campos_credito, catalogo, extractor, historial_chat
+from app.servicios import notificaciones_staff
 from app.servicios.historial_chat import TIPO_CONSENTIMIENTO, TIPO_NORMAL
 
 CLAVE = "clave-de-prueba"
@@ -27,6 +28,18 @@ DATOS_COMPLETOS = {
     "forma_pago": "financiado",
     "autorizo": True,
 }
+
+
+@pytest.fixture(autouse=True)
+def avisos(monkeypatch):
+    """
+    Ningún test lanza el hilo real del aviso push (iría a la base y a los
+    servicios de push). Devuelve los avisos pedidos: (lead_id, contado).
+    """
+    pedidos = []
+    monkeypatch.setattr(notificaciones_staff, "avisar_lead_nuevo_en_segundo_plano",
+                        lambda lead_id, contado=False: pedidos.append((lead_id, contado)))
+    return pedidos
 
 
 def u(texto):
@@ -621,3 +634,36 @@ def test_atender_no_manda_tarjetas_si_el_servidor_reemplazo_la_respuesta(app_cha
     turno = asistente.atender([u("Ana Perez 3001234567, de contado")], CHAT, [])
     assert turno["tipo"] == TIPO_CONSENTIMIENTO
     assert turno["motos"] == [] and turno["url_catalogo"] is None
+
+
+# ------------------------------------------------------------
+# Aviso push a los asesores al guardar el lead
+# ------------------------------------------------------------
+
+def test_al_guardar_se_avisa_a_los_asesores(guardados, avisos):
+    historial = validado([u("mis datos"), pregunta(), u("si")])
+    asistente.intentar_guardar_lead(historial)
+    assert avisos == [(7, False)]
+
+
+def test_lead_de_contado_avisa_con_prioridad(guardados, avisos, monkeypatch):
+    monkeypatch.setattr(extractor, "extraer_datos",
+                        lambda h: {**DATOS_COMPLETOS, "forma_pago": "contado"})
+    historial = validado([u("mis datos"), pregunta(), u("si")])
+    asistente.intentar_guardar_lead(historial)
+    assert avisos == [(7, True)]
+    assert guardados[0]["forma_pago"] == "contado"
+
+
+def test_sin_guardado_no_hay_aviso(guardados, avisos):
+    asistente.intentar_guardar_lead(validado([u("mis datos")]))
+    assert avisos == []
+
+
+def test_si_el_aviso_falla_el_lead_igual_queda_guardado(guardados, monkeypatch):
+    def falla(lead_id, contado=False):
+        raise RuntimeError("sin hilos")
+    monkeypatch.setattr(notificaciones_staff, "avisar_lead_nuevo_en_segundo_plano", falla)
+    historial = validado([u("mis datos"), pregunta(), u("si")])
+    assert asistente.intentar_guardar_lead(historial)["firma"] == "3001234567|"
+    assert len(guardados) == 1

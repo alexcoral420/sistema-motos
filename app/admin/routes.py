@@ -28,6 +28,7 @@ from app.servicios import busqueda
 from app.servicios import reportes
 from app.servicios import usuarios
 from app.servicios import notificaciones_staff
+from app.servicios import leads_chat
 from app.servicios.inventario import ESTADOS_EDITABLES
 from app.seguridad.limites import limiter
 from postgrest.exceptions import APIError
@@ -662,11 +663,16 @@ def gerencia_resumen_semanal():
 # La llama el JS de base_gerencia.html con fetch (JSON) después de que el
 # navegador dio permiso y creó la suscripción. CSRF va en el header
 # X-CSRFToken (CSRFProtect lo acepta igual que el campo del formulario).
+@admin_bp.route("/activar-notificaciones", methods=["POST"])
 @admin_bp.route("/gerencia/activar-notificaciones", methods=["POST"])
 @limiter.limit("10 per minute")
 @requiere_rol(*notificaciones_staff.ROLES_NOTIFICACIONES)
 def gerencia_activar_notificaciones():
-    """Guarda la suscripción push de este navegador para el usuario en sesión."""
+    """
+    Guarda la suscripción push de este navegador para el usuario en sesión.
+    Dos URLs, la misma función: /admin/activar-notificaciones es la general
+    (la usan también los asesores) y la de /gerencia se conserva.
+    """
     try:
         # usuario_id sale de la sesión, nunca del cuerpo de la petición:
         # así nadie puede suscribir su navegador a nombre de otro.
@@ -1164,3 +1170,65 @@ def dar_acceso_usuario(usuario_id):
         obtener_logger().info("Dar acceso rechazado: %s", str(e))
 
     return redirect(url_for("admin.gestion_usuarios"))
+
+
+# ============================================================
+# Bandeja de leads del chat (migración 029)
+# ============================================================
+# El criterio (quién ve qué, quién puede tomar o cerrar) vive en
+# app/servicios/leads_chat.py. La identidad sale siempre de la sesión.
+
+AVISOS_LEADS = {
+    "tomado": "El lead es suyo. Ya puede contactar al cliente.",
+    "actualizado": "Lead actualizado.",
+}
+
+
+@admin_bp.route("/leads")
+@requiere_rol(*leads_chat.ROLES_BANDEJA)
+def leads_bandeja():
+    """Bandeja de leads del chat: nuevos, en gestión y cerrados."""
+    grupos = leads_chat.listar(session["usuario_id"], session["rol"])
+    return render_template("leads.html", grupos=grupos,
+                           aviso=AVISOS_LEADS.get(request.args.get("aviso")),
+                           error=request.args.get("error"))
+
+
+@admin_bp.route("/leads/<int:lead_id>")
+@requiere_rol(*leads_chat.ROLES_BANDEJA)
+def lead_detalle(lead_id):
+    """Un lead. A este enlace llega el aviso push."""
+    lead = leads_chat.obtener(lead_id, session["usuario_id"], session["rol"])
+    if lead is None:
+        return redirect(url_for("admin.leads_bandeja",
+                                error="Ese lead ya lo tomó otro asesor o no existe."))
+    return render_template("lead_detalle.html", lead=lead,
+                           aviso=AVISOS_LEADS.get(request.args.get("aviso")),
+                           error=request.args.get("error"))
+
+
+@admin_bp.route("/leads/<int:lead_id>/tomar", methods=["POST"])
+@requiere_rol(leads_chat.ROL_QUE_TOMA)
+def lead_tomar(lead_id):
+    """El asesor en sesión toma el lead (el primero se lo queda)."""
+    try:
+        leads_chat.tomar(lead_id, session["usuario_id"],
+                         session.get("usuario_nombre"), session["rol"])
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.leads_bandeja", error=e.mensaje))
+    obtener_logger().info("Lead %s tomado por el usuario %s.", lead_id, session["usuario_id"])
+    return redirect(url_for("admin.lead_detalle", lead_id=lead_id, aviso="tomado"))
+
+
+@admin_bp.route("/leads/<int:lead_id>/estado", methods=["POST"])
+@requiere_rol(leads_chat.ROL_QUE_TOMA, leads_chat.ROL_QUE_CIERRA_AJENOS)
+def lead_cerrar(lead_id):
+    """Marca el lead como contactado o descartado."""
+    try:
+        leads_chat.cerrar(lead_id, request.form.get("estado"),
+                          session["usuario_id"], session["rol"])
+    except ErrorValidacion as e:
+        return redirect(url_for("admin.lead_detalle", lead_id=lead_id, error=e.mensaje))
+    obtener_logger().info("Lead %s -> %s por el usuario %s.",
+                          lead_id, request.form.get("estado"), session["usuario_id"])
+    return redirect(url_for("admin.lead_detalle", lead_id=lead_id, aviso="actualizado"))

@@ -31,7 +31,7 @@ from anthropic import Anthropic
 from flask import current_app
 from app.db import repositorios
 from app.seguridad.logging_config import obtener_logger
-from app.servicios import campos_credito, catalogo, extractor, historial_chat
+from app.servicios import campos_credito, catalogo, extractor, historial_chat, notificaciones_staff
 
 
 MODELO = "claude-haiku-4-5-20251001"
@@ -448,6 +448,17 @@ def intentar_guardar_lead(historial, firmas_previas=None, moto=None):
             "Lead de chat guardado: id=%s tel=%s", lead_id, _telefono_enmascarado(telefono)
         )
         diagnostico["firma"] = firma
+
+        # Aviso push a los asesores. Va aparte y nunca tumba el guardado:
+        # si falla, el lead ya esta en la bandeja del panel.
+        if lead_id is not None:
+            try:
+                notificaciones_staff.avisar_lead_nuevo_en_segundo_plano(
+                    lead_id,
+                    contado=limpios.get("forma_pago") == campos_credito.FORMA_PAGO_CONTADO,
+                )
+            except Exception as e:
+                obtener_logger().error(f"No se pudo lanzar el aviso del lead {lead_id}: {e}")
         return diagnostico
 
     except Exception as e:

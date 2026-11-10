@@ -31,6 +31,11 @@ import re
 #   opciones     Valores permitidos de un campo tipo "opcion".
 #   nota_extractor  Aclaracion para el extractor sobre como llenar la clave.
 
+# Compra de contado: la alerta de prioridad para el asesor (bandeja de
+# leads y aviso push).
+FORMA_PAGO_CONTADO = "contado"
+FORMAS_PAGO = ["financiado", FORMA_PAGO_CONTADO, "por_definir"]
+
 CAMPOS = [
     {
         "clave": "nombre",
@@ -79,7 +84,7 @@ CAMPOS = [
         "clave": "forma_pago",
         "etiqueta": "si quiere financiar la moto o comprarla de contado",
         "tipo": "opcion",
-        "opciones": ["financiado", "contado", "por_definir"],
+        "opciones": FORMAS_PAGO,
         "obligatorio": True,
         "sensible": False,
         "activo": True,
