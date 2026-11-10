@@ -27,7 +27,10 @@ from app.auth.sesion import verificar_usuario_habilitado
 from app.servicios import busqueda
 from app.servicios import reportes
 from app.servicios import usuarios
+from app.servicios import notificaciones_staff
 from app.servicios.inventario import ESTADOS_EDITABLES
+from app.seguridad.limites import limiter
+from postgrest.exceptions import APIError
 
 @admin_bp.before_request
 def proteger_todo_el_panel():
@@ -645,6 +648,37 @@ def gerencia_permutas():
     return render_template("gerencia/permutas.html",
                            permutas_usuario=reportes.permutas_por_usuario(desde=desde, hasta=hasta),
                            desde=desde, hasta=hasta)
+
+
+@admin_bp.route("/gerencia/resumen-semanal")
+@requiere_rol("admin", "gerencia")
+def gerencia_resumen_semanal():
+    """Resumen de la última semana completa (lunes a domingo), todas las sedes."""
+    desde, hasta = reportes.ultima_semana_completa()
+    return render_template("gerencia/resumen_semanal.html",
+                           resumen=reportes.resumen_semanal(desde, hasta))
+
+
+# La llama el JS de base_gerencia.html con fetch (JSON) después de que el
+# navegador dio permiso y creó la suscripción. CSRF va en el header
+# X-CSRFToken (CSRFProtect lo acepta igual que el campo del formulario).
+@admin_bp.route("/gerencia/activar-notificaciones", methods=["POST"])
+@limiter.limit("10 per minute")
+@requiere_rol(*notificaciones_staff.ROLES_NOTIFICACIONES)
+def gerencia_activar_notificaciones():
+    """Guarda la suscripción push de este navegador para el usuario en sesión."""
+    try:
+        # usuario_id sale de la sesión, nunca del cuerpo de la petición:
+        # así nadie puede suscribir su navegador a nombre de otro.
+        notificaciones_staff.activar_notificaciones(session["usuario_id"],
+                                                    request.get_json(silent=True))
+    except ErrorValidacion as e:
+        return jsonify({"error": e.mensaje}), 400
+    except APIError as e:
+        obtener_logger().warning("Usuario %s: guardar dispositivo staff falló (%s)",
+                                 session.get("usuario_id"), e.code)
+        return jsonify({"error": "No se pudieron activar las notificaciones. Intente de nuevo."}), 500
+    return jsonify({"ok": True})
 
 
 @admin_bp.route("/gerencia/ritmo")

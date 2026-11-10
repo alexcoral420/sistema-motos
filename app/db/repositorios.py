@@ -850,6 +850,53 @@ def fechas_de_venta_activas():
                         .order("id"))
 
 
+def guardar_dispositivo_staff(usuario_id: int, suscripcion: dict):
+    """
+    Guarda la suscripción push de un usuario del panel (service_role: la
+    tabla no tiene políticas RLS). Si ese navegador ya estaba registrado
+    (mismo endpoint), la actualiza y la reactiva en vez de duplicarla:
+    UNIQUE (usuario_id, endpoint) de la migración 027.
+    """
+    fila = {"usuario_id": usuario_id, "suscripcion": suscripcion, "activo": True}
+    resultado = (get_supabase_admin().table("dispositivos_staff")
+                 .upsert(fila, on_conflict="usuario_id,endpoint")
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def resumen_ventas_en_rango(desde, hasta):
+    """
+    Ventas con created_at en [desde, hasta), con su estado (el servicio
+    decide cuáles cuentan), precio, asesor y sede. ISO ya saneados.
+    """
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("ventas")
+                        .select("estado, precio_venta, asesor_nombre, sede_id, sedes(nombre)")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
+
+def resumen_compras_en_rango(desde, hasta):
+    """Compras con created_at en [desde, hasta): solo su precio."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("compras")
+                        .select("precio_compra")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
+
+def resumen_permutas_en_rango(desde, hasta):
+    """Permutas con created_at en [desde, hasta): solo para contarlas."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("permutas")
+                        .select("id")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
+
 def intenciones_con_moto(desde=None, hasta=None):
     """
     Intenciones en [desde, hasta) con la marca y el modelo de su moto
