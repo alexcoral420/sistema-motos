@@ -10,6 +10,7 @@ from flask import Blueprint, request, render_template, redirect, url_for, sessio
 
 from app.auth.security import autenticar
 from app.auth.sesion import cerrar_sesion_panel
+from app.auth.destino import CLAVE_DESTINO, destino_tras_login
 from app.seguridad.limites import limiter
 from app.seguridad.logging_config import obtener_logger
 
@@ -36,6 +37,7 @@ def login():
             # Ninguna identidad anterior del panel sobrevive. Solo se borran
             # las claves del panel: la del motero y las del sitio público
             # comparten la cookie y no son de este login.
+            pendiente = session.pop(CLAVE_DESTINO, None)
             cerrar_sesion_panel()
             # Guardamos la IDENTIDAD, no solo un booleano.
             session["logueado"] = True
@@ -47,11 +49,10 @@ def login():
 
             log.info("Login exitoso: '%s' (rol: %s).",
                      usuario["usuario"], usuario["rol"])
-            # Cada rol aterriza donde trabaja: gerencia en sus métricas,
-            # los demás en el inventario.
-            if usuario["rol"] == "gerencia":
-                return redirect(url_for("admin.panel_gerencia"))
-            return redirect(url_for("admin.index"))
+            # Cada rol aterriza donde trabaja (gerencia en sus métricas,
+            # el asesor en "Mi espacio", los demás en el inventario), salvo
+            # que venga de tocar el aviso de un lead: ver destino.py.
+            return redirect(destino_tras_login(usuario["rol"], pendiente))
         else:
             # No revelamos si falló el usuario o la contraseña.
             log.warning("Login fallido para el usuario '%s'.", usuario_form)

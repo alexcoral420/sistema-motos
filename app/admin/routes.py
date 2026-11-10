@@ -29,6 +29,8 @@ from app.servicios import reportes
 from app.servicios import usuarios
 from app.servicios import notificaciones_staff
 from app.servicios import leads_chat
+from app.servicios import espacio_asesor
+from app.auth.destino import recordar_destino
 from app.servicios.inventario import ESTADOS_EDITABLES
 from app.seguridad.limites import limiter
 from postgrest.exceptions import APIError
@@ -42,6 +44,11 @@ def proteger_todo_el_panel():
     if "logueado" not in session:
         obtener_logger().warning(
             "Acceso denegado a ruta de admin sin sesión: %s", request.path)
+        # Quien llegó a un lead sin sesión (el aviso push con la app
+        # cerrada) vuelve a ese lead después del login. Solo rutas de
+        # la bandeja: ver app/auth/destino.py.
+        if request.method == "GET":
+            recordar_destino(request.path)
         return redirect(url_for("auth.login"))
 
     # El usuario puede haber perdido el acceso (o cambiado de rol/sede)
@@ -1232,3 +1239,19 @@ def lead_cerrar(lead_id):
     obtener_logger().info("Lead %s -> %s por el usuario %s.",
                           lead_id, request.form.get("estado"), session["usuario_id"])
     return redirect(url_for("admin.lead_detalle", lead_id=lead_id, aviso="actualizado"))
+
+
+# ============================================================
+# "Mi espacio" del asesor
+# ============================================================
+
+@admin_bp.route("/mi-espacio", endpoint="espacio_asesor")
+@requiere_rol(espacio_asesor.ROL_ESPACIO)
+def espacio_asesor_portada():
+    """
+    Página de llegada del asesor: sus ventas, compras y permutas de la
+    semana (solo conteos y motos, sin precios) y los leads disponibles.
+    El asesor es siempre el de la sesión; ?semana= solo cambia el periodo.
+    """
+    datos = espacio_asesor.resumen(session["usuario_id"], request.args.get("semana"))
+    return render_template("espacio_asesor.html", datos=datos)

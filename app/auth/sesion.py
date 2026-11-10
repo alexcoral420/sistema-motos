@@ -24,6 +24,9 @@ CLAVES_SESION_PANEL = (
     "rol",
     "sede_id",
     "whatsapp",
+    # A dónde volver tras el login (app/auth/destino.py). Se guarda antes
+    # de que haya sesión; el login la lee y la quita.
+    "panel_destino",
 )
 
 

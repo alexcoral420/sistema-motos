@@ -260,6 +260,14 @@ def manifest():
         "theme_color": "#ff7a00",
         "background_color": "#050505",
         "icons": iconos,
+        # Acceso directo para el equipo (mantener presionado el ícono de
+        # la app). /admin/ pide sesión y lleva a cada rol a su portada.
+        "shortcuts": [{
+            "name": "Panel del equipo",
+            "short_name": "Panel",
+            "url": "/admin/",
+            "icons": [icono("icon-192.png", 192, "any")],
+        }],
     }
     respuesta = jsonify(datos)
     respuesta.mimetype = "application/manifest+json"

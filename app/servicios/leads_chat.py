@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from app.db import repositorios
-from app.seguridad.tiempo import HORA_COLOMBIA, MESES
+from app.seguridad.tiempo import momento_legible
 from app.seguridad.validadores import ErrorValidacion
 from app.servicios.campos_credito import FORMA_PAGO_CONTADO
 
@@ -55,22 +55,6 @@ ROL_QUE_CIERRA_AJENOS = "admin"
 
 def _ahora():
     return datetime.now(timezone.utc).isoformat()
-
-
-def _cuando(iso):
-    """'10 de noviembre, 3:45 p. m.' en hora de Colombia."""
-    if not iso:
-        return ""
-    try:
-        momento = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
-    except ValueError:
-        return ""
-    if momento.tzinfo is None:
-        momento = momento.replace(tzinfo=timezone.utc)
-    local = momento.astimezone(HORA_COLOMBIA)
-    hora = local.hour % 12 or 12
-    sufijo = "a. m." if local.hour < 12 else "p. m."
-    return f"{local.day} de {MESES[local.month - 1]}, {hora}:{local.minute:02d} {sufijo}"
 
 
 def _moto_texto(lead):
@@ -112,8 +96,8 @@ def _presentar(lead, usuario_id, rol):
         "moto_texto": moto_texto,
         "moto_id": lead.get("moto_id"),
         "moto_precio": (lead.get("motos") or {}).get("precio"),
-        "recibido": _cuando(lead.get("created_at")),
-        "tomado": _cuando(lead.get("tomado_en")),
+        "recibido": momento_legible(lead.get("created_at")),
+        "tomado": momento_legible(lead.get("tomado_en")),
         "asesor_nombre": lead.get("asesor_nombre"),
         "propio": propio,
         "puede_tomar": rol == ROL_QUE_TOMA and estado == ESTADO_NUEVO,

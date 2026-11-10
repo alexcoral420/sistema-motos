@@ -224,6 +224,9 @@
             <!-- Navegación: ir a ver -->
             <nav class="sidebar-grupo" aria-label="Navegación del panel">
                 <div class="sidebar-titulo"><svg class="ico" aria-hidden="true"><use href="#ico-brujula"/></svg> Navegación</div>
+                {% if session.rol == 'asesor' %}
+                <a href="{{ url_for('admin.espacio_asesor') }}" class="nav-item {% if nav_activo == 'espacio' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Mi espacio</a>
+                {% endif %}
                 <a href="{{ url_for('admin.index') }}" class="nav-item {% if nav_activo == 'inventario' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-moto"/></svg> Inventario</a>
                 {% if session.rol in ['admin', 'gerencia', 'encargado_sede'] %}
                 <a href="{{ url_for('admin.ventas_mi_sede') }}" class="nav-item {% if nav_activo == 'ventas' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Ventas</a>

@@ -1867,3 +1867,44 @@ def desactivar_dispositivo_staff(dispositivo_id: int):
      .update({"activo": False})
      .eq("id", dispositivo_id)
      .execute())
+
+
+# ============================================================
+# "Mi espacio" del asesor: sus operaciones en un rango de fechas.
+# A propósito NO traen precios: el asesor ve conteos y qué moto fue.
+# ============================================================
+
+def ventas_de_asesor_en_rango(asesor_id: int, desde, hasta):
+    """Ventas de ese asesor con created_at en [desde, hasta), recientes primero."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("ventas")
+                        .select("id, created_at, descripcion, placa, verificada, estado")
+                        .eq("asesor_id", asesor_id)
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("created_at", desc=True)
+                        .order("id", desc=True))
+
+
+def compras_de_asesor_en_rango(asesor_id: int, desde, hasta):
+    """Compras de ese asesor con created_at en [desde, hasta), recientes primero."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("compras")
+                        .select("id, created_at, descripcion, placa, verificada")
+                        .eq("asesor_id", asesor_id)
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("created_at", desc=True)
+                        .order("id", desc=True))
+
+
+def permutas_de_asesor_en_rango(asesor_id: int, desde, hasta):
+    """Permutas de ese asesor con created_at en [desde, hasta), recientes primero."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("permutas")
+                        .select("id, created_at, descripcion_entrante, descripcion_saliente")
+                        .eq("asesor_id", asesor_id)
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("created_at", desc=True)
+                        .order("id", desc=True))
