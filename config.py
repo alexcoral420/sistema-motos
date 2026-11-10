@@ -11,6 +11,7 @@ Por qué en clases y no en variables sueltas:
   garantizada por la estructura.
 """
 
+from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
@@ -78,6 +79,15 @@ class Config:
     # La cookie no se envía en peticiones que vienen de otro sitio
     # (defensa contra CSRF).
     SESSION_COOKIE_SAMESITE = "Lax"
+
+    # Cuánto dura la sesión del panel. El login la marca como permanente
+    # (sin esto la cookie muere al cerrar el navegador o la app instalada,
+    # y el asesor tendría que entrar de nuevo con cada aviso de un lead).
+    # Es un tope desde el login, no desde el último uso: ver
+    # app/auth/sesion.py. Quitarle el acceso a un usuario sigue teniendo
+    # efecto inmediato, porque se revalida contra la base en cada petición.
+    DIAS_SESION_PANEL = 10
+    PERMANENT_SESSION_LIFETIME = timedelta(days=DIAS_SESION_PANEL)
 
 
 class DesarrolloConfig(Config):

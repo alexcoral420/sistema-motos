@@ -9,7 +9,7 @@ sede), lo que habilita la trazabilidad: saber QUIÉN hace cada acción.
 from flask import Blueprint, request, render_template, redirect, url_for, session
 
 from app.auth.security import autenticar
-from app.auth.sesion import cerrar_sesion_panel
+from app.auth.sesion import cerrar_sesion_panel, iniciar_sesion_duradera
 from app.auth.destino import CLAVE_DESTINO, destino_tras_login
 from app.seguridad.limites import limiter
 from app.seguridad.logging_config import obtener_logger
@@ -46,6 +46,8 @@ def login():
             session["rol"] = usuario["rol"]
             session["sede_id"] = usuario["sede_id"]
             session["whatsapp"] = usuario.get("whatsapp")
+            # La sesión dura hasta 10 días (config.DIAS_SESION_PANEL).
+            iniciar_sesion_duradera()
 
             log.info("Login exitoso: '%s' (rol: %s).",
                      usuario["usuario"], usuario["rol"])
