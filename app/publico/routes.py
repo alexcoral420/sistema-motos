@@ -110,6 +110,8 @@ def chat():
         "respuesta": resultado["respuesta"],
         "tipo": resultado["tipo"],
         "firma": resultado["firma"],
+        "motos": resultado["motos"],
+        "url_catalogo": resultado["url_catalogo"],
     })
 
 @publico_bp.route("/catalogo")

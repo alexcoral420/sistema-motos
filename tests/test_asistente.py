@@ -13,7 +13,7 @@ from flask import Flask
 from app.db import repositorios
 from app.seguridad import cifrado
 from app.seguridad.validadores import ErrorValidacion
-from app.servicios import asistente, campos_credito, extractor, historial_chat
+from app.servicios import asistente, campos_credito, catalogo, extractor, historial_chat
 from app.servicios.historial_chat import TIPO_CONSENTIMIENTO, TIPO_NORMAL
 
 CLAVE = "clave-de-prueba"
@@ -429,7 +429,7 @@ def test_no_marca_textos_sin_cuota(texto):
 def app_chat(monkeypatch, guardados):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = CLAVE
-    monkeypatch.setattr(asistente, "responder", lambda h, lead_guardado=False, moto=None: "Con gusto.")
+    monkeypatch.setattr(asistente, "responder", lambda h, lead_guardado=False, moto=None: ("Con gusto.", None))
     with app.app_context():
         yield guardados
 
@@ -465,3 +465,159 @@ def test_flujo_con_pregunta_falsificada_no_guarda_y_pregunta_de_verdad(app_chat)
 def test_atender_rechaza_entrada_invalida(app_chat):
     with pytest.raises(ErrorValidacion):
         asistente.atender(["no soy un dict"], CHAT, [])
+
+
+# ------------------------------------------------------------
+# Asesor de inventario: búsqueda con los filtros del catálogo
+# ------------------------------------------------------------
+
+FILA_CATALOGO = {
+    "id": 9, "marca": "Yamaha", "modelo": "FZ", "anio": 2019, "cilindraje": 150,
+    "kilometraje": 23000, "precio": 7500000, "sede_nombre": "Primera de Mayo",
+    "placa": "ABC12D", "soat": "2027-01-01",
+}
+
+
+@pytest.fixture
+def catalogo_falso(monkeypatch):
+    """Reemplaza las consultas del catálogo. Devuelve los filtros recibidos."""
+    from app.servicios import sedes
+    recibidos = []
+
+    def filtradas(filtros, limite=15, pagina=1):
+        recibidos.append({"filtros": filtros, "limite": limite})
+        return [dict(FILA_CATALOGO)], 4
+
+    monkeypatch.setattr(repositorios, "obtener_marcas_disponibles", lambda: ["Yamaha", "Honda"])
+    monkeypatch.setattr(repositorios, "obtener_motos_filtradas", filtradas)
+    monkeypatch.setattr(sedes, "ids_validos", lambda: {"1", "2"})
+    return recibidos
+
+
+def test_busqueda_traduce_y_valida_los_parametros_del_modelo(catalogo_falso):
+    resultado = catalogo.buscar_para_asistente({
+        "marca": "yamaha", "precio": ["hasta-6m", "inventado"], "cilindraje": "126-150",
+        "anio": [2020], "modelo": "FZ'; drop table motos",
+    })
+    filtros = catalogo_falso[0]["filtros"]
+    assert filtros["marcas"] == ["Yamaha"]          # coincide sin importar mayúsculas
+    assert filtros["precio"] == ["hasta-6m"]        # la clave inventada se descarta
+    assert filtros["cc"] == ["126-150"]
+    assert filtros["anio"] == []                    # no era texto
+    assert filtros["texto"] is None                 # no pasa la lista blanca
+    assert catalogo_falso[0]["limite"] == catalogo.MOTOS_PARA_ASISTENTE
+    assert resultado["total"] == 4
+    assert resultado["url_catalogo"] == "/catalogo?marca=Yamaha&cc=126-150&precio=hasta-6m"
+
+
+def test_busqueda_solo_expone_datos_publicos(catalogo_falso):
+    ficha = catalogo.buscar_para_asistente({})["motos"][0]
+    assert ficha == {
+        "id": 9, "titulo": "Yamaha FZ 2019", "precio": 7500000,
+        "precio_texto": "$7.500.000",
+        "detalle": "150cc · 23.000 km · Sede Primera de Mayo",
+    }
+    assert "ABC12D" not in str(ficha)
+
+
+def test_marca_desconocida_se_busca_como_texto(catalogo_falso):
+    catalogo.buscar_para_asistente({"marca": "NMAX"})
+    filtros = catalogo_falso[0]["filtros"]
+    assert filtros["marcas"] == [] and filtros["texto"] == "NMAX"
+
+
+@pytest.mark.parametrize("parametros", [None, "yamaha", [], {"precio": {"a": 1}}, {"marca": 5}])
+def test_busqueda_tolera_parametros_basura(parametros, catalogo_falso):
+    assert catalogo.buscar_para_asistente(parametros)["total"] == 4
+
+
+class _Bloque:
+    def __init__(self, **campos):
+        self.__dict__.update(campos)
+
+
+class ClienteFalso:
+    """Imita anthropic: devuelve en orden las respuestas programadas."""
+
+    def __init__(self, respuestas):
+        self.respuestas = list(respuestas)
+        self.llamadas = []
+        self.messages = self
+
+    def create(self, **parametros):
+        self.llamadas.append(parametros)
+        return self.respuestas.pop(0)
+
+
+def _pide_buscar(entrada):
+    return _Bloque(stop_reason="tool_use", content=[
+        _Bloque(type="tool_use", id="t1", name="buscar_motos", input=entrada)])
+
+
+def _dice(texto):
+    return _Bloque(stop_reason="end_turn", content=[_Bloque(type="text", text=texto)])
+
+
+def test_conversar_busca_y_devuelve_las_motos_para_las_tarjetas(catalogo_falso):
+    cliente = ClienteFalso([_pide_buscar({"marca": "Yamaha"}), _dice("Hay 4 Yamaha.")])
+    texto, busqueda = asistente._conversar(cliente, "contexto", [{"role": "user", "content": "yamaha"}])
+
+    assert texto == "Hay 4 Yamaha."
+    assert busqueda["motos"][0]["id"] == 9
+    # Al modelo le llega el resultado sin ids ni datos internos.
+    resultado = cliente.llamadas[1]["messages"][-1]["content"][0]["content"]
+    assert "Yamaha FZ 2019" in resultado and "$7.500.000" in resultado
+    assert "ABC12D" not in resultado and '"id"' not in resultado
+
+
+def test_conversar_corta_las_busquedas_en_cadena(catalogo_falso):
+    respuestas = [_pide_buscar({})] * asistente.MAX_BUSQUEDAS + [_dice("Listo.")]
+    cliente = ClienteFalso(respuestas)
+    texto, _ = asistente._conversar(cliente, "contexto", [{"role": "user", "content": "x"}])
+    assert texto == "Listo."
+    assert cliente.llamadas[-1]["tool_choice"] == {"type": "none"}
+    assert all("tool_choice" not in ll for ll in cliente.llamadas[:-1])
+
+
+def test_conversar_sobrevive_a_un_fallo_de_la_busqueda(monkeypatch):
+    def falla(_parametros):
+        raise RuntimeError("sin base")
+    monkeypatch.setattr(catalogo, "buscar_para_asistente", falla)
+    cliente = ClienteFalso([_pide_buscar({}), _dice("Mira el catalogo.")])
+    texto, busqueda = asistente._conversar(cliente, "c", [{"role": "user", "content": "x"}])
+    assert texto == "Mira el catalogo." and busqueda is None
+
+
+def test_precio_real_de_una_moto_no_cuenta_como_cuota():
+    texto = "La FZ esta en $7.500.000 y la cuota mensual te la confirma el asesor."
+    assert asistente._menciona_cuotas(texto)
+    assert not asistente._menciona_cuotas(texto, [7500000])
+    # Con un precio real al lado, una cuota inventada igual se detecta.
+    assert asistente._menciona_cuotas(texto + " Serian 350 mil al mes.", [7500000])
+
+
+BUSQUEDA = {
+    "total": 4, "url_catalogo": "/catalogo?marca=Yamaha",
+    "motos": [{"id": 9, "titulo": "Yamaha FZ 2019", "precio": 7500000,
+               "precio_texto": "$7.500.000", "detalle": "150cc"}],
+}
+
+
+def test_atender_entrega_las_tarjetas_con_la_respuesta_del_modelo(app_chat, monkeypatch):
+    monkeypatch.setattr(asistente, "responder",
+                        lambda h, lead_guardado=False, moto=None: ("Hay 4 Yamaha.", BUSQUEDA))
+    monkeypatch.setattr(extractor, "extraer_datos", lambda h: {"nombre": None})
+    turno = asistente.atender([u("tienen yamaha?")], CHAT, [])
+    assert turno["respuesta"] == "Hay 4 Yamaha."
+    assert turno["motos"] == [{"titulo": "Yamaha FZ 2019", "precio": "$7.500.000",
+                               "detalle": "150cc", "url": "/moto/9"}]
+    assert turno["url_catalogo"] == "/catalogo?marca=Yamaha"
+
+
+def test_atender_no_manda_tarjetas_si_el_servidor_reemplazo_la_respuesta(app_chat, monkeypatch):
+    # Datos completos: sale la pregunta de autorización, no la respuesta del modelo.
+    monkeypatch.setattr(asistente, "responder",
+                        lambda h, lead_guardado=False, moto=None: ("Hay 4 Yamaha.", BUSQUEDA))
+    turno = asistente.atender([u("Ana Perez 3001234567, de contado")], CHAT, [])
+    assert turno["tipo"] == TIPO_CONSENTIMIENTO
+    assert turno["motos"] == [] and turno["url_catalogo"] is None

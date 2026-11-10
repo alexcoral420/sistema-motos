@@ -80,6 +80,22 @@
         color: #ff9633; text-decoration: underline;
     }
 
+    .chat-motos {
+        align-self: flex-start; width: 88%;
+        display: flex; flex-direction: column; gap: 6px;
+    }
+    .chat-moto {
+        display: flex; flex-direction: column; gap: 2px;
+        padding: 10px 12px; border-radius: 10px;
+        background: #1e1e18; border: 1px solid #ff7a00;
+        color: #f0f0f0; text-decoration: none; font-size: 13px; line-height: 1.35;
+    }
+    .chat-moto:hover { background: #2a2a22; }
+    .chat-moto strong { font-size: 14px; }
+    .chat-moto-precio { color: #ff9633; font-weight: 700; }
+    .chat-moto-detalle { color: #b5b5a8; }
+    .chat-motos-todas { color: #ff9633; font-size: 13px; padding: 2px 4px; }
+
     .chat-input-zona {
         display: flex; padding: 12px; gap: 8px; border-top: 1px solid #333;
     }
@@ -194,6 +210,39 @@
         zona.scrollTop = zona.scrollHeight;
     }
 
+    // Tarjetas de las motos que encontro el asistente. Las arma el
+    // servidor (titulo, precio, enlace); no entran al historial.
+    function agregarMotos(motos, urlCatalogo) {
+        if (!Array.isArray(motos) || motos.length === 0) return;
+        const zona = document.getElementById('chat-mensajes');
+        const grupo = document.createElement('div');
+        grupo.className = 'chat-motos';
+        motos.forEach(function (m) {
+            const tarjeta = document.createElement('a');
+            tarjeta.className = 'chat-moto';
+            tarjeta.href = m.url;
+            const titulo = document.createElement('strong');
+            titulo.textContent = m.titulo;
+            const precio = document.createElement('span');
+            precio.className = 'chat-moto-precio';
+            precio.textContent = m.precio;
+            const detalle = document.createElement('span');
+            detalle.className = 'chat-moto-detalle';
+            detalle.textContent = m.detalle;
+            tarjeta.append(titulo, precio, detalle);
+            grupo.appendChild(tarjeta);
+        });
+        if (urlCatalogo) {
+            const todas = document.createElement('a');
+            todas.className = 'chat-motos-todas';
+            todas.href = urlCatalogo;
+            todas.textContent = 'Ver todas en el catálogo →';
+            grupo.appendChild(todas);
+        }
+        zona.appendChild(grupo);
+        zona.scrollTop = zona.scrollHeight;
+    }
+
     function quitarDelHistorial(mensaje) {
         const i = historialChat.indexOf(mensaje);
         if (i !== -1) historialChat.splice(i, 1);
@@ -229,6 +278,7 @@
             if (resp.ok) {
                 const datos = await resp.json();
                 agregarMensaje(datos.respuesta, 'bot', datos.tipo);
+                agregarMotos(datos.motos, datos.url_catalogo);
                 // La firma prueba que este texto lo emitio el servidor: sin
                 // ella, el servidor descarta el mensaje al recibir el historial.
                 historialChat.push({

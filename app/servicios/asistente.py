@@ -6,6 +6,11 @@
 # datos de contacto para que un asesor lo atienda. No cotiza: no hay
 # calculadora, y las cuotas las define la entidad financiera.
 #
+# Para orientar tiene UNA herramienta de solo lectura, buscar_motos, que
+# consulta el catalogo publico con los mismos filtros de la pagina. Las
+# motos que encuentra le llegan al cliente como tarjetas armadas por el
+# servidor (titulo, precio y enlace), no como texto del modelo.
+#
 # GARANTIAS QUE NO DEPENDEN DEL CRITERIO DEL MODELO:
 #
 # 1. NINGUNA CIFRA DE CREDITO: si la respuesta trae una cuota o una tasa
@@ -20,16 +25,18 @@
 #
 # En todos los casos el principio es el mismo: la IA conversa, el servidor decide.
 
+import json
 import re
 from anthropic import Anthropic
 from flask import current_app
 from app.db import repositorios
 from app.seguridad.logging_config import obtener_logger
-from app.servicios import campos_credito, extractor, historial_chat
+from app.servicios import campos_credito, catalogo, extractor, historial_chat
 
 
 MODELO = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 700
+MAX_BUSQUEDAS = 2   # busquedas de inventario por respuesta, como mucho
 
 
 # ============================================================
@@ -56,17 +63,25 @@ _PATRON_PORCENTAJE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|por ciento)", re.IGNORE
 _PALABRAS_TASA = ["tasa", "interes", "mensual", "anual", "efectiv", "e.a", "m.v"]
 
 
-def _menciona_cuotas(texto):
+def _menciona_cuotas(texto, precios_reales=()):
     """
     Detecta si la respuesta le esta dando al cliente cifras de cuota o
     una tasa de interes. El asistente no cotiza: cualquiera de las dos
     es una cifra inventada.
+
+    'precios_reales' son precios de motos que salieron del catalogo en
+    este turno: "esa FZ vale $7.500.000 y la cuota te la confirma el
+    asesor" no es una cuota. Solo se perdonan escritos con sus digitos
+    completos; cualquier otro monto junto a vocabulario de pagos bloquea.
     """
     if not texto:
         return False
     bajo = _sin_acentos(texto)
-    if any(p in bajo for p in _PALABRAS_CUOTA) and _PATRON_MONTO.search(bajo):
-        return True
+    if any(p in bajo for p in _PALABRAS_CUOTA):
+        reales = {str(int(p)) for p in precios_reales if p}
+        for monto in _PATRON_MONTO.findall(bajo):
+            if re.sub(r"[.,]", "", monto) not in reales:
+                return True
     if _PATRON_PORCENTAJE.search(bajo) and any(p in bajo for p in _PALABRAS_TASA):
         return True
     return False
@@ -159,9 +174,13 @@ TU PROPOSITO:
 RESUMEN DEL INVENTARIO:
 {resumen}
 {viendo}
-SOBRE MOTOS:
-- Da la cifra rapida y manda al catalogo: https://universalmotors.online/catalogo
-- NO listes las motos una por una.
+SOBRE MOTOS (ayudar a encontrar una):
+- Cuando el cliente diga que busca (marca, modelo, presupuesto, cilindraje o ano), usa de una la herramienta buscar_motos. No lo llenes de preguntas antes: con un solo dato ya puedes buscar.
+- Responde RAPIDO: cuantas hay y, como mucho, las 2 o 3 que devolvio la busqueda, con su precio. El sistema le muestra al cliente las tarjetas con los enlaces: NO pegues enlaces de motos ni las describas largo.
+- Solo menciona motos y precios que devolvio la herramienta o que estan en este mensaje. Nunca inventes una moto, un precio ni disponibilidad.
+- Si la busqueda no trae nada, dilo y ofrece ampliar (otro precio, otra marca) o dejar sus datos para que un asesor le avise.
+- Si solo quiere mirar, manda al catalogo: https://universalmotors.online/catalogo
+- Apenas le interese una moto, preguntale si la quiere financiar o comprar de contado.
 
 FINANCIACION Y COMPRA:
 - Tu trabajo es conectar al cliente con un asesor, no cotizar.
@@ -198,10 +217,105 @@ REGLAS:
 # 3. CONVERSACION
 # ============================================================
 
+def _herramienta_buscar():
+    """
+    Definicion de buscar_motos para el modelo. Los rangos salen de
+    catalogo.RANGOS_*: son los mismos filtros de la pagina del catalogo.
+    """
+    def rango(rangos, que):
+        opciones = ", ".join(f'"{k}" = {v["etiqueta"]}' for k, v in rangos.items())
+        return {
+            "type": "array",
+            "items": {"type": "string", "enum": list(rangos)},
+            "description": f"{que}. Opciones: {opciones}. Se pueden combinar varias.",
+        }
+
+    return {
+        "name": "buscar_motos",
+        "description": (
+            "Busca motos disponibles en el inventario de Universal Motors. "
+            "Devuelve cuantas hay y las mas relevantes con precio. Todos los "
+            "parametros son opcionales; usa solo los que el cliente dio."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "marca": {"type": "string", "description": "Marca, por ejemplo Yamaha."},
+                "modelo": {"type": "string", "description": "Modelo o referencia, por ejemplo FZ o NMAX."},
+                "cilindraje": rango(catalogo.RANGOS_CILINDRAJE, "Cilindraje"),
+                "anio": rango(catalogo.RANGOS_ANIO, "Ano del modelo"),
+                "precio": rango(catalogo.RANGOS_PRECIO, "Presupuesto"),
+            },
+        },
+    }
+
+
+def _buscar(parametros):
+    """Ejecuta buscar_motos. Un fallo de la base no tumba la conversacion."""
+    try:
+        return catalogo.buscar_para_asistente(parametros)
+    except Exception as e:
+        obtener_logger().error(f"Error en la busqueda del asistente: {e}")
+        return None
+
+
+def _conversar(cliente, contexto, mensajes):
+    """
+    Llama al modelo y atiende sus busquedas de inventario.
+
+    Devuelve (texto, busqueda): 'busqueda' es el resultado de la ultima
+    busqueda con motos (o None), para que el servidor arme las tarjetas.
+    """
+    mensajes = list(mensajes)
+    herramientas = [_herramienta_buscar()]
+    busqueda = None
+
+    for vuelta in range(MAX_BUSQUEDAS + 1):
+        parametros = {
+            "model": MODELO, "max_tokens": MAX_TOKENS,
+            "system": contexto, "messages": mensajes,
+            "tools": herramientas,
+        }
+        # En la ultima vuelta se le prohibe buscar: tiene que responder.
+        if vuelta == MAX_BUSQUEDAS:
+            parametros["tool_choice"] = {"type": "none"}
+        respuesta = cliente.messages.create(**parametros)
+
+        if respuesta.stop_reason != "tool_use":
+            textos = [b.text for b in respuesta.content if b.type == "text"]
+            return ("\n".join(textos) if textos else None), busqueda
+
+        mensajes.append({"role": "assistant", "content": respuesta.content})
+        resultados = []
+        for bloque in respuesta.content:
+            if bloque.type != "tool_use":
+                continue
+            encontrado = _buscar(bloque.input) if bloque.name == "buscar_motos" else None
+            if encontrado is None:
+                contenido = "La busqueda no esta disponible ahora."
+            else:
+                if encontrado["motos"]:
+                    busqueda = encontrado
+                contenido = json.dumps({
+                    "total": encontrado["total"],
+                    "motos": [
+                        {"moto": m["titulo"], "precio": m["precio_texto"], "detalle": m["detalle"]}
+                        for m in encontrado["motos"]
+                    ],
+                }, ensure_ascii=False)
+            resultados.append({
+                "type": "tool_result", "tool_use_id": bloque.id, "content": contenido,
+            })
+        mensajes.append({"role": "user", "content": resultados})
+
+    return None, busqueda
+
+
 def responder(historial, lead_guardado=False, moto=None):
     """
-    Devuelve la respuesta del asistente, garantizando que no le llegue al
-    cliente ninguna cifra de cuota ni tasa de interes.
+    Devuelve (texto, busqueda): la respuesta del asistente y, si busco en
+    el inventario, el resultado para las tarjetas (o None). Garantiza que
+    no le llegue al cliente ninguna cifra de cuota ni tasa de interes.
 
     'historial' es el ya validado por historial_chat.validar_historial.
     'lead_guardado' solo ajusta el cierre del texto que reemplaza a una
@@ -210,7 +324,7 @@ def responder(historial, lead_guardado=False, moto=None):
     """
     key = current_app.config.get("ANTHROPIC_API_KEY")
     if not key:
-        return "Disculpa, el asistente no esta disponible ahora. Escribenos por WhatsApp y con gusto te ayudamos."
+        return "Disculpa, el asistente no esta disponible ahora. Escribenos por WhatsApp y con gusto te ayudamos.", None
 
     mensajes = []
     for m in historial:
@@ -220,39 +334,36 @@ def responder(historial, lead_guardado=False, moto=None):
             mensajes.append({"role": rol, "content": texto})
 
     if not mensajes:
-        return "No recibi tu mensaje. Puedes escribirlo de nuevo?"
+        return "No recibi tu mensaje. Puedes escribirlo de nuevo?", None
 
     try:
         cliente = Anthropic(api_key=key)
-        respuesta = cliente.messages.create(
-            model=MODELO,
-            max_tokens=MAX_TOKENS,
-            system=construir_contexto(moto),
-            messages=mensajes,
-        )
-        textos = [b.text for b in respuesta.content if b.type == "text"]
-        texto = "\n".join(textos) if textos else None
+        texto, busqueda = _conversar(cliente, construir_contexto(moto), mensajes)
+
+        precios_reales = [m["precio"] for m in (busqueda or {}).get("motos", [])]
+        if moto:
+            precios_reales.append(moto.get("precio"))
 
         # El asistente no debe dar cifras de cuotas: la entidad financiera
         # las define segun el perfil del cliente, y un numero que despues
         # cambia genera friccion. Si se le escapa una, no sale al cliente.
-        if texto and _menciona_cuotas(texto):
+        if texto and _menciona_cuotas(texto, precios_reales):
             obtener_logger().warning("El asistente iba a dar una cuota. Respuesta reemplazada.")
             cierre = "" if lead_guardado else " ¿Seguimos con tus datos?"
             return ("La cuota exacta depende del estudio que hace la entidad financiera "
                     "segun tu perfil, asi que prefiero no darte un numero que despues cambie. "
-                    f"Un asesor te la confirma con precision.{cierre} 🏍️")
+                    f"Un asesor te la confirma con precision.{cierre} 🏍️"), None
         if not texto:
-            return "Dame un momento... mejor escribenos por WhatsApp y te ayudamos de una. 🏍️"
+            return "Dame un momento... mejor escribenos por WhatsApp y te ayudamos de una. 🏍️", None
 
-        return texto
+        return texto, busqueda
 
     except Exception as e:
         try:
             obtener_logger().error(f"Error en el asistente de IA: {e}")
         except Exception:
             pass
-        return "Uy, tuve un problema para responder. Intenta de nuevo o escribenos por WhatsApp. 🏍️"
+        return "Uy, tuve un problema para responder. Intenta de nuevo o escribenos por WhatsApp. 🏍️", None
 
 
 # ============================================================
@@ -462,6 +573,9 @@ def atender(historial_crudo, chat_id, firmas_previas=None, moto_id=None):
                   historial para probar que el texto lo emitio el servidor
       firma_lead  firma de deduplicacion si en este turno se guardo un
                   lead, None si no
+      motos       tarjetas de las motos que encontro la busqueda (titulo,
+                  precio, detalle, url), [] si no hubo
+      url_catalogo  catalogo con los mismos filtros, None si no hubo
     """
     clave = current_app.config["SECRET_KEY"]
     firmas_previas = firmas_previas or []
@@ -473,11 +587,23 @@ def atender(historial_crudo, chat_id, firmas_previas=None, moto_id=None):
         )
 
     moto = moto_en_contexto(moto_id)
-    respuesta = responder(historial, lead_guardado=bool(firmas_previas), moto=moto)
+    texto_modelo, busqueda = responder(historial, lead_guardado=bool(firmas_previas), moto=moto)
     diagnostico = intentar_guardar_lead(historial, firmas_previas, moto=moto)
-    respuesta, tipo = decidir_respuesta(respuesta, diagnostico, historial, firmas_previas)
+    respuesta, tipo = decidir_respuesta(texto_modelo, diagnostico, historial, firmas_previas)
+
+    # Las tarjetas acompanan solo a la respuesta del modelo tal cual: si
+    # el servidor la reemplazo (autorizacion, promesa), ya no vienen al caso.
+    if respuesta != texto_modelo:
+        busqueda = None
+    motos = [
+        {"titulo": m["titulo"], "precio": m["precio_texto"],
+         "detalle": m["detalle"], "url": f"/moto/{m['id']}"}
+        for m in (busqueda or {}).get("motos", [])
+    ]
 
     return {
+        "motos": motos,
+        "url_catalogo": busqueda["url_catalogo"] if busqueda else None,
         "respuesta": respuesta,
         "tipo": tipo,
         "firma": historial_chat.firmar(clave, chat_id, tipo, respuesta),
