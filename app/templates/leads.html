@@ -1,0 +1,82 @@
+{% extends "base_operativa.html" %}
+{% set nav_activo = "leads" %}
+
+{% block titulo %}Leads del chat{% endblock %}
+
+{% block estilos %}
+        .leads-grupo { margin-bottom: 28px; }
+        .leads-grupo h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+        .leads-grupo h2 .cuenta { font-size: 13px; padding: 2px 9px; border-radius: 20px; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); font-family: 'Barlow', sans-serif; }
+        .lead-lista { display: flex; flex-direction: column; gap: 10px; }
+        .lead-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); }
+        .lead-fila.prioridad { border-color: var(--naranja); border-left-width: 5px; }
+        .lead-datos { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
+        .lead-datos a.lead-nombre { font-weight: 700; font-size: 16px; color: var(--texto); text-decoration: none; }
+        .lead-datos a.lead-nombre:hover { color: var(--naranja); }
+        .lead-meta { font-size: 13px; color: var(--texto-suave); }
+        .lead-etiqueta { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); }
+        .lead-etiqueta.contado { background: var(--naranja); border-color: var(--naranja); color: var(--barra-bg); }
+        .lead-acciones { display: flex; gap: 8px; align-items: center; }
+        .lead-acciones form { margin: 0; }
+        .sin-leads { padding: 22px; text-align: center; color: var(--texto-tenue); background: var(--superficie); border: 1px dashed var(--borde); border-radius: 12px; }
+{% endblock %}
+
+{% macro fila(lead) %}
+            <div class="lead-fila {% if lead.prioridad %}prioridad{% endif %}">
+                <div class="lead-datos">
+                    <a class="lead-nombre" href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}">{{ lead.nombre }}</a>
+                    <div>
+                        <span class="lead-etiqueta {% if lead.prioridad %}contado{% endif %}">{% if lead.prioridad %}Prioridad · {% endif %}{{ lead.forma_pago_texto }}</span>
+                        {% if lead.estado != 'nuevo' %}<span class="lead-etiqueta">{{ lead.estado_texto }}</span>{% endif %}
+                    </div>
+                    <div class="lead-meta">
+                        {% if lead.moto_texto %}{{ lead.moto_texto }} · {% endif %}{{ lead.recibido }}
+                        {% if lead.asesor_nombre and not lead.propio %} · {{ lead.asesor_nombre }}{% endif %}
+                    </div>
+                </div>
+                <div class="lead-acciones">
+                    {% if lead.puede_tomar %}
+                    <form method="POST" action="{{ url_for('admin.lead_tomar', lead_id=lead.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-primary">Tomar</button>
+                    </form>
+                    {% endif %}
+                    {% if lead.whatsapp_url and lead.estado == 'tomado' %}
+                    <a class="btn btn-primary" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
+                    {% endif %}
+                    <a class="btn btn-ghost" href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}">Ver</a>
+                </div>
+            </div>
+{% endmacro %}
+
+{% block contenido %}
+        <div class="seccion-titulo">Leads del chat</div>
+
+        {% if error %}<div class="aviso-error" role="alert">{{ error }}</div>{% endif %}
+        {% if aviso %}<div class="aviso-exito" role="status">{{ aviso }}</div>{% endif %}
+
+        <section class="leads-grupo">
+            <h2>Nuevos <span class="cuenta">{{ grupos.nuevos | length }}</span></h2>
+            {% if grupos.nuevos %}
+            <div class="lead-lista">{% for lead in grupos.nuevos %}{{ fila(lead) }}{% endfor %}</div>
+            {% else %}
+            <div class="sin-leads">No hay leads nuevos. Cuando un cliente deje sus datos en el chat aparecerá aquí.</div>
+            {% endif %}
+        </section>
+
+        <section class="leads-grupo">
+            <h2>{% if session.rol == 'asesor' %}Mis leads en gestión{% else %}En gestión{% endif %} <span class="cuenta">{{ grupos.en_gestion | length }}</span></h2>
+            {% if grupos.en_gestion %}
+            <div class="lead-lista">{% for lead in grupos.en_gestion %}{{ fila(lead) }}{% endfor %}</div>
+            {% else %}
+            <div class="sin-leads">Ningún lead en gestión.</div>
+            {% endif %}
+        </section>
+
+        {% if grupos.cerrados %}
+        <section class="leads-grupo">
+            <h2>Cerrados <span class="cuenta">{{ grupos.cerrados | length }}</span></h2>
+            <div class="lead-lista">{% for lead in grupos.cerrados %}{{ fila(lead) }}{% endfor %}</div>
+        </section>
+        {% endif %}
+{% endblock %}

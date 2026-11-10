@@ -19,14 +19,22 @@ import re
 # Claves de cada campo:
 #   clave        Nombre interno. Es la clave del JSON del extractor.
 #   etiqueta     Como lo nombramos ante el cliente y en el prompt.
-#   tipo         Como se valida: texto | telefono_co | entero | si_no
+#   tipo         Como se valida: texto | telefono_co | correo | entero |
+#                si_no | opcion (una de 'opciones')
 #   obligatorio  Sin el no se guarda el lead.
 #   sensible     Si es True, se guarda CIFRADO en la base.
 #   activo       Si es False, el sistema entero lo ignora (no se pide,
 #                no se extrae, no se valida). Sirve para dejar campos
 #                preparados hasta que haya luz verde para usarlos.
 #   columna      Columna de leads_chat donde se guarda. None = no se guarda.
-#   maximo       Tope para campos numericos.
+#   maximo       Tope para campos numericos; largo maximo en los de texto.
+#   opciones     Valores permitidos de un campo tipo "opcion".
+#   nota_extractor  Aclaracion para el extractor sobre como llenar la clave.
+
+# Compra de contado: la alerta de prioridad para el asesor (bandeja de
+# leads y aviso push).
+FORMA_PAGO_CONTADO = "contado"
+FORMAS_PAGO = ["financiado", FORMA_PAGO_CONTADO, "por_definir"]
 
 CAMPOS = [
     {
@@ -47,55 +55,45 @@ CAMPOS = [
         "activo": True,
         "columna": "telefono",
     },
+    # Opcional: el asesor contacta por WhatsApp, y exigir el correo hace
+    # que menos clientes terminen de dejar sus datos.
     {
         "clave": "correo",
         "etiqueta": "correo electrónico",
         "tipo": "correo",
-        "obligatorio": True,
+        "obligatorio": False,
         "sensible": False,
         "activo": True,
         "columna": "correo",
     },
-
     {
-        "clave": "valor_financiar",
-        "etiqueta": "monto que quiere financiar",
-        "tipo": "entero",
+        "clave": "moto_interes",
+        "etiqueta": "moto que le interesa",
+        "tipo": "texto",
         "obligatorio": False,
         "sensible": False,
         "activo": True,
-        "columna": "valor_financiar",
-        "maximo": 100_000_000,
-    },
-    {
-        "clave": "cuota_inicial",
-        "etiqueta": "cuota inicial",
-        "tipo": "entero",
-        "obligatorio": False,
-        "sensible": False,
-        "activo": True,
-        "columna": "cuota_inicial",
-        "maximo": 100_000_000,
-    },
-    {
-        "clave": "plazo_meses",
-        "etiqueta": "plazo en meses",
-        "tipo": "entero",
-        "obligatorio": False,
-        "sensible": False,
-        "activo": True,
-        "columna": "plazo_meses",
+        "columna": "moto_interes",
         "maximo": 120,
+        "nota_extractor": "marca, modelo y año tal como los nombro el cliente",
     },
+    # Obligatorio: el asesor prioriza a quien compra de contado, asi que el
+    # lead no se cierra sin haberlo preguntado. "por_definir" existe para
+    # no perder al cliente que todavia no sabe.
     {
-        "clave": "cuota_calculada",
-        "etiqueta": "cuota mensual calculada",
-        "tipo": "entero",
-        "obligatorio": False,
+        "clave": "forma_pago",
+        "etiqueta": "si quiere financiar la moto o comprarla de contado",
+        "tipo": "opcion",
+        "opciones": FORMAS_PAGO,
+        "obligatorio": True,
         "sensible": False,
         "activo": True,
-        "columna": "cuota_calculada",
-        "maximo": 100_000_000,
+        "columna": "forma_pago",
+        "nota_extractor": (
+            '"financiado" si quiere credito o financiacion, "contado" si paga '
+            'de contado, "por_definir" si dice que aun no sabe; null si no se '
+            'ha hablado del tema'
+        ),
     },
 
     # ----- Preparados, APAGADOS hasta tener asesoria legal -----
@@ -194,7 +192,12 @@ def esquema_para_extractor():
 
     lineas = []
     for c in campos_activos():
-        lineas.append(f'  "{c["clave"]}": {tipos_json.get(c["tipo"], "string o null")},')
+        if c["tipo"] == "opcion":
+            tipo = " o ".join(f'"{o}"' for o in c["opciones"]) + " o null"
+        else:
+            tipo = tipos_json.get(c["tipo"], "string o null")
+        nota = f'   <- {c["nota_extractor"]}' if c.get("nota_extractor") else ""
+        lineas.append(f'  "{c["clave"]}": {tipo},{nota}')
     lineas.append('  "autorizo": true o false')
     return "{\n" + "\n".join(lineas) + "\n}"
 
@@ -249,6 +252,13 @@ def _validar_entero(valor, maximo):
     return valor
 
 
+def _validar_opcion(valor, opciones):
+    if not isinstance(valor, str):
+        return None
+    limpio = valor.strip().lower()
+    return limpio if limpio in opciones else None
+
+
 def _validar_si_no(valor):
     if not isinstance(valor, str):
         return None
@@ -280,7 +290,9 @@ def validar(datos):
         tipo = campo["tipo"]
 
         if tipo == "texto":
-            valor = _validar_texto(crudo)
+            valor = _validar_texto(crudo, campo.get("maximo", 80))
+        elif tipo == "opcion":
+            valor = _validar_opcion(crudo, campo.get("opciones", []))
         elif tipo == "telefono_co":
             valor = _validar_telefono_co(crudo)
         elif tipo == "correo":

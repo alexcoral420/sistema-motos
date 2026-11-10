@@ -1,75 +1,94 @@
 # app/servicios/asistente.py
-# Asistente de IA de Universal Motors.
+# Asistente de IA de Universal Motors (chat de la pagina web).
 #
-# DOS GARANTIAS QUE NO DEPENDEN DEL CRITERIO DEL MODELO:
+# QUE HACE: orienta rapido sobre las motos, ofrece la financiacion (o la
+# compra de contado) de la moto que le interesa al cliente y le pide sus
+# datos de contacto para que un asesor lo atienda. No cotiza: no hay
+# calculadora, y las cuotas las define la entidad financiera.
 #
-# 1. NUMEROS REALES: si la respuesta menciona cuotas pero la IA no ejecuto
-#    la calculadora, se rehace la llamada FORZANDO la herramienta. Nunca
-#    sale al cliente una cifra que no haya calculado nuestro Python.
+# Para orientar tiene UNA herramienta de solo lectura, buscar_motos, que
+# consulta el catalogo publico con los mismos filtros de la pagina. Las
+# motos que encuentra le llegan al cliente como tarjetas armadas por el
+# servidor (titulo, precio y enlace), no como texto del modelo.
+#
+# GARANTIAS QUE NO DEPENDEN DEL CRITERIO DEL MODELO:
+#
+# 1. NINGUNA CIFRA DE CREDITO: si la respuesta trae una cuota o una tasa
+#    de interes, no sale al cliente; se reemplaza por un texto fijo.
 #
 # 2. GUARDADO GARANTIZADO: el lead no se guarda porque la IA lo decida,
 #    sino porque el servidor lee la conversacion, valida, y guarda.
 #
-# En ambos casos el principio es el mismo: la IA conversa, el servidor decide.
+# 3. CONSENTIMIENTO VERIFICABLE: la pregunta de autorizacion la emite el
+#    servidor, firmada, y solo cuenta la respuesta inmediata del cliente
+#    (ver historial_chat.py y extractor.estado_consentimiento).
+#
+# En todos los casos el principio es el mismo: la IA conversa, el servidor decide.
 
+import json
 import re
 from anthropic import Anthropic
 from flask import current_app
 from app.db import repositorios
 from app.seguridad.logging_config import obtener_logger
-from app.servicios import campos_credito
+from app.servicios import campos_credito, catalogo, extractor, historial_chat, notificaciones_staff
 
 
 MODELO = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 700
-MAX_VUELTAS_TOOLS = 5
+MAX_BUSQUEDAS = 2   # busquedas de inventario por respuesta, como mucho
 
 
 # ============================================================
-# 1. HERRAMIENTAS
-# Vacia a proposito: el asistente no calcula cuotas ni guarda leads.
-# El guardado lo decide el servidor (ver intentar_guardar_lead) y las
-# cuotas las define la entidad financiera segun el perfil del cliente.
+# 1. GARANTIA 1: NINGUNA CUOTA NI TASA INVENTADA
 # ============================================================
-HERRAMIENTAS = []
+
+# Frases que indican que la respuesta esta hablando de pagos periodicos.
+# "mensual" cubre tambien "mensuales" y "mensualidad".
+_PALABRAS_CUOTA = [
+    "al mes", "mensual", "por mes", "cada mes", "/mes",
+    "quincenal", "semanal", "cuota de", "cuotas de",
+]
+
+# Montos: con separadores de miles o numeros largos ($1.333.333 / 729166)
+# y tambien en palabras ("350 mil", "1,2 millones", "2 palos").
+_PATRON_MONTO = re.compile(
+    r"\d{1,3}(?:[.,]\d{3})+|\d{5,}"
+    r"|\d+(?:[.,]\d+)?\s*(?:mil|millon|millones|palo|palos)\b",
+    re.IGNORECASE,
+)
+
+# Tasas de interes: un porcentaje junto a vocabulario de credito.
+_PATRON_PORCENTAJE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|por ciento)", re.IGNORECASE)
+_PALABRAS_TASA = ["tasa", "interes", "mensual", "anual", "efectiv", "e.a", "m.v"]
 
 
-def _ejecutar_herramienta(nombre, params):
+def _menciona_cuotas(texto, precios_reales=()):
     """
-    Enruta la peticion de la IA a la funcion correcta.
+    Detecta si la respuesta le esta dando al cliente cifras de cuota o
+    una tasa de interes. El asistente no cotiza: cualquiera de las dos
+    es una cifra inventada.
 
-    Hoy no hay herramientas activas: el asistente solo conversa, y las
-    cifras de cuota las da la entidad financiera, no el sistema. Cuando
-    se agregue una herramienta, se registra aqui y en HERRAMIENTAS.
-    """
-    return {"error": "Herramienta desconocida."}
-
-# ============================================================
-# 3. GARANTIA 1: NINGUNA CUOTA INVENTADA
-# ============================================================
-
-# Frases que indican que la respuesta esta hablando de pagos mensuales.
-_PALABRAS_CUOTA = ["al mes", "mensual", "por mes", "/mes", "cuota de", "cuotas de"]
-
-# Montos con separadores de miles o numeros largos: $1.333.333 / 729166
-_PATRON_MONTO = re.compile(r"\d{1,3}(?:[.,]\d{3})+|\d{5,}")
-
-
-def _menciona_cuotas(texto):
-    """
-    Detecta si la respuesta le esta dando cifras de cuota al cliente.
-    Si esto es true y no se ejecuto la calculadora, la cifra es inventada.
+    'precios_reales' son precios de motos que salieron del catalogo en
+    este turno: "esa FZ vale $7.500.000 y la cuota te la confirma el
+    asesor" no es una cuota. Solo se perdonan escritos con sus digitos
+    completos; cualquier otro monto junto a vocabulario de pagos bloquea.
     """
     if not texto:
         return False
-    bajo = texto.lower()
-    if not any(p in bajo for p in _PALABRAS_CUOTA):
-        return False
-    return bool(_PATRON_MONTO.search(texto))
+    bajo = _sin_acentos(texto)
+    if any(p in bajo for p in _PALABRAS_CUOTA):
+        reales = {str(int(p)) for p in precios_reales if p}
+        for monto in _PATRON_MONTO.findall(bajo):
+            if re.sub(r"[.,]", "", monto) not in reales:
+                return True
+    if _PATRON_PORCENTAJE.search(bajo) and any(p in bajo for p in _PALABRAS_TASA):
+        return True
+    return False
 
 
 # ============================================================
-# 4. CONTEXTO
+# 2. CONTEXTO
 # ============================================================
 
 def _resumen_inventario(motos):
@@ -93,10 +112,52 @@ def _resumen_inventario(motos):
 - Motos por menos de $8.000.000: {bajo_8m}"""
 
 
-def construir_contexto():
+def _descripcion_moto(moto):
+    """Una linea con los datos publicos de una moto del catalogo."""
+    partes = [str(moto.get("marca") or ""), str(moto.get("modelo") or "")]
+    if moto.get("anio"):
+        partes.append(str(moto["anio"]))
+    texto = " ".join(p for p in partes if p)
+    if moto.get("precio"):
+        texto += f", precio ${moto['precio']:,}"
+    sede = (moto.get("sedes") or {}).get("nombre")
+    if sede:
+        texto += f", sede {sede}"
+    return texto
+
+
+def moto_en_contexto(moto_id):
+    """
+    La moto de la ficha desde la que el cliente abrio el chat, o None.
+
+    El id llega del navegador, asi que no se confia en el: tiene que ser
+    un entero y la moto debe existir y estar disponible (se lee con el
+    cliente publico, igual que el catalogo).
+    """
+    if isinstance(moto_id, bool) or not isinstance(moto_id, int) or moto_id <= 0:
+        return None
+    try:
+        moto = repositorios.obtener_moto_por_id(moto_id)
+    except Exception as e:
+        obtener_logger().error(f"Error al leer la moto del chat: {e}")
+        return None
+    if not moto or moto.get("estado") != "disponible":
+        return None
+    return moto
+
+
+def construir_contexto(moto=None):
     motos = repositorios.obtener_motos_disponibles()
     resumen = _resumen_inventario(motos)
     whatsapp = current_app.config.get("WHATSAPP_CONTACTO", "3042827795")
+
+    viendo = ""
+    if moto:
+        viendo = f"""
+MOTO QUE EL CLIENTE ESTA VIENDO AHORA (abrio el chat desde su ficha):
+- {_descripcion_moto(moto)}
+- Dala por la moto que le interesa, salvo que el diga otra cosa.
+"""
 
     return f"""Eres el asistente virtual de Universal Motors, compraventa de motos usadas en Bogota, Colombia. Atiendes por el chat de la pagina web.
 
@@ -107,29 +168,35 @@ TU FORMA DE HABLAR:
 
 TU PROPOSITO:
 1. Dar informacion RAPIDA (cifras) para orientar.
-2. Mandar al catalogo visual para ver las motos con fotos.
-3. Tu FUERTE es la FINANCIACION.
+2. Ofrecer la financiacion de la moto que le interesa al cliente (o su compra de contado).
+3. Pedirle sus datos de contacto para que un asesor lo atienda.
 
 RESUMEN DEL INVENTARIO:
 {resumen}
+{viendo}
+SOBRE MOTOS (ayudar a encontrar una):
+- Cuando el cliente diga que busca (marca, modelo, presupuesto, cilindraje o ano), usa de una la herramienta buscar_motos. No lo llenes de preguntas antes: con un solo dato ya puedes buscar.
+- Responde RAPIDO: cuantas hay y, como mucho, las 2 o 3 que devolvio la busqueda, con su precio. El sistema le muestra al cliente las tarjetas con los enlaces: NO pegues enlaces de motos ni las describas largo.
+- Solo menciona motos y precios que devolvio la herramienta o que estan en este mensaje. Nunca inventes una moto, un precio ni disponibilidad.
+- Si la busqueda no trae nada, dilo y ofrece ampliar (otro precio, otra marca) o dejar sus datos para que un asesor le avise.
+- Si solo quiere mirar, manda al catalogo: https://universalmotors.online/catalogo
+- Apenas le interese una moto, preguntale si la quiere financiar o comprar de contado.
 
-SOBRE MOTOS:
-- Da la cifra rapida y manda al catalogo: https://universalmotors.online/catalogo
-- NO listes las motos una por una.
-
-FINANCIACION (tu fuerte):
-- Tu trabajo es conectar al cliente con un asesor, no cotizar el credito.
-- NUNCA des cifras de cuotas mensuales, tasas de interes ni plazos con valores. Si el cliente pregunta cuanto pagaria al mes, explicale con amabilidad que la cuota depende del estudio que hace la entidad financiera segun su perfil, y que el asesor se la confirma exacta. Nunca inventes ni estimes un numero.
+FINANCIACION Y COMPRA:
+- Tu trabajo es conectar al cliente con un asesor, no cotizar.
+- Cuando el cliente muestre interes en una moto, preguntale si quiere FINANCIARLA o COMPRARLA DE CONTADO. Las dos opciones son bienvenidas; no presiones hacia ninguna.
+- NUNCA des cifras de cuotas, tasas de interes, plazos ni montos de credito, ni se los pidas al cliente. Si pregunta cuanto pagaria al mes, explicale con amabilidad que eso lo define la entidad financiera segun su perfil y que el asesor se lo confirma exacto. Nunca inventes ni estimes un numero.
 - Si insiste en saber la cuota, mantente firme y amable: prefieres darle el dato exacto por medio del asesor antes que un numero que pueda cambiar.
-- Si te da el valor de la moto o cual le interesa, tomalo: le sirve al asesor para preparar la propuesta.
 - Guia la charla paso a paso, una pregunta a la vez, como en WhatsApp.
 
 {campos_credito.instruccion_para_prompt()}
 
-- ORDEN OBLIGATORIO: pide los datos uno por uno. Cuando los tengas TODOS, y solo entonces, haz la pregunta de autorizacion SOLA, en un mensaje aparte: "Listo. Para que un asesor te contacte necesito guardar estos datos. Autorizas el tratamiento de tus datos personales?"
-- Que el cliente te de sus datos NO significa que autorizo. La autorizacion es una respuesta afirmativa explicita a esa pregunta.
+- Pide los datos uno por uno.
+- AUTORIZACION DE DATOS: tu NO haces la pregunta de autorizacion. Cuando esten los datos imprescindibles, el sistema se la hace al cliente automaticamente, con el texto legal. No la redactes ni la adelantes con tus palabras.
+- Que el cliente te de sus datos NO significa que autorizo. La autorizacion es su respuesta afirmativa a la pregunta que hace el sistema.
+- Si el cliente tiene dudas sobre la autorizacion, resuelvelas en breve: los datos se usan solo para que un asesor lo contacte, segun la politica de privacidad del sitio.
 - Nunca digas que un asesor lo contactara si el cliente todavia no autorizo.
-- Si el cliente no autoriza, respeta su decision e invitalo al WhatsApp: +57 {whatsapp}
+- Si el cliente no autoriza, respeta su decision, no insistas, e invitalo al WhatsApp: +57 {whatsapp}
 - NO pidas cedula, ingresos, ni si esta reportado en centrales.
 
 INFORMACION DEL NEGOCIO:
@@ -147,58 +214,117 @@ REGLAS:
 
 
 # ============================================================
-# 5. CICLO DE CONVERSACION
+# 3. CONVERSACION
 # ============================================================
 
-def _conversar(cliente, contexto, mensajes_base, forzar_calculadora=False):
-   
-    mensajes = list(mensajes_base)
-    uso_calculadora = False
-
-    for vuelta in range(MAX_VUELTAS_TOOLS):
-        parametros = {
-            "model": MODELO,
-            "max_tokens": MAX_TOKENS,
-            "system": contexto,
-            "tools": HERRAMIENTAS,
-            "messages": mensajes,
+def _herramienta_buscar():
+    """
+    Definicion de buscar_motos para el modelo. Los rangos salen de
+    catalogo.RANGOS_*: son los mismos filtros de la pagina del catalogo.
+    """
+    def rango(rangos, que):
+        opciones = ", ".join(f'"{k}" = {v["etiqueta"]}' for k, v in rangos.items())
+        return {
+            "type": "array",
+            "items": {"type": "string", "enum": list(rangos)},
+            "description": f"{que}. Opciones: {opciones}. Se pueden combinar varias.",
         }
-        if forzar_calculadora and vuelta == 0:
-            parametros["tool_choice"] = {"type": "tool", "name": "calcular_cuota"}
 
+    return {
+        "name": "buscar_motos",
+        "description": (
+            "Busca motos disponibles en el inventario de Universal Motors. "
+            "Devuelve cuantas hay y las mas relevantes con precio. Todos los "
+            "parametros son opcionales; usa solo los que el cliente dio."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "marca": {"type": "string", "description": "Marca, por ejemplo Yamaha."},
+                "modelo": {"type": "string", "description": "Modelo o referencia, por ejemplo FZ o NMAX."},
+                "cilindraje": rango(catalogo.RANGOS_CILINDRAJE, "Cilindraje"),
+                "anio": rango(catalogo.RANGOS_ANIO, "Ano del modelo"),
+                "precio": rango(catalogo.RANGOS_PRECIO, "Presupuesto"),
+            },
+        },
+    }
+
+
+def _buscar(parametros):
+    """Ejecuta buscar_motos. Un fallo de la base no tumba la conversacion."""
+    try:
+        return catalogo.buscar_para_asistente(parametros)
+    except Exception as e:
+        obtener_logger().error(f"Error en la busqueda del asistente: {e}")
+        return None
+
+
+def _conversar(cliente, contexto, mensajes):
+    """
+    Llama al modelo y atiende sus busquedas de inventario.
+
+    Devuelve (texto, busqueda): 'busqueda' es el resultado de la ultima
+    busqueda con motos (o None), para que el servidor arme las tarjetas.
+    """
+    mensajes = list(mensajes)
+    herramientas = [_herramienta_buscar()]
+    busqueda = None
+
+    for vuelta in range(MAX_BUSQUEDAS + 1):
+        parametros = {
+            "model": MODELO, "max_tokens": MAX_TOKENS,
+            "system": contexto, "messages": mensajes,
+            "tools": herramientas,
+        }
+        # En la ultima vuelta se le prohibe buscar: tiene que responder.
+        if vuelta == MAX_BUSQUEDAS:
+            parametros["tool_choice"] = {"type": "none"}
         respuesta = cliente.messages.create(**parametros)
 
         if respuesta.stop_reason != "tool_use":
             textos = [b.text for b in respuesta.content if b.type == "text"]
-            return ("\n".join(textos) if textos else None, uso_calculadora)
+            return ("\n".join(textos) if textos else None), busqueda
 
         mensajes.append({"role": "assistant", "content": respuesta.content})
-
         resultados = []
         for bloque in respuesta.content:
-            if bloque.type == "tool_use":
-                if bloque.name == "calcular_cuota":
-                    uso_calculadora = True
-                salida = _ejecutar_herramienta(bloque.name, bloque.input)
-                resultados.append({
-                    "type": "tool_result",
-                    "tool_use_id": bloque.id,
-                    "content": str(salida),
-                })
-
+            if bloque.type != "tool_use":
+                continue
+            encontrado = _buscar(bloque.input) if bloque.name == "buscar_motos" else None
+            if encontrado is None:
+                contenido = "La busqueda no esta disponible ahora."
+            else:
+                if encontrado["motos"]:
+                    busqueda = encontrado
+                contenido = json.dumps({
+                    "total": encontrado["total"],
+                    "motos": [
+                        {"moto": m["titulo"], "precio": m["precio_texto"], "detalle": m["detalle"]}
+                        for m in encontrado["motos"]
+                    ],
+                }, ensure_ascii=False)
+            resultados.append({
+                "type": "tool_result", "tool_use_id": bloque.id, "content": contenido,
+            })
         mensajes.append({"role": "user", "content": resultados})
 
-    return (None, uso_calculadora)
+    return None, busqueda
 
 
-def responder(historial):
+def responder(historial, lead_guardado=False, moto=None):
     """
-    Devuelve la respuesta del asistente, garantizando que cualquier cifra
-    de cuota que llegue al cliente haya sido calculada por el simulador.
+    Devuelve (texto, busqueda): la respuesta del asistente y, si busco en
+    el inventario, el resultado para las tarjetas (o None). Garantiza que
+    no le llegue al cliente ninguna cifra de cuota ni tasa de interes.
+
+    'historial' es el ya validado por historial_chat.validar_historial.
+    'lead_guardado' solo ajusta el cierre del texto que reemplaza a una
+    cuota: no se piden datos a quien ya los dio.
+    'moto' es la moto de la ficha desde la que se abrio el chat, si hay.
     """
     key = current_app.config.get("ANTHROPIC_API_KEY")
     if not key:
-        return "Disculpa, el asistente no esta disponible ahora. Escribenos por WhatsApp y con gusto te ayudamos."
+        return "Disculpa, el asistente no esta disponible ahora. Escribenos por WhatsApp y con gusto te ayudamos.", None
 
     mensajes = []
     for m in historial:
@@ -208,86 +334,131 @@ def responder(historial):
             mensajes.append({"role": rol, "content": texto})
 
     if not mensajes:
-        return "No recibi tu mensaje. Puedes escribirlo de nuevo?"
+        return "No recibi tu mensaje. Puedes escribirlo de nuevo?", None
 
     try:
         cliente = Anthropic(api_key=key)
-        contexto = construir_contexto()
+        texto, busqueda = _conversar(cliente, construir_contexto(moto), mensajes)
 
-        texto, uso_calculadora = _conversar(cliente, contexto, mensajes)
+        precios_reales = [m["precio"] for m in (busqueda or {}).get("motos", [])]
+        if moto:
+            precios_reales.append(moto.get("precio"))
 
-        # GARANTIA: si va a dar cuotas sin haberlas calculado, rehacemos
-        # la respuesta obligando a usar la herramienta.
-                # El asistente no debe dar cifras de cuotas: la entidad financiera
+        # El asistente no debe dar cifras de cuotas: la entidad financiera
         # las define segun el perfil del cliente, y un numero que despues
         # cambia genera friccion. Si se le escapa una, no sale al cliente.
-        if texto and _menciona_cuotas(texto):
+        if texto and _menciona_cuotas(texto, precios_reales):
             obtener_logger().warning("El asistente iba a dar una cuota. Respuesta reemplazada.")
+            cierre = "" if lead_guardado else " ¿Seguimos con tus datos?"
             return ("La cuota exacta depende del estudio que hace la entidad financiera "
                     "segun tu perfil, asi que prefiero no darte un numero que despues cambie. "
-                    "Un asesor te la confirma con precision. ¿Seguimos con tus datos? 🏍️")
+                    f"Un asesor te la confirma con precision.{cierre} 🏍️"), None
         if not texto:
-            return "Dame un momento... mejor escribenos por WhatsApp y te ayudamos de una. 🏍️"
+            return "Dame un momento... mejor escribenos por WhatsApp y te ayudamos de una. 🏍️", None
 
-        return texto
+        return texto, busqueda
 
     except Exception as e:
         try:
             obtener_logger().error(f"Error en el asistente de IA: {e}")
         except Exception:
             pass
-        return "Uy, tuve un problema para responder. Intenta de nuevo o escribenos por WhatsApp. 🏍️"
+        return "Uy, tuve un problema para responder. Intenta de nuevo o escribenos por WhatsApp. 🏍️", None
 
 
 # ============================================================
-# 6. GARANTIA 2: EL SERVIDOR DECIDE EL GUARDADO
+# 4. GARANTIA 2: EL SERVIDOR DECIDE EL GUARDADO
 # ============================================================
 
-def intentar_guardar_lead(historial, firmas_previas=None):
+def _telefono_enmascarado(telefono):
+    """Para el log: nunca el telefono completo (regla de logging_config)."""
+    digitos = str(telefono or "")
+    return f"***{digitos[-4:]}" if len(digitos) >= 4 else "***"
+
+
+def intentar_guardar_lead(historial, firmas_previas=None, moto=None):
     """
     Decide si guardar un lead. La IA no participa de esta decision.
+
+    'historial' es el ya validado: sus mensajes de asistente son solo los
+    que este servidor firmo. 'moto' es la moto (ya verificada) de la ficha
+    desde la que se abrio el chat; si hay, el lead queda enlazado a ella.
 
     Devuelve un diagnostico:
       firma          la firma nueva si guardo, None si no
       faltantes      etiquetas de datos obligatorios que no llegaron
-      consentimiento True si el cliente autorizo de forma verificable
+      completos      True si el extractor respondio y no falta ningun
+                     dato obligatorio
+      consentimiento otorgado | rechazado | pendiente
+
+    DOBLE LLAVE: solo se guarda si la verificacion en Python
+    (estado_consentimiento) Y el extractor ("autorizo": true) coinciden.
+    Si Python dice que si y el extractor no, queda pendiente y se vuelve
+    a preguntar.
     """
-    from app.servicios import extractor, campos_credito
     from app.seguridad import cifrado
     from datetime import datetime, timezone
 
     firmas_previas = firmas_previas or []
-    diagnostico = {"firma": None, "faltantes": [], "consentimiento": False}
+    diagnostico = {
+        "firma": None,
+        "faltantes": [],
+        "completos": False,
+        "consentimiento": extractor.CONSENTIMIENTO_PENDIENTE,
+    }
 
     try:
+        diagnostico["consentimiento"] = extractor.estado_consentimiento(historial)
+
         crudos = extractor.extraer_datos(historial)
         if not crudos:
             return diagnostico
 
         limpios, faltantes = campos_credito.validar(crudos)
         diagnostico["faltantes"] = faltantes
-        diagnostico["consentimiento"] = extractor.verificar_consentimiento(historial)
+        diagnostico["completos"] = not faltantes
 
-        if faltantes or not diagnostico["consentimiento"]:
+        if faltantes or diagnostico["consentimiento"] != extractor.CONSENTIMIENTO_OTORGADO:
             return diagnostico
 
+        if crudos.get("autorizo") is not True:
+            obtener_logger().warning(
+                "Consentimiento: la verificacion y el extractor no coinciden. No se guarda."
+            )
+            diagnostico["consentimiento"] = extractor.CONSENTIMIENTO_PENDIENTE
+            return diagnostico
+
+        # Un lead por telefono en cada sesion. (Las firmas viejas traian
+        # un monto despues de la barra; por eso se compara el prefijo.)
         telefono = limpios.get("telefono")
-        valor = limpios.get("valor_financiar")
-        firma = f"{telefono}|{valor if valor is not None else ''}"
-
-        if firma in firmas_previas:
-            return diagnostico
-        if valor is not None and f"{telefono}|" in firmas_previas:
+        firma = f"{telefono}|"
+        if any(f.startswith(firma) for f in firmas_previas):
             return diagnostico
 
         registro = campos_credito.a_columnas(limpios, cifrado.cifrar)
+        if moto:
+            registro["moto_id"] = moto["id"]
         registro["autorizo_datos_basicos"] = True
         registro["autorizo_datos_financieros"] = False
         registro["fecha_consentimiento"] = datetime.now(timezone.utc).isoformat()
 
-        repositorios.guardar_lead_chat_directo(registro)
-        obtener_logger().info(f"Lead de chat guardado: {limpios.get('nombre')} / {telefono}")
+        guardado = repositorios.guardar_lead_chat_directo(registro)
+        lead_id = guardado[0].get("id") if guardado else None
+        obtener_logger().info(
+            "Lead de chat guardado: id=%s tel=%s", lead_id, _telefono_enmascarado(telefono)
+        )
         diagnostico["firma"] = firma
+
+        # Aviso push a los asesores. Va aparte y nunca tumba el guardado:
+        # si falla, el lead ya esta en la bandeja del panel.
+        if lead_id is not None:
+            try:
+                notificaciones_staff.avisar_lead_nuevo_en_segundo_plano(
+                    lead_id,
+                    contado=limpios.get("forma_pago") == campos_credito.FORMA_PAGO_CONTADO,
+                )
+            except Exception as e:
+                obtener_logger().error(f"No se pudo lanzar el aviso del lead {lead_id}: {e}")
         return diagnostico
 
     except Exception as e:
@@ -297,7 +468,8 @@ def intentar_guardar_lead(historial, firmas_previas=None):
             pass
         return diagnostico
 
-        # Promesas de contacto proactivo. Sin acentos porque comparamos normalizado.
+
+# Promesas de contacto proactivo. Sin acentos porque comparamos normalizado.
 _FRASES_PROMESA = [
     "te contactara", "te contactaremos", "te contactamos",
     "lo contactara", "se pondra en contacto",
@@ -310,14 +482,22 @@ def _sin_acentos(texto):
     return (texto or "").lower().translate(reemplazos)
 
 
+def _promete_contacto(respuesta):
+    texto = _sin_acentos(respuesta)
+    return any(f in texto for f in _FRASES_PROMESA)
+
+
 def corregir_promesa(respuesta, diagnostico, firmas_previas=None):
     """
     Impide que el asistente prometa contacto si el lead no quedo guardado.
 
     Si la respuesta anuncia que un asesor va a contactar al cliente pero
     no hay ningun lead registrado, esa respuesta NO sale: se reemplaza por
-    una que pide lo que falta. Misma logica que la garantia de las cuotas:
+    una acorde a lo que falta. Misma logica que la garantia de las cuotas:
     el servidor verifica antes de hablar.
+
+    Nunca hace aqui la pregunta de autorizacion: esa solo la emite
+    decidir_respuesta, con texto fijo y firmada como tal.
     """
     if not respuesta:
         return respuesta
@@ -326,8 +506,7 @@ def corregir_promesa(respuesta, diagnostico, firmas_previas=None):
     if ya_guardado:
         return respuesta
 
-    texto = _sin_acentos(respuesta)
-    if not any(f in texto for f in _FRASES_PROMESA):
+    if not _promete_contacto(respuesta):
         return respuesta
 
     obtener_logger().warning("El asistente prometio contacto sin lead guardado. Respuesta corregida.")
@@ -337,9 +516,107 @@ def corregir_promesa(respuesta, diagnostico, firmas_previas=None):
         return ("Antes de que un asesor te contacte necesito un dato mas: "
                 f"{', '.join(faltantes)}. Me lo compartes? 🏍️")
 
-    if not diagnostico.get("consentimiento"):
-        return ("Ya casi. Para que un asesor te contacte necesito guardar tus datos. "
-                "¿Autorizas el tratamiento de tus datos personales?")
+    if diagnostico.get("consentimiento") == extractor.CONSENTIMIENTO_RECHAZADO:
+        return ("Entendido, respeto tu decision: sin tu autorizacion no puedo pasarle "
+                "tus datos a un asesor. Si quieres, escribenos directo por WhatsApp "
+                "y con gusto te atendemos. 🏍️")
 
     return ("Dejame confirmar algo antes de seguir. ¿Me repites tus datos "
             "para que un asesor te contacte?")
+
+
+def decidir_respuesta(respuesta, diagnostico, historial, firmas_previas=None):
+    """
+    Decide que le llega al cliente y con que tipo. Devuelve (texto, tipo).
+
+    Es aqui donde el SERVIDOR hace la pregunta de autorizacion: cuando ya
+    estan los datos obligatorios, no hay lead guardado y el consentimiento
+    sigue pendiente, la respuesta del modelo se reemplaza por la pregunta
+    fija (tipo "consentimiento"). El modelo nunca la redacta, asi que el
+    texto que el cliente acepta es siempre el mismo.
+    """
+    ya_guardado = bool(diagnostico.get("firma")) or bool(firmas_previas)
+
+    if not ya_guardado and diagnostico.get("completos"):
+        estado = diagnostico.get("consentimiento")
+        ultimo_cliente = historial[-1].get("texto") if historial else ""
+
+        # Dijo que no y ahora pide autorizar: se le hace de nuevo la
+        # pregunta formal (su frase suelta no cuenta como consentimiento).
+        if (estado == extractor.CONSENTIMIENTO_RECHAZADO
+                and extractor.quiere_autorizar(ultimo_cliente)):
+            estado = extractor.CONSENTIMIENTO_PENDIENTE
+
+        if estado == extractor.CONSENTIMIENTO_PENDIENTE:
+            mensajes_bot = [m for m in historial if m.get("rol") == historial_chat.ROL_BOT]
+            recien_preguntado = bool(mensajes_bot) and (
+                mensajes_bot[-1].get("tipo") == historial_chat.TIPO_CONSENTIMIENTO
+            )
+            # Ya se le pregunto y contesto otra cosa (una duda): sale la
+            # respuesta del modelo y se repite la pregunta al final.
+            if recien_preguntado and respuesta and not _promete_contacto(respuesta):
+                texto = f"{respuesta}\n\n{extractor.RECORDATORIO_CONSENTIMIENTO}"
+                return texto, historial_chat.TIPO_CONSENTIMIENTO
+            return extractor.PREGUNTA_CONSENTIMIENTO, historial_chat.TIPO_CONSENTIMIENTO
+
+    texto = corregir_promesa(respuesta, diagnostico, firmas_previas)
+    return texto, historial_chat.TIPO_NORMAL
+
+
+# ============================================================
+# 5. UN TURNO COMPLETO
+# ============================================================
+
+def atender(historial_crudo, chat_id, firmas_previas=None, moto_id=None):
+    """
+    Atiende un mensaje del chat web de principio a fin.
+
+    'historial_crudo' es lo que mando el navegador, sin confiar en nada:
+    aqui se valida y se descartan los mensajes de asistente que este
+    servidor no firmo. Lanza ErrorValidacion si la entrada no sirve.
+    'moto_id' es la ficha desde la que se abrio el chat (tampoco se
+    confia: ver moto_en_contexto).
+
+    Devuelve:
+      respuesta   texto para el cliente
+      tipo        normal | consentimiento
+      firma       firma del mensaje; el navegador la devuelve con el
+                  historial para probar que el texto lo emitio el servidor
+      firma_lead  firma de deduplicacion si en este turno se guardo un
+                  lead, None si no
+      motos       tarjetas de las motos que encontro la busqueda (titulo,
+                  precio, detalle, url), [] si no hubo
+      url_catalogo  catalogo con los mismos filtros, None si no hubo
+    """
+    clave = current_app.config["SECRET_KEY"]
+    firmas_previas = firmas_previas or []
+
+    historial, descartados = historial_chat.validar_historial(historial_crudo, clave, chat_id)
+    if descartados:
+        obtener_logger().warning(
+            "Chat: %s mensaje(s) de asistente sin firma valida descartados.", descartados
+        )
+
+    moto = moto_en_contexto(moto_id)
+    texto_modelo, busqueda = responder(historial, lead_guardado=bool(firmas_previas), moto=moto)
+    diagnostico = intentar_guardar_lead(historial, firmas_previas, moto=moto)
+    respuesta, tipo = decidir_respuesta(texto_modelo, diagnostico, historial, firmas_previas)
+
+    # Las tarjetas acompanan solo a la respuesta del modelo tal cual: si
+    # el servidor la reemplazo (autorizacion, promesa), ya no vienen al caso.
+    if respuesta != texto_modelo:
+        busqueda = None
+    motos = [
+        {"titulo": m["titulo"], "precio": m["precio_texto"],
+         "detalle": m["detalle"], "url": f"/moto/{m['id']}"}
+        for m in (busqueda or {}).get("motos", [])
+    ]
+
+    return {
+        "motos": motos,
+        "url_catalogo": busqueda["url_catalogo"] if busqueda else None,
+        "respuesta": respuesta,
+        "tipo": tipo,
+        "firma": historial_chat.firmar(clave, chat_id, tipo, respuesta),
+        "firma_lead": diagnostico["firma"],
+    }

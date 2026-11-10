@@ -120,6 +120,102 @@ def modelos_permutados():
     """Qué modelos se mueven más en permutas (entrantes + salientes)."""
     return repositorios.reporte_modelos_permutados()
 
+
+# ------------------------------------------------------------
+#  Resumen semanal de gerencia
+# ------------------------------------------------------------
+
+TOP_ASESORES = 5
+
+
+def ultima_semana_completa(hoy=None):
+    """
+    (lunes, domingo) de la última semana completa antes de 'hoy' (fecha
+    de Colombia por defecto). Un lunes devuelve la semana que terminó
+    ayer; un domingo, la anterior (la actual aún no terminó).
+    """
+    from datetime import timedelta
+    from app.seguridad.tiempo import hoy_colombia
+
+    hoy = hoy or hoy_colombia()
+    lunes = hoy - timedelta(days=hoy.weekday() + 7)
+    return lunes, lunes + timedelta(days=6)
+
+
+def resumen_semanal(desde, hasta):
+    """
+    Ventas, compras y permutas de [desde, hasta] (fechas, hasta inclusivo),
+    de todas las sedes. Los días se cortan en hora de Colombia, no en UTC:
+    una venta del domingo a las 8 p. m. es de esa semana, no de la
+    siguiente (mismo criterio que la vista reporte_ventas_por_semana).
+    El cálculo vive en agregar_resumen; aquí solo el I/O.
+    """
+    from datetime import datetime, time, timedelta
+    from app.seguridad.tiempo import HORA_COLOMBIA, fecha_legible
+
+    inicio = datetime.combine(desde, time.min, tzinfo=HORA_COLOMBIA).isoformat()
+    fin = datetime.combine(hasta + timedelta(days=1), time.min, tzinfo=HORA_COLOMBIA).isoformat()
+
+    resumen = agregar_resumen(
+        repositorios.resumen_ventas_en_rango(inicio, fin),
+        repositorios.resumen_compras_en_rango(inicio, fin),
+        repositorios.resumen_permutas_en_rango(inicio, fin),
+    )
+    resumen["periodo"] = f"Del {fecha_legible(desde)} al {fecha_legible(hasta)}"
+    return resumen
+
+
+def agregar_resumen(ventas, compras, permutas):
+    """
+    Agregación pura del resumen semanal (sin I/O, para poder probarla).
+
+    Ventas: cuentan solo las de estado 'activa' (una anulada no es una
+    venta). El monto suma precio_venta; las que aún no tienen el detalle
+    cargado (precio NULL) cuentan en cantidad pero no en monto, y se
+    informan en 'sin_precio' para que se vea por qué el monto queda corto.
+    Compras: cantidad y suma de precio_compra (NULL en compras históricas).
+    Permutas: solo cantidad.
+    """
+    activas = [v for v in ventas if v.get("estado") == "activa"]
+
+    por_sede, por_asesor = {}, {}
+    monto_ventas = ventas_sin_precio = 0
+    for v in activas:
+        precio = v.get("precio_venta")
+        if precio is None:
+            ventas_sin_precio += 1
+            precio = 0
+        monto_ventas += precio
+
+        # Por sede_id, no por nombre: dos sedes podrían llamarse igual.
+        nombre_sede = (v.get("sedes") or {}).get("nombre") or "Sin sede"
+        sede = por_sede.setdefault(v.get("sede_id"),
+                                   {"sede": nombre_sede, "cantidad": 0, "monto": 0})
+        sede["cantidad"] += 1
+        sede["monto"] += precio
+
+        nombre_asesor = v.get("asesor_nombre") or "Sin asesor"
+        asesor = por_asesor.setdefault(nombre_asesor,
+                                       {"asesor_nombre": nombre_asesor, "cantidad": 0, "monto": 0})
+        asesor["cantidad"] += 1
+        asesor["monto"] += precio
+
+    def orden(fila, nombre):
+        return (-fila["cantidad"], -fila["monto"], fila[nombre])
+
+    precios_compra = [c.get("precio_compra") for c in compras]
+    return {
+        "ventas": {"cantidad": len(activas), "monto": monto_ventas,
+                   "sin_precio": ventas_sin_precio},
+        "por_sede": sorted(por_sede.values(), key=lambda f: orden(f, "sede")),
+        "top_asesores": sorted(por_asesor.values(),
+                               key=lambda f: orden(f, "asesor_nombre"))[:TOP_ASESORES],
+        "compras": {"cantidad": len(compras),
+                    "monto": sum(p for p in precios_compra if p is not None),
+                    "sin_precio": sum(1 for p in precios_compra if p is None)},
+        "permutas": {"cantidad": len(permutas)},
+    }
+
 def _rango_por_defecto(desde, hasta, dias=15):
     """
     Rango por defecto de los paneles de gerencia: si no llegan fechas,

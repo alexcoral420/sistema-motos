@@ -310,3 +310,108 @@ def vitrina_feria() -> dict:
             "sedes": len(datos["sedes"]),
         },
     }
+
+
+# ============================================================
+# BUSQUEDA PARA EL ASISTENTE DEL CHAT
+#
+# El asistente busca con los MISMOS filtros y rangos del catalogo: sus
+# parametros se traducen a los de la URL y pasan por limpiar_filtros,
+# asi que nada de lo que mande el modelo llega a la consulta sin validar.
+# ============================================================
+
+MOTOS_PARA_ASISTENTE = 3
+_CAMPOS_RANGO_ASISTENTE = (("cilindraje", "cc"), ("anio", "anio"), ("precio", "precio"))
+
+
+def _pesos(valor):
+    """7500000 -> '$7.500.000' (formato colombiano)."""
+    return "$" + f"{int(valor):,}".replace(",", ".")
+
+
+def _ficha_para_asistente(moto):
+    """
+    Solo los datos publicos de la ficha. La vista trae tambien placa,
+    SOAT y demas: aqui se arma campo por campo, nunca se pasa la fila.
+    """
+    titulo = " ".join(
+        str(moto[c]) for c in ("marca", "modelo", "anio") if moto.get(c)
+    )
+    detalle = []
+    if moto.get("cilindraje"):
+        detalle.append(f"{moto['cilindraje']}cc")
+    if moto.get("kilometraje"):   # 0 suele ser "sin registrar", no una moto nueva
+        detalle.append(f"{int(moto['kilometraje']):,} km".replace(",", "."))
+    if moto.get("sede_nombre"):
+        detalle.append(f"Sede {moto['sede_nombre']}")
+    return {
+        "id": moto["id"],
+        "titulo": titulo,
+        "precio": moto.get("precio"),
+        "precio_texto": _pesos(moto["precio"]) if moto.get("precio") else "",
+        "detalle": " · ".join(detalle),
+    }
+
+
+def buscar_para_asistente(parametros) -> dict:
+    """
+    Busqueda corta para el chat: las motos mas relevantes y el total.
+
+    'parametros' es lo que mando el modelo (entrada no confiable):
+      marca       texto; se acepta solo si coincide con una marca disponible
+      modelo      texto libre (modelo o referencia)
+      cilindraje, anio, precio   listas de claves de RANGOS_*
+
+    Devuelve {"total", "motos": [fichas publicas], "url_catalogo"}; la
+    URL lleva los mismos filtros, para ver el resto con fotos.
+    """
+    from urllib.parse import urlencode
+    from werkzeug.datastructures import MultiDict
+
+    parametros = parametros if isinstance(parametros, dict) else {}
+    args = MultiDict()
+
+    texto = parametros.get("modelo")
+    texto = texto.strip() if isinstance(texto, str) else ""
+
+    marca = parametros.get("marca")
+    if isinstance(marca, str) and marca.strip():
+        buscada = marca.strip().lower()
+        coincide = next(
+            (m for m in repositorios.obtener_marcas_disponibles() if m.lower() == buscada),
+            None,
+        )
+        if coincide:
+            args.add("marca", coincide)
+        elif not texto:
+            texto = marca.strip()   # quiza es un modelo, no una marca
+    if texto:
+        args.add("q", texto)
+
+    for clave, clave_url in _CAMPOS_RANGO_ASISTENTE:
+        valores = parametros.get(clave)
+        if isinstance(valores, str):
+            valores = [valores]
+        if isinstance(valores, list):
+            for v in valores[:_MAX_OPCIONES]:
+                if isinstance(v, str):
+                    args.add(clave_url, v)
+
+    filtros = limpiar_filtros(args)
+    motos, total = repositorios.obtener_motos_filtradas(
+        filtros, limite=MOTOS_PARA_ASISTENTE, pagina=1
+    )
+
+    consulta = [("marca", m) for m in filtros["marcas"]]
+    consulta += [("cc", c) for c in filtros["cc"]]
+    consulta += [("anio", a) for a in filtros["anio"]]
+    consulta += [("precio", p) for p in filtros["precio"]]
+    if filtros["texto"]:
+        consulta.append(("q", filtros["texto"]))
+    url = "/catalogo" + ("?" + urlencode(consulta) if consulta else "")
+
+    return {
+        "total": total,
+        "motos": [_ficha_para_asistente(m) for m in motos],
+        "url_catalogo": url,
+    }
