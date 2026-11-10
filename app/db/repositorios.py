@@ -667,6 +667,31 @@ def registrar_intencion(moto_id: int, sede_id: int, sesion_id: str = None):
         "sesion_id": sesion_id,
     }).execute()
 
+
+def existe_intencion_desde(moto_id: int, sesion_id: str, desde: str) -> bool:
+    """¿Hay una intención de esa moto y esa sesión creada desde 'desde' (ISO)?"""
+    supabase = get_supabase_admin()
+    r = (supabase.table("intenciones").select("id")
+         .eq("moto_id", moto_id)
+         .eq("sesion_id", sesion_id)
+         .gte("created_at", desde)
+         .limit(1).execute())
+    return bool(r.data)
+
+
+def contar_intenciones_por_prefijo(prefijo: str, desde: str, moto_id: int = None) -> int:
+    """
+    Cuántas intenciones cuyo sesion_id empieza por 'prefijo' hay desde
+    'desde' (ISO); de una moto si se indica, o de todas.
+    """
+    supabase = get_supabase_admin()
+    consulta = (supabase.table("intenciones").select("id", count="exact")
+                .like("sesion_id", prefijo + "%")
+                .gte("created_at", desde))
+    if moto_id is not None:
+        consulta = consulta.eq("moto_id", moto_id)
+    return consulta.limit(1).execute().count or 0
+
     # ============================================================
 #  BÚSQUEDA EN EL PANEL ADMIN
 # ============================================================

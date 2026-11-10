@@ -39,6 +39,17 @@ class Config:
     # --- Integración con el taller (módulo de gastos) ---
     TALLER_URL = os.environ.get("TALLER_URL")
     TALLER_API_KEY = os.environ.get("TALLER_API_KEY")
+    # --- API externa /api (la consume n8n) ---
+    # Llave que n8n manda en "Authorization: Bearer <llave>". El nombre es
+    # histórico (ya no hay webhook). Sin la principal, la API responde 503.
+    # La _ANTERIOR es opcional y solo existe durante una rotación:
+    #   1. copiar la llave actual a API_WEBHOOK_KEY_ANTERIOR,
+    #   2. poner la nueva en API_WEBHOOK_KEY y desplegar (valen las dos),
+    #   3. cambiar la llave en n8n,
+    #   4. borrar API_WEBHOOK_KEY_ANTERIOR cuando el log deje de mostrar
+    #      consumidor=n8n(anterior).
+    API_WEBHOOK_KEY = os.environ.get("API_WEBHOOK_KEY")
+    API_WEBHOOK_KEY_ANTERIOR = os.environ.get("API_WEBHOOK_KEY_ANTERIOR")
     # --- Número de WhatsApp de contacto público (botones "Escríbenos") ---
     # UNA sola fuente de verdad, para no repetirlo en cada template.
     WHATSAPP_CONTACTO = os.environ.get("WHATSAPP_CONTACTO", "3042827795")

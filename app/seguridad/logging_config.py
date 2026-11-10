@@ -67,6 +67,11 @@ def configurar_logging(app):
     nivel = logging.INFO if app.config.get("DEBUG") else logging.WARNING
     logger.setLevel(nivel)
 
+    # El log por petición de /api siempre en INFO, también en producción:
+    # es el único rastro de quién consumió la API. Como hijo de
+    # "auditoria" escribe en los mismos destinos (archivo y consola).
+    obtener_logger_api()
+
     # Evita duplicados si configurar_logging se llamara más de una vez
     # (por ejemplo, en tests que crean varias apps).
     if not logger.handlers:
@@ -89,3 +94,16 @@ def obtener_logger():
         log.warning("Login fallido: usuario '%s'", usuario)
     """
     return logging.getLogger("auditoria")
+
+
+def obtener_logger_api():
+    """
+    Logger del registro por petición de /api ("auditoria.api").
+
+    Fijado en INFO aunque "auditoria" esté en WARNING (producción): el
+    nivel se decide en el logger que emite, así que sus líneas llegan a
+    los destinos del padre sin subirle el volumen al resto.
+    """
+    logger = logging.getLogger("auditoria.api")
+    logger.setLevel(logging.INFO)
+    return logger
