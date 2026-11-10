@@ -75,6 +75,11 @@
         border-bottom-right-radius: 4px;
     }
 
+    .chat-msg .chat-enlace-politica {
+        display: inline-block; margin-top: 6px;
+        color: #ff9633; text-decoration: underline;
+    }
+
     .chat-input-zona {
         display: flex; padding: 12px; gap: 8px; border-top: 1px solid #333;
     }
@@ -123,7 +128,7 @@
         </div>
     </div>
     <div class="chat-input-zona">
-        <input type="text" id="chat-input" placeholder="Escribe tu mensaje..."
+        <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." maxlength="500"
                onkeydown="if(event.key==='Enter') enviarMensaje()">
         <button onclick="enviarMensaje()" aria-label="Enviar">&#10148;</button>
     </div>
@@ -132,6 +137,9 @@
 <script>
     let saludoOcultado = false;
     let historialChat = [];
+    // Ficha desde la que se abrio el chat (solo en el detalle de una moto).
+    // El servidor la vuelve a verificar: aqui es solo contexto.
+    const motoDelChat = {{ (chat_moto_id if chat_moto_id is defined else none) | tojson }};
     function mostrarSaludo() {
         if (saludoOcultado) return;
         const s = document.getElementById('chat-saludo');
@@ -161,13 +169,34 @@
         document.getElementById('chat-ventana').classList.remove('abierto');
     }
 
-    function agregarMensaje(texto, quien) {
+    // El servidor solo procesa los mensajes recientes; no hace falta
+    // (ni se acepta) reenviar una conversacion sin limite.
+    const MAX_HISTORIAL_CHAT = 60;
+
+    function agregarMensaje(texto, quien, tipo) {
         const zona = document.getElementById('chat-mensajes');
         const div = document.createElement('div');
         div.className = 'chat-msg ' + quien;
         div.textContent = texto;
+        // Pregunta de autorizacion de datos: el cliente debe poder leer
+        // la politica antes de aceptar.
+        if (tipo === 'consentimiento') {
+            const enlace = document.createElement('a');
+            enlace.href = '/privacidad';
+            enlace.target = '_blank';
+            enlace.rel = 'noopener';
+            enlace.textContent = 'Leer la política de privacidad';
+            enlace.className = 'chat-enlace-politica';
+            div.appendChild(document.createElement('br'));
+            div.appendChild(enlace);
+        }
         zona.appendChild(div);
         zona.scrollTop = zona.scrollHeight;
+    }
+
+    function quitarDelHistorial(mensaje) {
+        const i = historialChat.indexOf(mensaje);
+        if (i !== -1) historialChat.splice(i, 1);
     }
 
     async function enviarMensaje() {
@@ -176,7 +205,8 @@
         if (!texto) return;
 
         agregarMensaje(texto, 'usuario');
-        historialChat.push({ rol: 'usuario', texto: texto });
+        const enviado = { rol: 'usuario', texto: texto };
+        historialChat.push(enviado);
         input.value = '';
 
         // Mostramos "escribiendo..." mientras esperamos.
@@ -192,22 +222,36 @@
             const resp = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ historial: historialChat })
+                body: JSON.stringify({ historial: historialChat, moto_id: motoDelChat })
             });
             document.getElementById('chat-cargando').remove();
 
             if (resp.ok) {
                 const datos = await resp.json();
-                agregarMensaje(datos.respuesta, 'bot');
-                historialChat.push({ rol: 'bot', texto: datos.respuesta });
-            } else if (resp.status === 429) {
-                agregarMensaje('Estás enviando mensajes muy rápido. Espera un momento por favor. 😊', 'bot');
+                agregarMensaje(datos.respuesta, 'bot', datos.tipo);
+                // La firma prueba que este texto lo emitio el servidor: sin
+                // ella, el servidor descarta el mensaje al recibir el historial.
+                historialChat.push({
+                    rol: 'bot', texto: datos.respuesta,
+                    tipo: datos.tipo, firma: datos.firma
+                });
+                if (historialChat.length > MAX_HISTORIAL_CHAT) {
+                    historialChat = historialChat.slice(-MAX_HISTORIAL_CHAT);
+                }
             } else {
-                agregarMensaje('Hubo un problema. Intenta de nuevo o escríbenos por WhatsApp.', 'bot');
+                // El mensaje no se proceso: no debe quedar en el historial,
+                // o se reenviaria (y volveria a fallar) en cada intento.
+                quitarDelHistorial(enviado);
+                if (resp.status === 429) {
+                    agregarMensaje('Estás enviando mensajes muy rápido. Espera un momento por favor. 😊', 'bot');
+                } else {
+                    agregarMensaje('Hubo un problema. Intenta de nuevo o escríbenos por WhatsApp.', 'bot');
+                }
             }
         } catch (e) {
             const c = document.getElementById('chat-cargando');
             if (c) c.remove();
+            quitarDelHistorial(enviado);
             agregarMensaje('No pude conectar. Revisa tu conexión o escríbenos por WhatsApp.', 'bot');
         }
     }

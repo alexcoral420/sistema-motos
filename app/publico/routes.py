@@ -70,38 +70,47 @@ def inicio():
     
 @publico_bp.route("/chat", methods=["POST"])
 @csrf.exempt
-@limiter.limit("15 per minute")
+@limiter.limit("15 per minute;300 per day")
 def chat():
     """
     Recibe la conversación del cliente (historial) y devuelve la respuesta
-    del asistente. Ruta pública, con rate limiting y validación.
+    del asistente. Ruta pública, con rate limiting (por minuto y por día:
+    cada mensaje son dos llamadas a Claude).
+
+    La validación del historial y todas las decisiones viven en el
+    servicio (asistente.atender). Aquí solo se maneja la sesión:
+      chat_id            id de esta conversación; las respuestas del
+                         asistente salen firmadas contra él
+      leads_chat_firmas  leads ya guardados, para no duplicarlos
     """
-    from flask import jsonify
-    datos = request.get_json(silent=True) or {}
-    historial = datos.get("historial") or []
-
-    if not isinstance(historial, list) or not historial:
-        return jsonify({"error": "Conversación vacía"}), 400
-    if len(historial) > 40:
-        return jsonify({"error": "Conversación demasiado larga"}), 400
-    ultimo = historial[-1].get("texto", "") if historial else ""
-    if len(ultimo) > 500:
-        return jsonify({"error": "El mensaje es demasiado largo"}), 400
-
+    import secrets
     from app.servicios import asistente
-    respuesta = asistente.responder(historial)
 
-    historial_completo = historial + [{"rol": "bot", "texto": respuesta}]
+    datos = request.get_json(silent=True)
+    if not isinstance(datos, dict):
+        datos = {}
+
+    chat_id = session.get("chat_id")
+    if not chat_id:
+        chat_id = secrets.token_urlsafe(16)
+        session["chat_id"] = chat_id
     firmas = session.get("leads_chat_firmas", [])
-    diagnostico = asistente.intentar_guardar_lead(historial_completo, firmas)
 
-    if diagnostico["firma"]:
-        session["leads_chat_firmas"] = firmas + [diagnostico["firma"]]
+    try:
+        resultado = asistente.atender(
+            datos.get("historial"), chat_id, firmas, moto_id=datos.get("moto_id")
+        )
+    except ErrorValidacion as e:
+        return jsonify({"error": e.mensaje}), 400
 
-    # El servidor verifica que no se prometa lo que no se cumplio.
-    respuesta = asistente.corregir_promesa(respuesta, diagnostico, firmas)
+    if resultado["firma_lead"]:
+        session["leads_chat_firmas"] = firmas + [resultado["firma_lead"]]
 
-    return jsonify({"respuesta": respuesta})
+    return jsonify({
+        "respuesta": resultado["respuesta"],
+        "tipo": resultado["tipo"],
+        "firma": resultado["firma"],
+    })
 
 @publico_bp.route("/catalogo")
 def catalogo_publico():
@@ -315,7 +324,7 @@ def robots():
 @publico_bp.route("/financiacion")
 def financiacion():
     """
-    El simulador con formulario fue reemplazado por el asistente de IA.
+    La pagina vieja con formulario fue reemplazada por el asistente de IA.
 
     Mantenemos la ruta como redireccion permanente (301) porque la URL
     estuvo publicada: los enlaces viejos siguen funcionando y los

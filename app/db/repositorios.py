@@ -1089,71 +1089,11 @@ def actualizar_ultimo_mensaje(conversacion_id: int):
         "ultimo_mensaje": datetime.now(timezone.utc).isoformat()
     }).eq("id", conversacion_id).execute()
 
-   
 
-
-
-    # ============================================================
-# Funciones de repositorio para leads_chat (agregar a repositorios.py).
-# Guardan y leen leads del chat, cifrando los campos sensibles.
-#
-# Sigue el mismo patron que registrar_lead_financiacion:
-#   - usa get_supabase_admin() porque leads_chat tiene RLS
-#   - inserta un dict con los campos
-#
-# La diferencia clave: los campos sensibles se CIFRAN antes de guardar
-# (con el modulo cifrado.py) y se DESCIFRAN al leer.
 # ============================================================
-
-
-def guardar_lead_chat(datos):
-    """
-    Guarda un lead capturado por el chat en la tabla leads_chat.
-
-    Los campos basicos (nombre, telefono, moto, cuota) van en texto plano.
-    Los campos SENSIBLES (ingresos, reportado, vida_crediticia) se CIFRAN
-    antes de guardar: en la base queda 'gAAAA...', nunca el valor real.
-
-    'datos' es un dict. Los campos sensibles pueden venir como None
-    (por ahora no los pedimos); cifrar(None) devuelve None, asi que
-    la tabla los guarda vacios sin problema.
-
-    Devuelve el registro insertado.
-    """
-    from app.seguridad import cifrado
-    politica = obtener_politica_vigente()
-
-    registro = {
-        # --- Basicos (texto plano) ---
-        "nombre": datos["nombre"],
-        "telefono": datos["telefono"],
-        "moto_id": datos.get("moto_id"),
-        "valor_financiar": datos.get("valor_financiar"),
-        "cuota_inicial": datos.get("cuota_inicial", 0),
-        "plazo_meses": datos.get("plazo_meses"),
-        "cuota_calculada": datos.get("cuota_calculada"),
-        "origen": "chat",
-
-        # --- Consentimiento (Habeas Data) ---
-        "autorizo_datos_basicos": datos.get("autorizo_basicos", False),
-        "autorizo_datos_financieros": datos.get("autorizo_financieros", False),
-        "fecha_consentimiento": datos.get("fecha_consentimiento"),
-        "politica_id": politica["id"] if politica else None,
-        "version_politica": politica["version"] if politica else None,
-
-        # --- Sensibles (CIFRADOS) ---
-        # Por ahora llegan como None; cuando se active la precalificacion,
-        # llegaran con valores reales y se guardaran cifrados.
-        "ingresos_cifrado": cifrado.cifrar(datos.get("ingresos")),
-        "reportado_cifrado": cifrado.cifrar(datos.get("reportado")),
-        "vida_crediticia_cifrado": cifrado.cifrar(datos.get("vida_crediticia")),
-        "tipo_entidad_sugerida": datos.get("tipo_entidad"),
-    }
-
-    supabase = get_supabase_admin()
-    resultado = supabase.table("leads_chat").insert(registro).execute()
-    return resultado.data
-
+# Leads del chat (tabla leads_chat, con RLS: solo get_supabase_admin).
+# Se guardan con guardar_lead_chat_directo, mas abajo.
+# ============================================================
 
 def leer_lead_chat(lead_id):
     """

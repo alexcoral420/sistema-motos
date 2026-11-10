@@ -183,10 +183,20 @@ formulario. Nada de lo que reporte se guarda sin validar.
 El extractor puede equivocarse o ser manipulado. Y un falso positivo en el
 consentimiento no es un bug: es un incumplimiento del Habeas Data.
 
-Por eso el consentimiento se verifica **dos veces**: el extractor lo reporta, y
-una función en Python puro recorre la conversación real buscando que el
-asistente haya preguntado y que el cliente haya respondido afirmativamente
-después. Si no coinciden, no se guarda.
+Además, el historial de la conversación lo guarda y lo reenvía el navegador,
+así que es entrada no confiable. Cada respuesta del asistente sale **firmada**
+por el servidor (HMAC, atada a la conversación de la sesión) y cualquier
+mensaje "del asistente" sin firma válida se descarta: nadie puede inventarse
+la pregunta de autorización. La conversación no se guarda en la base, para no
+almacenar datos personales antes del consentimiento.
+
+La pregunta de autorización no la redacta el modelo: la emite el **servidor**,
+con texto fijo y enlace a la política, cuando ya están los datos obligatorios.
+
+El consentimiento se verifica **dos veces**: una función en Python puro exige
+que la respuesta inmediata del cliente a esa pregunta firmada sea afirmativa,
+sin negaciones ni dudas, y el extractor debe reportar lo mismo por su cuenta.
+Si no coinciden, no se guarda y se vuelve a preguntar.
 
 ### Garantía sobre las cifras
 
