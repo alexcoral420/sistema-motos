@@ -1,5 +1,8 @@
 """
-Autenticación por API key para la API del webhook.
+Autenticación por API key para la API externa (/api, la consume n8n).
+
+La variable se sigue llamando API_WEBHOOK_KEY por compatibilidad con lo
+ya configurado en Railway y en n8n, aunque el webhook ya no existe.
 """
 
 import os

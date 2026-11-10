@@ -2,7 +2,7 @@
 Validadores centralizados de entrada externa (vulnerabilidad #6).
 
 Regla madre: NUNCA confíes en la entrada externa. Todo dato que llega
-de fuera (formularios, mensajes, webhooks) se valida ANTES de usarlo.
+de fuera (formularios, mensajes, APIs) se valida ANTES de usarlo.
 
 Enfoque LISTA BLANCA: definimos qué es válido y rechazamos todo lo
 demás. Más seguro que intentar enumerar lo que es malo (siempre se
@@ -140,7 +140,7 @@ def validar_opcion(valor, campo: str, opciones_validas: list,
 
 def validar_telefono(valor, campo: str = "número"):
     """
-    Valida un número de teléfono de forma básica (para el webhook).
+    Valida un número de teléfono de forma básica.
 
     Acepta solo dígitos y un '+' inicial opcional, con longitud razonable.
     No verifica que el número exista de verdad; solo su forma, para

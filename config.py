@@ -36,9 +36,6 @@ class Config:
     SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
     CLAVE_CIFRADO = os.environ.get("CLAVE_CIFRADO")
-    TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-    TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-    TWILIO_WHATSAPP_NUMBER = os.environ.get("TWILIO_WHATSAPP_NUMBER")
     # --- Integración con el taller (módulo de gastos) ---
     TALLER_URL = os.environ.get("TALLER_URL")
     TALLER_API_KEY = os.environ.get("TALLER_API_KEY")
@@ -64,12 +61,6 @@ class Config:
     ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO")
     # Guardamos el HASH, nunca la contraseña en texto plano.
     ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
-
-    # --- Meta / WhatsApp Cloud API ---
-    VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
-    WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
-    PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
-    META_APP_SECRET = os.environ.get("META_APP_SECRET")
 
     # --- Seguridadk de cooies de sesión (valores base, seguros) ---
     # Impide que JavaScript dedl navegaor lea la cookie de sesión

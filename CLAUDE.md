@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sistema Universal Motors: a production Flask app for a used-motorcycle dealership in Bogotá (two locations). It manages inventory, a public filterable catalog, sales/purchase/trade-in operations, and an AI-driven WhatsApp financing-lead assistant. Live at universalmotors.online. Not a toy project — real business data, real users daily. See `README.md` for the full design rationale (security model, AI assistant safety guarantees, personal-data compliance, deliberate architectural decisions) — read it before making non-trivial changes; this file only covers what you need to move fast day-to-day.
+Sistema Universal Motors: a production Flask app for a used-motorcycle dealership in Bogotá (two locations). It manages inventory, a public filterable catalog, sales/purchase/trade-in operations, and an AI-driven financing-lead assistant in the site's web chat. Live at universalmotors.online. Not a toy project — real business data, real users daily. See `README.md` for the full design rationale (security model, AI assistant safety guarantees, personal-data compliance, deliberate architectural decisions) — read it before making non-trivial changes; this file only covers what you need to move fast day-to-day.
 
 ## Commands
 
@@ -31,7 +31,7 @@ python -m pytest tests/
 
 There is a small pytest suite in `tests/` covering pure service logic (`test_personas.py`, `test_avaluo.py`, `test_recordatorios.py`). Tests never touch Supabase: repository functions are replaced with `monkeypatch`. `pytest.ini` sets `pythonpath = .` and `testpaths = tests`; there is no `conftest.py`. GitHub Actions (`.github/workflows/test.yml`) runs the suite on every push and PR. There is no configured linter. Coverage is far from complete, so verification is still mostly manual; when changing behavior, add or update tests for pure logic and check the rest by running the app.
 
-Required `.env` vars are listed in `.env.example`: `SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role), `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `CLAVE_CIFRADO` (Fernet key for sensitive fields — irrecoverable if lost, never commit it), `WHATSAPP_CONTACTO`, plus Twilio/Meta WhatsApp Cloud API credentials, and `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for Web Push (generate once; rotating them invalidates every existing push subscription).
+Required `.env` vars are listed in `.env.example`: `SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role), `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `CLAVE_CIFRADO` (Fernet key for sensitive fields — irrecoverable if lost, never commit it), `WHATSAPP_CONTACTO`, `API_WEBHOOK_KEY` (the `/api` key; read straight from the environment in `app/auth/api_key.py`, the name is historical), and `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for Web Push (generate once; rotating them invalidates every existing push subscription).
 
 **`requirements.txt` is UTF-16 LE with BOM and CRLF** (a `pip freeze >` from PowerShell). Plain text tools and naive edits will corrupt it — read/write it with `encoding="utf-16"` and insert new lines without re-sorting the rest.
 
@@ -44,7 +44,7 @@ route (blueprint)  →  servicio  →  repositorio  →  Supabase
    orchestrates        decides       queries         stores
 ```
 
-- **Routes** (`app/admin`, `app/publico`, `app/api`, `app/auth`, `app/webhook`): receive the request, delegate, return the response. No validation, no queries here.
+- **Routes** (`app/admin`, `app/publico`, `app/api`, `app/auth`): receive the request, delegate, return the response. No validation, no queries here.
 - **Services** (`app/servicios/`): business logic and input validation live here. This is where criteria live — what counts as a valid filter, what data to request from a customer, when a lead gets saved.
 - **Repositories** (`app/db/repositorios.py`): talk to Supabase. No business vocabulary — receive already-validated, already-translated data.
 
@@ -56,7 +56,6 @@ Respect this separation when adding features: a change to catalog filtering, for
 - `admin` — management panel (`/admin` prefix, role-protected)
 - `auth` — login/session
 - `api` — REST API for external integrations (n8n), API-key authenticated, CSRF-exempt
-- `webhook` — inbound messaging events (WhatsApp/Meta), CSRF-exempt
 - `motero` (`app/motero/`) — "Mi espacio" for end customers: `/registro`, `/ingresar`, `/salir` (POST), `/mi-espacio`. Accounts live in **Supabase Auth**, not in `usuarios`. See below.
 
 ### "Mi espacio" del motero (`app/motero/`, migration 021)
@@ -122,7 +121,7 @@ The public site is an installable PWA. `/manifest.json` and `/sw.js` are Flask r
 
 ### Data model notes
 
-Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial schema): `sedes`, `contactos`, `politicas_privacidad`, `usuarios`, `motos`, `fotos_motos`, `intenciones`, `ventas`, `compras`, `permutas`, `leads_chat`, `conversaciones`, `mensajes`. Later migrations add, among others, `datos_contrato` (007), `recordatorios` (019), `perfiles`/`motos_usuario` (021), `dispositivos`/`alertas`/`alertas_avisos` (023) and `permutas.asesor_id`/`asesor_nombre` + `registrar_permuta_moto()` (025).
+Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial schema): `sedes`, `contactos`, `politicas_privacidad`, `usuarios`, `motos`, `fotos_motos`, `intenciones`, `ventas`, `compras`, `permutas`, `leads_chat`, `conversaciones`, `mensajes`. **`contactos`, `conversaciones` and `mensajes` are unused**: they belonged to the Meta/Twilio webhook and `POST /api/mensajes`, both removed (there is no WhatsApp integration in the code any more). No application code reads or writes them. Their rows were left in place on purpose; dropping them is a separate migration still to be decided. Later migrations add, among others, `datos_contrato` (007), `recordatorios` (019), `perfiles`/`motos_usuario` (021), `dispositivos`/`alertas`/`alertas_avisos` (023) and `permutas.asesor_id`/`asesor_nombre` + `registrar_permuta_moto()` (025).
 
 - Sensitive/financial fields are encrypted with Fernet (`app/seguridad/cifrado.py`); the key (`CLAVE_CIFRADO`) lives only in env vars, never in the database or repo.
 - Privacy consent is versioned: `politicas_privacidad` archives each policy version's full text with a SHA-256 hash, and each lead records which version it consented to.

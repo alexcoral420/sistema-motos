@@ -2,8 +2,8 @@
 Rate limiting: límite de peticiones por tiempo (vulnerabilidad #3).
 
 Sin límites, alguien puede bombardear /login probando miles de
-contraseñas por minuto (fuerza bruta), o inundar /webhook con mensajes
-falsos y disparar el gasto de la API de Claude.
+contraseñas por minuto (fuerza bruta), o inundar /chat con mensajes
+y disparar el gasto de la API de Claude.
 
 flask-limiter cuenta las peticiones por IP y, al pasar el límite,
 responde con un error 429 ("Too Many Requests") en vez de procesarlas.

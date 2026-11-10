@@ -85,7 +85,6 @@ no se enteraron de que existía un concepto nuevo.
 - `admin` — panel de gestión (prefijo `/admin`, protegido por rol)
 - `auth` — login y sesiones
 - `api` — API REST para integraciones externas (autenticada por API key)
-- `webhook` — recepción de eventos de mensajería
 
 ### Fuentes únicas de verdad
 

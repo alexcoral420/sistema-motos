@@ -619,9 +619,7 @@ def registrar_intencion(moto_id: int, sesion_id: str = None):
     if not moto:
         return
         
-    print(f"DEBUG: llamando al repositorio")
     repositorios.registrar_intencion(moto_id, moto.get("sede_id"), sesion_id)
-    print(f"DEBUG: insert ejecutado")
 
 def obtener_similares(moto, limite=15):
     """
