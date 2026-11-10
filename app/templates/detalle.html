@@ -853,6 +853,7 @@
     }
     </script>
     {% if not session.rol %}
+    {% set chat_moto_id = moto.id %}
     {% include 'chat.html' %}
     {% endif %}
     {% if session.rol == 'admin' %}

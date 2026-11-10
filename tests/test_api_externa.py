@@ -25,7 +25,12 @@ AHORA = datetime(2026, 11, 10, 15, 0, tzinfo=timezone.utc)
 
 @pytest.fixture(scope="module")
 def app():
-    return create_app()
+    app = create_app()
+    # create_app conecta el limiter GLOBAL; desde ahí sus decoradores
+    # limitarían también las apps mínimas de otros archivos de pruebas
+    # (429 inesperados). Se deja apagado para el resto de la corrida.
+    limiter.enabled = False
+    return app
 
 
 @pytest.fixture

@@ -7,11 +7,17 @@ No tocan Supabase: solo miran el mapa de rutas y piden rutas que no existen.
 import pytest
 
 from app import create_app
+from app.seguridad.limites import limiter
 
 
 @pytest.fixture(scope="module")
 def app():
-    return create_app()
+    app = create_app()
+    # create_app conecta el limiter GLOBAL; desde ahí sus decoradores
+    # limitarían también las apps mínimas de otros archivos de pruebas
+    # (429 inesperados). Se deja apagado para el resto de la corrida.
+    limiter.enabled = False
+    return app
 
 
 def test_no_hay_blueprint_webhook(app):

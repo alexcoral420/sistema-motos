@@ -875,6 +875,53 @@ def fechas_de_venta_activas():
                         .order("id"))
 
 
+def guardar_dispositivo_staff(usuario_id: int, suscripcion: dict):
+    """
+    Guarda la suscripción push de un usuario del panel (service_role: la
+    tabla no tiene políticas RLS). Si ese navegador ya estaba registrado
+    (mismo endpoint), la actualiza y la reactiva en vez de duplicarla:
+    UNIQUE (usuario_id, endpoint) de la migración 027.
+    """
+    fila = {"usuario_id": usuario_id, "suscripcion": suscripcion, "activo": True}
+    resultado = (get_supabase_admin().table("dispositivos_staff")
+                 .upsert(fila, on_conflict="usuario_id,endpoint")
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def resumen_ventas_en_rango(desde, hasta):
+    """
+    Ventas con created_at en [desde, hasta), con su estado (el servicio
+    decide cuáles cuentan), precio, asesor y sede. ISO ya saneados.
+    """
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("ventas")
+                        .select("estado, precio_venta, asesor_nombre, sede_id, sedes(nombre)")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
+
+def resumen_compras_en_rango(desde, hasta):
+    """Compras con created_at en [desde, hasta): solo su precio."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("compras")
+                        .select("precio_compra")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
+
+def resumen_permutas_en_rango(desde, hasta):
+    """Permutas con created_at en [desde, hasta): solo para contarlas."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("permutas")
+                        .select("id")
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("id"))
+
+
 def intenciones_con_moto(desde=None, hasta=None):
     """
     Intenciones en [desde, hasta) con la marca y el modelo de su moto
@@ -1044,67 +1091,10 @@ def obtener_whatsapp_por_id(usuario_id):
     return None
 
 
-    # ============================================================
-# Funciones de repositorio para leads_chat (agregar a repositorios.py).
-# Guardan y leen leads del chat, cifrando los campos sensibles.
-#
-# Sigue el mismo patron que registrar_lead_financiacion:
-#   - usa get_supabase_admin() porque leads_chat tiene RLS
-#   - inserta un dict con los campos
-#
-# La diferencia clave: los campos sensibles se CIFRAN antes de guardar
-# (con el modulo cifrado.py) y se DESCIFRAN al leer.
 # ============================================================
-
-
-def guardar_lead_chat(datos):
-    """
-    Guarda un lead capturado por el chat en la tabla leads_chat.
-
-    Los campos basicos (nombre, telefono, moto, cuota) van en texto plano.
-    Los campos SENSIBLES (ingresos, reportado, vida_crediticia) se CIFRAN
-    antes de guardar: en la base queda 'gAAAA...', nunca el valor real.
-
-    'datos' es un dict. Los campos sensibles pueden venir como None
-    (por ahora no los pedimos); cifrar(None) devuelve None, asi que
-    la tabla los guarda vacios sin problema.
-
-    Devuelve el registro insertado.
-    """
-    from app.seguridad import cifrado
-    politica = obtener_politica_vigente()
-
-    registro = {
-        # --- Basicos (texto plano) ---
-        "nombre": datos["nombre"],
-        "telefono": datos["telefono"],
-        "moto_id": datos.get("moto_id"),
-        "valor_financiar": datos.get("valor_financiar"),
-        "cuota_inicial": datos.get("cuota_inicial", 0),
-        "plazo_meses": datos.get("plazo_meses"),
-        "cuota_calculada": datos.get("cuota_calculada"),
-        "origen": "chat",
-
-        # --- Consentimiento (Habeas Data) ---
-        "autorizo_datos_basicos": datos.get("autorizo_basicos", False),
-        "autorizo_datos_financieros": datos.get("autorizo_financieros", False),
-        "fecha_consentimiento": datos.get("fecha_consentimiento"),
-        "politica_id": politica["id"] if politica else None,
-        "version_politica": politica["version"] if politica else None,
-
-        # --- Sensibles (CIFRADOS) ---
-        # Por ahora llegan como None; cuando se active la precalificacion,
-        # llegaran con valores reales y se guardaran cifrados.
-        "ingresos_cifrado": cifrado.cifrar(datos.get("ingresos")),
-        "reportado_cifrado": cifrado.cifrar(datos.get("reportado")),
-        "vida_crediticia_cifrado": cifrado.cifrar(datos.get("vida_crediticia")),
-        "tipo_entidad_sugerida": datos.get("tipo_entidad"),
-    }
-
-    supabase = get_supabase_admin()
-    resultado = supabase.table("leads_chat").insert(registro).execute()
-    return resultado.data
-
+# Leads del chat (tabla leads_chat, con RLS: solo get_supabase_admin).
+# Se guardan con guardar_lead_chat_directo, mas abajo.
+# ============================================================
 
 def leer_lead_chat(lead_id):
     """
@@ -1741,3 +1731,134 @@ def motos_para_exportar(estado=None, sede=None):
         return q.order("id")
 
     return _traer_todas(consulta)
+
+
+# ============================================================
+# Bandeja de leads del chat (migración 029) y aviso push al staff.
+# Todo con service_role: leads_chat y dispositivos_staff no tienen
+# políticas RLS.
+# ============================================================
+
+_COLUMNAS_LEAD_BANDEJA = (
+    "id, created_at, nombre, telefono, correo, moto_id, moto_interes, forma_pago, "
+    "estado, asesor_id, asesor_nombre, tomado_en, gestionado_en, "
+    "motos(marca, modelo, anio, precio)"
+)
+
+
+def listar_leads_bandeja(asesor_id=None, limite: int = 200):
+    """
+    Leads del chat, los más recientes primero. Con asesor_id, solo los
+    que están sin tomar o los que tomó ese asesor; sin él, todos.
+    """
+    consulta = (get_supabase_admin().table("leads_chat")
+                .select(_COLUMNAS_LEAD_BANDEJA)
+                .order("created_at", desc=True)
+                .limit(limite))
+    if asesor_id is not None:
+        consulta = consulta.or_(f"asesor_id.is.null,asesor_id.eq.{int(asesor_id)}")
+    return consulta.execute().data
+
+
+def obtener_lead_bandeja(lead_id: int):
+    """Un lead del chat con su moto, o None."""
+    resultado = (get_supabase_admin().table("leads_chat")
+                 .select(_COLUMNAS_LEAD_BANDEJA)
+                 .eq("id", lead_id)
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def tomar_lead_chat(lead_id: int, estado_requerido: str, cambios: dict):
+    """
+    Asigna el lead SOLO si sigue en estado_requerido y sin asesor: la
+    condición va en el mismo UPDATE, así que si dos lo intentan a la vez
+    la base le devuelve la fila a uno solo. Devuelve la fila o None.
+    """
+    resultado = (get_supabase_admin().table("leads_chat")
+                 .update(cambios)
+                 .eq("id", lead_id)
+                 .eq("estado", estado_requerido)
+                 .is_("asesor_id", "null")
+                 .execute())
+    return resultado.data[0] if resultado.data else None
+
+
+def cambiar_estado_lead_chat(lead_id: int, estados_permitidos: list, cambios: dict,
+                             asesor_id=None):
+    """
+    Actualiza un lead que esté en alguno de estados_permitidos y, si se
+    pasa asesor_id, que además sea de ese asesor. Devuelve la fila o None.
+    """
+    consulta = (get_supabase_admin().table("leads_chat")
+                .update(cambios)
+                .eq("id", lead_id)
+                .in_("estado", estados_permitidos))
+    if asesor_id is not None:
+        consulta = consulta.eq("asesor_id", asesor_id)
+    resultado = consulta.execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def dispositivos_staff_por_rol(rol: str):
+    """
+    Suscripciones push activas de los usuarios que HOY tienen ese rol y
+    están activos (join con usuarios en la misma consulta: una fila de
+    dispositivos_staff no dice nada del acceso actual de su dueño).
+    """
+    resultado = (get_supabase_admin().table("dispositivos_staff")
+                 .select("id, usuario_id, suscripcion, usuarios!inner(rol, activo)")
+                 .eq("activo", True)
+                 .eq("usuarios.rol", rol)
+                 .eq("usuarios.activo", True)
+                 .execute())
+    return resultado.data
+
+
+def desactivar_dispositivo_staff(dispositivo_id: int):
+    """Marca inactiva una suscripción que el servicio de push dio por muerta."""
+    (get_supabase_admin().table("dispositivos_staff")
+     .update({"activo": False})
+     .eq("id", dispositivo_id)
+     .execute())
+
+
+# ============================================================
+# "Mi espacio" del asesor: sus operaciones en un rango de fechas.
+# A propósito NO traen precios: el asesor ve conteos y qué moto fue.
+# ============================================================
+
+def ventas_de_asesor_en_rango(asesor_id: int, desde, hasta):
+    """Ventas de ese asesor con created_at en [desde, hasta), recientes primero."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("ventas")
+                        .select("id, created_at, descripcion, placa, verificada, estado")
+                        .eq("asesor_id", asesor_id)
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("created_at", desc=True)
+                        .order("id", desc=True))
+
+
+def compras_de_asesor_en_rango(asesor_id: int, desde, hasta):
+    """Compras de ese asesor con created_at en [desde, hasta), recientes primero."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("compras")
+                        .select("id, created_at, descripcion, placa, verificada")
+                        .eq("asesor_id", asesor_id)
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("created_at", desc=True)
+                        .order("id", desc=True))
+
+
+def permutas_de_asesor_en_rango(asesor_id: int, desde, hasta):
+    """Permutas de ese asesor con created_at en [desde, hasta), recientes primero."""
+    supabase = get_supabase_admin()
+    return _traer_todas(lambda: supabase.table("permutas")
+                        .select("id, created_at, descripcion_entrante, descripcion_saliente")
+                        .eq("asesor_id", asesor_id)
+                        .gte("created_at", desde)
+                        .lt("created_at", hasta)
+                        .order("created_at", desc=True)
+                        .order("id", desc=True))

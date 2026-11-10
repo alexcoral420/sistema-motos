@@ -1,0 +1,79 @@
+{% extends "base_operativa.html" %}
+{% set nav_activo = "leads" %}
+
+{% block titulo %}Lead del chat{% endblock %}
+
+{% block estilos %}
+        .lead-ficha { max-width: 640px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 22px; }
+        .lead-ficha.prioridad { border-color: var(--naranja); border-top-width: 5px; }
+        .lead-ficha h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; margin: 0 0 8px; }
+        .lead-etiqueta { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); }
+        .lead-etiqueta.contado { background: var(--naranja); border-color: var(--naranja); color: var(--barra-bg); }
+        .lead-campos { display: grid; grid-template-columns: 140px 1fr; gap: 10px 14px; margin: 18px 0; font-size: 15px; }
+        .lead-campos dt { color: var(--texto-tenue); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; padding-top: 2px; }
+        .lead-campos dd { margin: 0; overflow-wrap: anywhere; }
+        .lead-oculto { color: var(--texto-tenue); font-style: italic; }
+        .lead-botones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .lead-botones form { margin: 0; }
+        .lead-volver { display: inline-block; margin-bottom: 14px; }
+{% endblock %}
+
+{% block contenido %}
+        <a class="btn btn-ghost lead-volver" href="{{ url_for('admin.leads_bandeja') }}">← Leads del chat</a>
+
+        {% if error %}<div class="aviso-error" role="alert">{{ error }}</div>{% endif %}
+        {% if aviso %}<div class="aviso-exito" role="status">{{ aviso }}</div>{% endif %}
+
+        <div class="lead-ficha {% if lead.prioridad %}prioridad{% endif %}">
+            <h2>{{ lead.nombre }}</h2>
+            <span class="lead-etiqueta {% if lead.prioridad %}contado{% endif %}">{% if lead.prioridad %}Prioridad · {% endif %}{{ lead.forma_pago_texto }}</span>
+            <span class="lead-etiqueta">{{ lead.estado_texto }}</span>
+
+            <dl class="lead-campos">
+                <dt>WhatsApp</dt>
+                <dd>{% if lead.telefono %}{{ lead.telefono }}{% else %}<span class="lead-oculto">Se muestra al tomar el lead</span>{% endif %}</dd>
+                {% if lead.correo %}
+                <dt>Correo</dt>
+                <dd>{{ lead.correo }}</dd>
+                {% endif %}
+                <dt>Moto</dt>
+                <dd>
+                    {% if lead.moto_texto %}{{ lead.moto_texto }}{% else %}Sin moto definida{% endif %}
+                    {% if lead.moto_precio %} · ${{ lead.moto_precio | pesos }}{% endif %}
+                    {% if lead.moto_id %} · <a href="{{ url_for('publico.detalle_moto', id=lead.moto_id) }}" target="_blank" rel="noopener">ver ficha</a>{% endif %}
+                </dd>
+                <dt>Recibido</dt>
+                <dd>{{ lead.recibido }}</dd>
+                {% if lead.asesor_nombre %}
+                <dt>Asesor</dt>
+                <dd>{{ lead.asesor_nombre }}{% if lead.tomado %} · {{ lead.tomado }}{% endif %}</dd>
+                {% endif %}
+            </dl>
+
+            <div class="lead-botones">
+                {% if lead.puede_tomar %}
+                <form method="POST" action="{{ url_for('admin.lead_tomar', lead_id=lead.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-primary">Tomar este lead</button>
+                </form>
+                {% endif %}
+
+                {% if lead.whatsapp_url %}
+                <a class="btn btn-primary" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">Escribir por WhatsApp</a>
+                {% endif %}
+
+                {% if lead.puede_cerrar %}
+                <form method="POST" action="{{ url_for('admin.lead_cerrar', lead_id=lead.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="estado" value="contactado">
+                    <button type="submit" class="btn btn-ghost">Marcar contactado</button>
+                </form>
+                <form method="POST" action="{{ url_for('admin.lead_cerrar', lead_id=lead.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="estado" value="descartado">
+                    <button type="submit" class="btn btn-ghost">Descartar</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+{% endblock %}
