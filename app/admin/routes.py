@@ -1188,6 +1188,7 @@ def dar_acceso_usuario(usuario_id):
 AVISOS_LEADS = {
     "tomado": "El lead es suyo. Ya puede contactar al cliente.",
     "actualizado": "Seguimiento guardado.",
+    "agregado": "Cliente agregado. Ya está en su seguimiento.",
 }
 
 # Los errores viajan en la URL como CÓDIGO, nunca como texto: así un
@@ -1206,6 +1207,27 @@ def leads_bandeja():
     return render_template("leads.html", grupos=grupos,
                            aviso=AVISOS_LEADS.get(request.args.get("aviso")),
                            error=ERRORES_LEADS.get(request.args.get("error")))
+
+
+@admin_bp.route("/leads/nuevo", methods=["GET", "POST"])
+@requiere_rol(leads_chat.ROL_QUE_TOMA)
+def lead_nuevo():
+    """El asesor agrega un cliente que le llegó por fuera del chat."""
+    error = None
+    if request.method == "POST":
+        try:
+            lead_id = leads_chat.agregar(request.form, session["usuario_id"],
+                                         session.get("usuario_nombre"), session["rol"])
+        except ErrorValidacion as e:
+            error = e.mensaje
+        else:
+            obtener_logger().info("Lead %s agregado a mano por el usuario %s.",
+                                  lead_id, session["usuario_id"])
+            return redirect(url_for("admin.lead_detalle", lead_id=lead_id, aviso="agregado"))
+    return render_template("lead_nuevo.html", error=error, borrador=request.form,
+                           canales=leads_chat.OPCIONES_CANAL,
+                           formas_pago=leads_chat.OPCIONES_PAGO,
+                           max_nota=leads_chat.MAX_LARGO_NOTA), 400 if error else 200
 
 
 def _pintar_lead(lead, error=None, borrador=None, status=200):

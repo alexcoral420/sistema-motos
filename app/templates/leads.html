@@ -38,6 +38,7 @@
                     </div>
                     <div class="lead-meta">
                         {% if lead.moto_texto %}{{ lead.moto_texto }} · {% endif %}{{ lead.recibido }}
+                        {% if lead.manual %} · {{ lead.origen_texto }}{% endif %}
                         {% if lead.asesor_nombre and not lead.propio %} · {{ lead.asesor_nombre }}{% endif %}
                     </div>
                 </div>
@@ -58,6 +59,12 @@
 
 {% block contenido %}
         <div class="seccion-titulo">Leads del chat</div>
+
+        {% if session.rol == 'asesor' %}
+        <p style="margin: -4px 0 18px;">
+            <a class="btn btn-primary" href="{{ url_for('admin.lead_nuevo') }}">+ Agregar cliente</a>
+        </p>
+        {% endif %}
 
         {% if error %}<div class="aviso aviso-error" role="alert">{{ error }}</div>{% endif %}
         {% if aviso %}<div class="aviso aviso-exito" role="status">{{ aviso }}</div>{% endif %}

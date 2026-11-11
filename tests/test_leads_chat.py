@@ -558,3 +558,148 @@ def test_el_asesor_puede_activar_notificaciones_por_la_url_general(app, monkeypa
     assert respuesta.status_code == 200 and guardadas == [ASESOR]
     assert cliente(app, "encargado_sede").post("/admin/activar-notificaciones",
                                                json={}).status_code == 403
+
+
+# ------------------------------------------------------------
+# Clientes que el asesor agrega a mano (migración 031)
+# ------------------------------------------------------------
+
+@pytest.fixture
+def alta(monkeypatch):
+    """Repositorio falso para agregar(). Devuelve lo insertado: 'leads' y 'notas'."""
+    guardado = {"leads": [], "notas": [], "repetido": None, "consultas": []}
+
+    def crear(registro):
+        guardado["leads"].append(registro)
+        return dict(registro, id=77)
+
+    def repetido(asesor_id, telefono, estados):
+        guardado["consultas"].append((asesor_id, telefono, estados))
+        return guardado["repetido"]
+
+    monkeypatch.setattr(repositorios, "crear_lead_manual", crear)
+    monkeypatch.setattr(repositorios, "lead_abierto_de_asesor_por_telefono", repetido)
+    monkeypatch.setattr(repositorios, "obtener_politica_vigente", lambda: {"id": 3, "version": "2026-09"})
+    monkeypatch.setattr(repositorios, "agregar_notas_lead",
+                        lambda filas: guardado["notas"].extend(filas) or filas)
+    monkeypatch.setattr(notificaciones_staff, "avisar_lead_nuevo_en_segundo_plano",
+                        lambda *a, **k: pytest.fail("un lead manual no dispara push"))
+    return guardado
+
+
+def formulario(**cambios):
+    datos = {"nombre": " Carlos Ruiz ", "telefono": "300 123 4567", "canal": "referido",
+             "forma_pago": "contado", "moto_interes": "Yamaha FZ 2019", "correo": "",
+             "nota": "Lo recomendo un cliente", "autorizo": "si"}
+    datos.update(cambios)
+    return datos
+
+
+def test_agregar_deja_el_cliente_como_propio_y_por_contactar(alta):
+    lead_id = leads_chat.agregar(formulario(), ASESOR, "Luis Gomez", "asesor")
+    assert lead_id == 77
+    registro = alta["leads"][0]
+    assert registro["nombre"] == "Carlos Ruiz" and registro["telefono"] == "3001234567"
+    assert registro["forma_pago"] == "contado" and registro["moto_interes"] == "Yamaha FZ 2019"
+    assert "correo" not in registro
+    assert (registro["origen"], registro["canal"], registro["estado"]) == ("asesor", "referido", "tomado")
+    assert registro["asesor_id"] == ASESOR and registro["asesor_nombre"] == "Luis Gomez"
+    assert registro["tomado_en"]
+
+
+def test_agregar_registra_el_consentimiento_y_la_politica_vigente(alta):
+    leads_chat.agregar(formulario(), ASESOR, "Luis Gomez", "asesor")
+    registro = alta["leads"][0]
+    assert registro["autorizo_datos_basicos"] is True and registro["autorizo_datos_financieros"] is False
+    assert registro["fecha_consentimiento"]
+    assert (registro["politica_id"], registro["version_politica"]) == (3, "2026-09")
+    evento, nota = alta["notas"]
+    assert evento["tipo"] == "evento" and "Canal: Referido" in evento["texto"]
+    assert "autorizó el contacto" in evento["texto"]
+    assert (nota["tipo"], nota["texto"], nota["usuario_id"], nota["lead_id"]) == (
+        "nota", "Lo recomendo un cliente", ASESOR, 77)
+
+
+@pytest.mark.parametrize("autorizo", [None, "", "no", "on"])
+def test_sin_la_autorizacion_del_cliente_no_se_guarda(alta, autorizo):
+    with pytest.raises(ErrorValidacion, match="autorizó"):
+        leads_chat.agregar(formulario(autorizo=autorizo), ASESOR, "Luis", "asesor")
+    assert alta["leads"] == [] and alta["notas"] == []
+
+
+@pytest.mark.parametrize("cambios, campo", [
+    ({"nombre": ""}, "nombre"), ({"nombre": "A"}, "nombre"),
+    ({"telefono": "12345"}, "telefono"), ({"telefono": "6012345678"}, "telefono"),
+    ({"correo": "no-es-correo"}, "correo"),
+    ({"forma_pago": "regalado"}, "forma_pago"), ({"forma_pago": ""}, "forma_pago"),
+    ({"canal": "paloma"}, "canal"), ({"canal": ""}, "canal"),
+    ({"moto_interes": "x" * 121}, "moto_interes"),
+    ({"nota": "x" * 1001}, "nota"),
+])
+def test_un_dato_mal_escrito_se_avisa_en_vez_de_descartarse(alta, cambios, campo):
+    with pytest.raises(ErrorValidacion) as error:
+        leads_chat.agregar(formulario(**cambios), ASESOR, "Luis", "asesor")
+    assert error.value.campo == campo
+    assert alta["leads"] == []
+
+
+def test_no_se_repite_un_cliente_que_el_asesor_ya_tiene_abierto(alta):
+    alta["repetido"] = {"id": 5}
+    with pytest.raises(ErrorValidacion, match="Ya tiene"):
+        leads_chat.agregar(formulario(), ASESOR, "Luis", "asesor")
+    assert alta["leads"] == []
+    # Se busca solo entre los suyos y solo entre los abiertos.
+    assert alta["consultas"] == [(ASESOR, "3001234567", list(leads_chat.ESTADOS_DE_SEGUIMIENTO))]
+
+
+@pytest.mark.parametrize("rol", ["admin", "gerencia", "encargado_sede"])
+def test_solo_el_asesor_agrega_clientes(alta, rol):
+    with pytest.raises(ErrorValidacion):
+        leads_chat.agregar(formulario(), 99, "X", rol)
+    assert alta["leads"] == []
+
+
+def test_si_el_historial_inicial_falla_el_cliente_igual_queda(alta, monkeypatch):
+    def falla(_filas):
+        raise RuntimeError("sin red")
+    monkeypatch.setattr(repositorios, "agregar_notas_lead", falla)
+    assert leads_chat.agregar(formulario(), ASESOR, "Luis", "asesor") == 77
+
+
+def test_el_origen_se_muestra_segun_de_donde_vino():
+    del_chat = leads_chat._presentar(lead(origen="chat"), ASESOR, "asesor")
+    manual = leads_chat._presentar(lead(origen="asesor", canal="presencial", estado="tomado",
+                                        asesor_id=ASESOR), ASESOR, "asesor")
+    assert (del_chat["origen_texto"], del_chat["manual"]) == ("Chat del sitio", False)
+    assert (manual["origen_texto"], manual["manual"]) == ("Visita a la sede", True)
+
+
+def test_formulario_de_cliente_nuevo_solo_para_el_asesor(app):
+    html = cliente(app, "asesor").get("/admin/leads/nuevo").get_data(as_text=True)
+    assert "Agregar cliente" in html and 'name="autorizo"' in html and "Referido" in html
+    for rol in ("admin", "gerencia", "encargado_sede"):
+        assert cliente(app, rol).get("/admin/leads/nuevo").status_code == 403
+        assert cliente(app, rol).post("/admin/leads/nuevo", data=formulario()).status_code == 403
+
+
+def test_agregar_desde_la_ruta_usa_la_identidad_de_la_sesion(app, alta):
+    respuesta = cliente(app, "asesor").post("/admin/leads/nuevo", data=formulario(
+        asesor_id=OTRO_ASESOR, usuario_id=OTRO_ASESOR, estado="vendido", origen="chat"))
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"].endswith("/admin/leads/77?aviso=agregado")
+    registro = alta["leads"][0]
+    assert registro["asesor_id"] == ASESOR and registro["asesor_nombre"] == "Luis Gomez"
+    assert (registro["estado"], registro["origen"]) == ("tomado", "asesor")
+
+
+def test_un_error_al_agregar_conserva_lo_escrito(app, alta):
+    respuesta = cliente(app, "asesor").post("/admin/leads/nuevo", data=formulario(telefono="123"))
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 400 and "Revise el WhatsApp" in html
+    assert "Carlos Ruiz" in html and "Lo recomendo un cliente" in html
+    assert alta["leads"] == []
+
+
+def test_la_bandeja_del_asesor_ofrece_agregar_cliente(app, bandeja):
+    assert "/admin/leads/nuevo" in cliente(app, "asesor").get("/admin/leads").get_data(as_text=True)
+    assert "/admin/leads/nuevo" not in cliente(app, "gerencia", 99).get("/admin/leads").get_data(as_text=True)

@@ -61,6 +61,8 @@
                 </dd>
                 <dt>Recibido</dt>
                 <dd>{{ lead.recibido }}</dd>
+                <dt>Origen</dt>
+                <dd>{{ lead.origen_texto }}</dd>
                 {% if lead.asesor_nombre %}
                 <dt>Asesor</dt>
                 <dd>{{ lead.asesor_nombre }}{% if lead.tomado %} · {{ lead.tomado }}{% endif %}</dd>

@@ -31,6 +31,18 @@ lleva por etapas:
   - Solo gestiona un lead quien lo tomó; admin puede gestionar cualquiera;
     gerencia solo lee.
 
+Y el de los clientes que el asesor agrega a mano (031): los que le llegan
+por fuera del chat (un referido, alguien que pasó por la sede).
+
+  - Se piden los mismos datos que al lead del chat y con las mismas
+    reglas (campos_credito), más el canal por donde llegó.
+  - El lead nace ya asignado a quien lo crea, en "por contactar": no pasa
+    por la bandeja de nuevos ni dispara el aviso push.
+  - El asesor declara que el cliente autorizó el contacto. Sin eso no se
+    guarda; queda la versión de la política vigente y un renglón en el
+    historial con quién lo declaró.
+  - Un asesor no tiene dos veces abierto al mismo teléfono.
+
 La identidad (usuario_id, rol) la pasa la ruta desde la sesión.
 """
 
@@ -41,6 +53,7 @@ from app.db import repositorios
 from app.seguridad.logging_config import obtener_logger
 from app.seguridad.tiempo import fecha_legible, hoy_colombia, momento_legible
 from app.seguridad.validadores import ErrorValidacion
+from app.servicios import campos_credito
 from app.servicios.campos_credito import FORMA_PAGO_CONTADO
 
 ESTADO_NUEVO = "nuevo"
@@ -88,6 +101,32 @@ ETIQUETAS_PAGO = {
     "financiado": "Financiación",
     "por_definir": "Pago por definir",
 }
+# Para el selector del formulario; "por definir" primero: es el valor por
+# defecto cuando el asesor todavía no lo sabe.
+OPCIONES_PAGO = tuple((f, ETIQUETAS_PAGO[f]) for f in ("por_definir", "financiado", FORMA_PAGO_CONTADO))
+
+# De dónde salió el lead (leads_chat.origen) y, si lo agregó un asesor, por
+# qué canal le llegó el cliente (leads_chat.canal, check de la migración 031).
+ORIGEN_CHAT = "chat"
+ORIGEN_ASESOR = "asesor"
+CANALES = {
+    "whatsapp": "WhatsApp",
+    "referido": "Referido",
+    "presencial": "Visita a la sede",
+    "redes": "Redes sociales",
+    "llamada": "Llamada",
+    "otro": "Otro",
+}
+OPCIONES_CANAL = tuple(CANALES.items())
+
+# Cómo se le nombra al asesor cada dato de campos_credito cuando falla.
+_NOMBRES_DE_CAMPO = {
+    "nombre": "el nombre",
+    "telefono": "el WhatsApp (celular de 10 dígitos)",
+    "correo": "el correo",
+    "moto_interes": "la moto de interés",
+    "forma_pago": "la forma de pago",
+}
 
 # La ruta exige estos roles. Solo el asesor toma leads; admin y gerencia
 # ven toda la bandeja, y admin además puede gestionar un lead ajeno.
@@ -133,6 +172,13 @@ def _enlace_whatsapp(lead, moto_texto):
     return f"https://wa.me/57{lead['telefono']}?text={quote(mensaje)}"
 
 
+def _origen_texto(lead):
+    """'Chat del sitio', o el canal por el que le llegó al asesor."""
+    if lead.get("origen") != ORIGEN_ASESOR:
+        return "Chat del sitio"
+    return CANALES.get(lead.get("canal"), "Agregado por el asesor")
+
+
 def _seguimiento(estado, proximo, hoy):
     """(clave, texto) de la fecha programada de un lead abierto, o (None, "")."""
     if estado not in ESTADOS_DE_SEGUIMIENTO or proximo is None:
@@ -171,6 +217,8 @@ def _presentar(lead, usuario_id, rol, hoy=None):
         "moto_texto": moto_texto,
         "moto_id": lead.get("moto_id"),
         "moto_precio": (lead.get("motos") or {}).get("precio"),
+        "origen_texto": _origen_texto(lead),
+        "manual": lead.get("origen") == ORIGEN_ASESOR,
         "recibido": momento_legible(lead.get("created_at")),
         "tomado": momento_legible(lead.get("tomado_en")),
         "asesor_nombre": lead.get("asesor_nombre"),
@@ -263,6 +311,75 @@ def tomar(lead_id, usuario_id, usuario_nombre, rol) -> None:
     )
     if not fila:
         raise ErrorValidacion("Otro asesor ya tomó este lead.")
+
+
+def agregar(datos, usuario_id, usuario_nombre, rol) -> int:
+    """
+    El asesor en sesión agrega un cliente que le llegó por otro canal.
+    'datos' es el formulario (entrada no confiable). Devuelve el id del
+    lead, que ya queda como suyo en "por contactar".
+    """
+    if rol != ROL_QUE_TOMA:
+        raise ErrorValidacion("Solo un asesor puede agregar clientes.")
+    if not hasattr(datos, "get"):
+        raise ErrorValidacion("La solicitud no es válida.")
+
+    # Mismos datos y mismas reglas que el lead del chat.
+    crudos = {c["clave"]: datos.get(c["clave"]) for c in campos_credito.campos_activos()}
+    limpios, faltantes = campos_credito.validar(crudos)
+    for campo in campos_credito.campos_activos():
+        clave = campo["clave"]
+        escrito = isinstance(crudos[clave], str) and crudos[clave].strip()
+        # validar() descarta en silencio lo que no pasa: bien para el
+        # extractor del chat, pero aquí hay una persona que debe enterarse.
+        if clave not in limpios and (escrito or campo.get("obligatorio")):
+            raise ErrorValidacion(f"Revise {_NOMBRES_DE_CAMPO.get(clave, campo['etiqueta'])}.", clave)
+
+    canal = datos.get("canal")
+    if canal not in CANALES:
+        raise ErrorValidacion("Elija por dónde llegó el cliente.", "canal")
+    nota = _leer_nota(datos.get("nota"))
+    if datos.get("autorizo") != "si":
+        raise ErrorValidacion("Para guardar al cliente debe confirmar que él autorizó "
+                              "que lo contactemos.", "autorizo")
+
+    repetido = repositorios.lead_abierto_de_asesor_por_telefono(
+        usuario_id, limpios["telefono"], list(ESTADOS_DE_SEGUIMIENTO))
+    if repetido:
+        raise ErrorValidacion("Ya tiene a un cliente en seguimiento con ese WhatsApp.", "telefono")
+
+    from app.seguridad import cifrado   # import local, como en asistente.py
+
+    ahora = _ahora()
+    registro = campos_credito.a_columnas(limpios, cifrado.cifrar)
+    registro.update(
+        origen=ORIGEN_ASESOR, canal=canal,
+        estado=ESTADO_TOMADO, asesor_id=usuario_id, asesor_nombre=usuario_nombre, tomado_en=ahora,
+        autorizo_datos_basicos=True, autorizo_datos_financieros=False, fecha_consentimiento=ahora,
+    )
+    politica = repositorios.obtener_politica_vigente()
+    if politica:
+        registro.update(politica_id=politica["id"], version_politica=politica["version"])
+
+    fila = repositorios.crear_lead_manual(registro)
+    if not fila:
+        raise ErrorValidacion("No se pudo guardar el cliente. Intente de nuevo.")
+    lead_id = fila["id"]
+
+    renglon = {"lead_id": lead_id, "usuario_id": usuario_id, "usuario_nombre": usuario_nombre}
+    filas = [dict(renglon, tipo=EVENTO,
+                  texto=f"Cliente agregado por el asesor · Canal: {CANALES[canal]} · "
+                        "El asesor confirmó que el cliente autorizó el contacto")]
+    if nota:
+        filas.append(dict(renglon, tipo=NOTA, texto=nota))
+    try:
+        repositorios.agregar_notas_lead(filas)
+    except Exception as e:
+        # El cliente ya quedó guardado: no se le hace repetir el formulario
+        # (crearía un duplicado). El historial se completa desde la ficha.
+        obtener_logger().error("Lead %s: no se pudo escribir el historial inicial (%s).",
+                               lead_id, type(e).__name__)
+    return lead_id
 
 
 def _leer_nota(cruda) -> str:
