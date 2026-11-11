@@ -237,9 +237,6 @@
                 <a href="{{ url_for('admin.panel_gerencia') }}" class="nav-item {% if nav_activo == 'gerencia' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-grafico"/></svg> Gerencia</a>
                 <a href="{{ url_for('admin.gestion_usuarios') }}" class="nav-item {% if nav_activo == 'usuarios' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Usuarios</a>
                 {% endif %}
-                {% if session.rol == 'asesor' %}
-                <a href="{{ url_for('admin.comprar') }}" class="nav-item {% if nav_activo == 'comprar' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-llave"/></svg> Comprar moto</a>
-                {% endif %}
                 {% if session.rol in ['asesor', 'admin', 'gerencia'] %}
                 <a href="{{ url_for('admin.leads_bandeja') }}" class="nav-item {% if nav_activo == 'leads' %}activo{% endif %}"><svg class="ico" aria-hidden="true"><use href="#ico-usuarios"/></svg> Leads del chat</a>
                 {% endif %}

@@ -264,3 +264,23 @@ def test_el_asesor_es_el_de_la_sesion_aunque_la_url_diga_otro(app, base):
 @pytest.mark.parametrize("rol", ["admin", "gerencia", "encargado_sede"])
 def test_solo_el_asesor_entra_a_mi_espacio(app, base, rol):
     assert cliente(app, rol).get("/admin/mi-espacio").status_code == 403
+
+
+# ------------------------------------------------------------
+# El asesor no registra compras desde el panel
+# ------------------------------------------------------------
+
+def test_el_asesor_no_tiene_la_ruta_de_compra_que_antes_usaba(app):
+    c = cliente(app, "asesor")
+    assert c.get("/admin/comprar").status_code == 404
+    assert c.post("/admin/comprar", data={"marca": "Yamaha"}).status_code == 404
+
+
+def test_el_asesor_no_entra_a_nueva_compra_ni_la_ve_en_el_menu(app, base):
+    c = cliente(app, "asesor")
+    assert c.get("/admin/compras/nueva").status_code == 403
+    html = c.get("/admin/mi-espacio").get_data(as_text=True)
+    assert "Comprar moto" not in html and "Nueva compra" not in html
+    assert "/admin/comprar" not in html and "/admin/compras/nueva" not in html
+    # Sus compras (las que registró un encargado a su nombre) sí las sigue viendo.
+    assert "Mis compras" in html and "Bajaj Pulsar 2018" in html

@@ -44,7 +44,6 @@
             <form method="POST" id="form-vender">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                {% if not es_asesor %}
                 <div class="campo">
                     <label for="asesor_id">¿Qué asesor la vendió? *</label>
                     {% if asesores %}
@@ -58,11 +57,10 @@
                     <p class="vacio">No hay asesores activos en la sede de esta moto.</p>
                     {% endif %}
                 </div>
-                {% endif %}
 
                 <div class="acciones">
                     <button type="submit" class="btn btn-success" id="btn-vender"
-                            {% if not es_asesor and not asesores %}disabled{% endif %}>Confirmar venta</button>
+                            {% if not asesores %}disabled{% endif %}>Confirmar venta</button>
                     <a href="{{ url_for('admin.index') }}" class="btn btn-secundario">Cancelar</a>
                 </div>
             </form>
