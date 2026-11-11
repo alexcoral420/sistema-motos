@@ -123,7 +123,8 @@
                         <a href="{{ url_for('admin.editar', id=moto.id) }}" class="btn btn-ghost"><svg class="ico" aria-hidden="true"><use href="#ico-editar"/></svg> Editar</a>
                         {% endif %}
 
-                        {% if moto.estado == 'disponible' %}
+                        {# El asesor no registra ventas (la ruta también lo rechaza). #}
+                        {% if moto.estado == 'disponible' and session.rol in ['admin', 'gerencia', 'encargado_sede'] %}
                         <a href="{{ url_for('admin.vender', id=moto.id) }}" class="btn btn-primary"><svg class="ico" aria-hidden="true"><use href="#ico-check"/></svg> Vendida</a>
                         {% endif %}
 

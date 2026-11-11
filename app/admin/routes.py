@@ -140,44 +140,6 @@ def agregar_desde_runt():
                            texto_runt=texto_runt, sedes=sedes.listar_sedes(),
                            anio_max=inventario.anio_maximo())
 
-@admin_bp.route("/comprar", methods=["GET", "POST"])
-@requiere_rol("asesor")   # PROVISIONAL: en el Paso 5 lo dejamos solo "asesor"
-def comprar():
-    """
-    El asesor le compra una moto a un particular.
-    Flujo Opción A: agrega la moto al inventario Y registra la compra
-    en un solo paso. La identidad del asesor sale de la SESIÓN.
-    """
-    if request.method == "POST":
-        try:
-            # Misma validación que 'agregar': cada campo se limpia antes de tocar nada.
-            datos = inventario.validar_datos_moto(request.form, "disponible", exigir_kilometraje=False)
-
-            # DIFERENCIA CLAVE vs agregar: un solo paso que agrega la moto
-            # Y registra la compra. La identidad sale de la SESIÓN, nunca
-            # del formulario: el asesor no puede falsear quién compró.
-            inventario.comprar_moto(
-                datos,
-                session.get("usuario_id"),
-                session.get("usuario_nombre"),
-            )
-            obtener_logger().info(
-                "%s compró una moto (%s %s).",
-                session.get("usuario_nombre"), datos["marca"], datos["modelo"])
-            return redirect(url_for("admin.index"))
-
-        except ErrorValidacion as e:
-            return render_template(
-                "comprar.html",          # DIFERENCIA: su propio template
-                error=e.mensaje,
-                datos=request.form,
-                sedes=sedes.listar_sedes(),
-            )
-
-    # GET: mostrar el formulario vacío.
-    # GET: mostrar el formulario vacío.
-    return render_template("comprar.html", sedes=sedes.listar_sedes())  
-
 @admin_bp.route("/permuta", methods=["GET", "POST"])
 @requiere_rol("admin", "encargado_sede")
 def permuta():
@@ -361,13 +323,18 @@ def venta_completada(venta_id):
     )
 
 
+# Quién registra una venta. El asesor NO: la registra su encargado (o
+# admin/gerencia) eligiendo qué asesor la hizo, igual que compras y permutas.
+ROLES_VENTAS = ("admin", "gerencia", "encargado_sede")
+
+
 @admin_bp.route("/vender/<int:id>", methods=["GET", "POST"])
-@requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
+@requiere_rol(*ROLES_VENTAS)
 def vender(id):
     """
-    GET: confirma la venta y, salvo que venda un asesor, pide qué asesor
-    la hizo. POST: registra la venta. Quién registra (y, si es asesor,
-    quién vendió) sale de la SESIÓN, no del formulario.
+    GET: confirma la venta y pide qué asesor la hizo. POST: registra la
+    venta. Quién registra sale de la SESIÓN, no del formulario; el asesor
+    elegido lo revalida el servicio.
     """
     # Moto inexistente, de otra sede o no vendible: 403 y rastro en el
     # log, como antes (un id fuera de alcance es un intento a vigilar).
@@ -386,27 +353,21 @@ def vender(id):
                 id,
                 session.get("usuario_id"),
                 session.get("usuario_nombre"),
-                session.get("rol"),
                 request.form.get("asesor_id"),
             )
             obtener_logger().info("%s registró la venta id=%s (moto id=%s).",
                                   session.get("usuario_nombre"), venta_id, id)
-            # Quien puede verificar sigue la cadena en su listado de ventas;
-            # el asesor no tiene acceso a esa vista y vuelve al inventario.
-            if session.get("rol") == "asesor":
-                return redirect(url_for("admin.index"))
+            # Quien registra sigue la cadena en su listado de ventas.
             return redirect(url_for("admin.ventas_mi_sede"))
         except ErrorValidacion as e:
             # Asesor inválido, o la base rechazó (p. ej. otra persona la
             # vendió entre el GET y el POST): se muestra, no es un ataque.
             error = e.mensaje
 
-    es_asesor = session.get("rol") == "asesor"
     return render_template(
         "vender_moto.html",
         moto=moto,
-        es_asesor=es_asesor,
-        asesores=[] if es_asesor else inventario.asesores_para_venta(moto),
+        asesores=inventario.asesores_para_venta(moto),
         asesor_elegido=request.form.get("asesor_id"),
         error=error,
     )
@@ -424,6 +385,9 @@ def eliminar(id):
 
 
 ROLES_DATOS_CONTRATO = ("admin", "gerencia", "encargado_sede")
+# Quién VE los datos del RUNT en el detalle. El asesor los consulta (los
+# necesita para atender al cliente) pero no los carga ni los reemplaza.
+ROLES_VEN_DATOS_CONTRATO = ROLES_DATOS_CONTRATO + ("asesor",)
 ROLES_PUBLICAR = ("admin", "gerencia", "encargado_sede")
 
 
@@ -431,19 +395,22 @@ ROLES_PUBLICAR = ("admin", "gerencia", "encargado_sede")
 @requiere_rol("admin", "asesor", "gerencia", "encargado_sede")
 def detalle_moto_admin(id):
     """
-    Detalle de una moto en vista admin (es_admin=True). Para los roles
-    que cargan datos de contrato, y solo si la moto es de su alcance
-    de sede, incluye la sección del RUNT.
+    Detalle de una moto en vista admin (es_admin=True). Si la moto es
+    del alcance de sede del usuario, incluye la sección del RUNT: para
+    leerla (ROLES_VEN_DATOS_CONTRATO, que suma al asesor) y, además, para
+    cargarla (ROLES_DATOS_CONTRATO).
     """
     from app.servicios import contratos
 
     moto = inventario.obtener_moto_admin(id)
     fotos = inventario.obtener_galeria(id)
 
-    puede_cargar_contrato = False
+    rol = session.get("rol")
+    puede_ver_contrato = puede_cargar_contrato = False
     datos_contrato = None
-    if session.get("rol") in ROLES_DATOS_CONTRATO and contratos.moto_en_alcance(id):
-        puede_cargar_contrato = True
+    if rol in ROLES_VEN_DATOS_CONTRATO and contratos.moto_en_alcance(id):
+        puede_ver_contrato = True
+        puede_cargar_contrato = rol in ROLES_DATOS_CONTRATO
         datos_contrato = contratos.obtener_datos(id)
 
     # Botón Publicar: solo si está pendiente, para los roles que publican
@@ -457,6 +424,7 @@ def detalle_moto_admin(id):
 
     return render_template(
         "detalle.html", moto=moto, fotos=fotos, es_admin=True,
+        puede_ver_contrato=puede_ver_contrato,
         puede_cargar_contrato=puede_cargar_contrato,
         datos_contrato=datos_contrato,
         etiquetas_contrato=contratos.ETIQUETAS_VISIBLES,

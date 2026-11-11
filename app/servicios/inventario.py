@@ -229,25 +229,21 @@ def _validar_asesor_de_venta(asesor_id, sede_id: int) -> dict:
     return asesor
 
 
-def vender_moto(id: int, usuario_id: int, usuario_nombre: str, rol: str,
-                asesor_id=None) -> int:
+def vender_moto(id: int, usuario_id: int, usuario_nombre: str, asesor_id=None) -> int:
     """
     Vende una moto y devuelve el id de la venta.
 
     En Python se valida lo que da mensajes claros: la moto
-    (moto_para_vender) y el asesor. usuario_* (quién registra) y rol
-    vienen de la SESIÓN. Si quien vende es asesor, el asesor es él
-    mismo y se ignora cualquier asesor_id. El nombre del asesor sale de
-    la base, nunca del formulario.
+    (moto_para_vender) y el asesor. usuario_* (quién registra) viene de
+    la SESIÓN. asesor_id (quién la vendió) viene del formulario y se
+    revalida aquí; su nombre sale de la base, nunca del formulario. El
+    asesor no registra ventas: la ruta no lo admite.
 
     Marcar vendida y crear la venta es UNA llamada a la función
     registrar_venta_moto (migración 015), que bloquea la moto: dos
     clics simultáneos ya no pueden venderla dos veces.
     """
     moto = moto_para_vender(id)
-
-    if rol == "asesor":
-        asesor_id = usuario_id
     asesor = _validar_asesor_de_venta(asesor_id, moto.get("sede_id"))
 
     return repositorios.registrar_venta_moto(
@@ -437,62 +433,7 @@ def hacer_portada(moto_id: int, foto_id: int) -> bool:
 #  COMPRAS (asesor compra una moto a un particular)
 # ============================================================
 
-def comprar_moto(datos: dict, usuario_id: int, usuario_nombre: str):
-    """
-    Flujo de compra (Opción A): agrega la moto al inventario Y
-    registra la compra en un solo paso.
-
-    'datos' viene del formulario (marca, modelo, precio, etc.).
-    'usuario_id' y 'usuario_nombre' vienen SIEMPRE de la sesión,
-    nunca del formulario: la identidad la pone el servidor.
-    """
-    # 1. Agregar la moto al inventario (reutiliza la lógica existente).
-    moto = repositorios.agregar_moto(datos)
-    if not moto:
-        return None
-
-    # agregar_moto devuelve una lista; la moto creada es el primer elemento.
-    moto_creada = moto[0] if isinstance(moto, list) else moto
-    moto_id = moto_creada["id"]
-
-    # 2. Congelar la descripción como TEXTO (mismo patrón que registrar_venta).
-    partes = [moto_creada.get("marca") or "", moto_creada.get("modelo") or ""]
-    if moto_creada.get("anio"):
-        partes.append(str(moto_creada["anio"]))
-    descripcion = " ".join(p for p in partes if p).strip()
-
-    # 3. Registrar la compra con la identidad de sesión. usuario_* = quién
-    #    registró; asesor_* = quién hizo el negocio. Hoy son la misma persona.
-    #    Sin transacción todavía: si el registro falla, la moto ya quedó en
-    #    inventario sin su fila en 'compras'. Mismo patrón que vender_moto.
-    try:
-        registrada = repositorios.registrar_compra({
-            "moto_id": moto_id,
-            "descripcion": descripcion,
-            "placa": moto_creada.get("placa"),
-            "usuario_id": usuario_id,
-            "usuario_nombre": usuario_nombre,
-            "asesor_id": usuario_id,
-            "asesor_nombre": usuario_nombre,
-            "sede_id": moto_creada.get("sede_id"),
-        })
-    except Exception:
-        obtener_logger().exception(
-            "INCONSISTENCIA: moto id=%s creada en inventario pero falló "
-            "registrar_compra (usuario_id=%s, usuario=%s). Corregir a mano.",
-            moto_id, usuario_id, usuario_nombre)
-        raise
-
-    if not registrada:
-        obtener_logger().error(
-            "INCONSISTENCIA: moto id=%s creada en inventario pero "
-            "registrar_compra no devolvió fila (usuario_id=%s, usuario=%s). "
-            "Corregir a mano.",
-            moto_id, usuario_id, usuario_nombre)
-
-    return moto_creada
-
-    # ============================================================
+# ============================================================
 #  PERMUTAS (admin o encargado registran compra + venta en un negocio)
 # ============================================================
 

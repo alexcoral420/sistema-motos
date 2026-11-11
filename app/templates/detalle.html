@@ -619,9 +619,11 @@
             </div>
         </div>
 
-        <!-- Datos de contrato desde el RUNT (admin, gerencia, encargado de sede;
-             el servidor ya filtró por alcance de sede al calcular puede_cargar_contrato) -->
-        {% if puede_cargar_contrato %}
+        <!-- Datos de contrato desde el RUNT. Los ven admin, gerencia, encargado
+             de sede y asesor (puede_ver_contrato); solo los tres primeros los
+             cargan (puede_cargar_contrato). El servidor ya filtró por alcance
+             de sede al calcular ambos. -->
+        {% if puede_ver_contrato %}
         <div class="upload-card" id="datos-contrato">
             <h3>📄 Datos de contrato (RUNT)</h3>
 
@@ -645,15 +647,22 @@
                 </tr>
                 {% endfor %}
             </table>
+            {% if puede_cargar_contrato %}
             <p style="font-size:13px; color:#888; margin-bottom:10px">
                 Si algo está mal, vuelva a pegar la consulta: los datos se reemplazan.
             </p>
-            {% else %}
+            {% endif %}
+            {% elif puede_cargar_contrato %}
             <p style="font-size:13px; color:#888; margin-bottom:10px">
                 Aún no hay datos cargados. Copie toda la consulta de la placa en el RUNT y péguela aquí.
             </p>
+            {% else %}
+            <p style="font-size:13px; color:#888; margin-bottom:10px">
+                Esta moto aún no tiene los datos del RUNT cargados. Los carga el encargado de la sede.
+            </p>
             {% endif %}
 
+            {% if puede_cargar_contrato %}
             <form method="POST" action="{{ url_for('admin.guardar_datos_contrato', id=moto.id) }}"
                   {% if datos_contrato %}onsubmit="return confirm('¿Reemplazar los datos de contrato ya cargados?')"{% endif %}>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -663,6 +672,7 @@
                     {% if datos_contrato %}🔄 Reemplazar datos de contrato{% else %}💾 Cargar datos de contrato{% endif %}
                 </button>
             </form>
+            {% endif %}
         </div>
         {% endif %}
 
