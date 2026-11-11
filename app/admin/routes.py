@@ -1187,31 +1187,45 @@ def dar_acceso_usuario(usuario_id):
 
 AVISOS_LEADS = {
     "tomado": "El lead es suyo. Ya puede contactar al cliente.",
-    "actualizado": "Lead actualizado.",
+    "actualizado": "Seguimiento guardado.",
+}
+
+# Los errores viajan en la URL como CÓDIGO, nunca como texto: así un
+# enlace armado por fuera no puede mostrar un mensaje propio en el panel.
+ERRORES_LEADS = {
+    "no_disponible": "Ese lead ya lo tomó otro asesor o no existe.",
+    "ya_tomado": "Otro asesor ya tomó este lead.",
 }
 
 
 @admin_bp.route("/leads")
 @requiere_rol(*leads_chat.ROLES_BANDEJA)
 def leads_bandeja():
-    """Bandeja de leads del chat: nuevos, en gestión y cerrados."""
+    """Bandeja de leads: nuevos, para hoy, en seguimiento por etapa y cerrados."""
     grupos = leads_chat.listar(session["usuario_id"], session["rol"])
     return render_template("leads.html", grupos=grupos,
                            aviso=AVISOS_LEADS.get(request.args.get("aviso")),
-                           error=request.args.get("error"))
+                           error=ERRORES_LEADS.get(request.args.get("error")))
+
+
+def _pintar_lead(lead, error=None, borrador=None, status=200):
+    """La ficha de un lead. 'borrador' devuelve lo que se escribió si hubo error."""
+    return render_template("lead_detalle.html", lead=lead,
+                           estados=leads_chat.OPCIONES_ESTADO,
+                           max_nota=leads_chat.MAX_LARGO_NOTA,
+                           borrador=borrador or {},
+                           aviso=AVISOS_LEADS.get(request.args.get("aviso")),
+                           error=error), status
 
 
 @admin_bp.route("/leads/<int:lead_id>")
 @requiere_rol(*leads_chat.ROLES_BANDEJA)
 def lead_detalle(lead_id):
-    """Un lead. A este enlace llega el aviso push."""
+    """Un lead, con su seguimiento. A este enlace llega el aviso push."""
     lead = leads_chat.obtener(lead_id, session["usuario_id"], session["rol"])
     if lead is None:
-        return redirect(url_for("admin.leads_bandeja",
-                                error="Ese lead ya lo tomó otro asesor o no existe."))
-    return render_template("lead_detalle.html", lead=lead,
-                           aviso=AVISOS_LEADS.get(request.args.get("aviso")),
-                           error=request.args.get("error"))
+        return redirect(url_for("admin.leads_bandeja", error="no_disponible"))
+    return _pintar_lead(lead)
 
 
 @admin_bp.route("/leads/<int:lead_id>/tomar", methods=["POST"])
@@ -1221,23 +1235,29 @@ def lead_tomar(lead_id):
     try:
         leads_chat.tomar(lead_id, session["usuario_id"],
                          session.get("usuario_nombre"), session["rol"])
-    except ErrorValidacion as e:
-        return redirect(url_for("admin.leads_bandeja", error=e.mensaje))
+    except ErrorValidacion:
+        return redirect(url_for("admin.leads_bandeja", error="ya_tomado"))
     obtener_logger().info("Lead %s tomado por el usuario %s.", lead_id, session["usuario_id"])
     return redirect(url_for("admin.lead_detalle", lead_id=lead_id, aviso="tomado"))
 
 
-@admin_bp.route("/leads/<int:lead_id>/estado", methods=["POST"])
-@requiere_rol(leads_chat.ROL_QUE_TOMA, leads_chat.ROL_QUE_CIERRA_AJENOS)
-def lead_cerrar(lead_id):
-    """Marca el lead como contactado o descartado."""
+@admin_bp.route("/leads/<int:lead_id>/seguimiento", methods=["POST"])
+@requiere_rol(*leads_chat.ROLES_QUE_GESTIONAN)
+def lead_seguimiento(lead_id):
+    """Cambia la etapa, programa el próximo contacto y/o agrega una nota."""
     try:
-        leads_chat.cerrar(lead_id, request.form.get("estado"),
-                          session["usuario_id"], session["rol"])
+        leads_chat.registrar_seguimiento(lead_id, request.form, session["usuario_id"],
+                                         session.get("usuario_nombre"), session["rol"])
     except ErrorValidacion as e:
-        return redirect(url_for("admin.lead_detalle", lead_id=lead_id, error=e.mensaje))
-    obtener_logger().info("Lead %s -> %s por el usuario %s.",
-                          lead_id, request.form.get("estado"), session["usuario_id"])
+        # Se vuelve a pintar la ficha en vez de redirigir: el mensaje no
+        # pasa por la URL y el asesor no pierde la nota que escribió.
+        lead = leads_chat.obtener(lead_id, session["usuario_id"], session["rol"])
+        if lead is None:
+            return redirect(url_for("admin.leads_bandeja", error="no_disponible"))
+        return _pintar_lead(lead, error=e.mensaje, borrador=request.form, status=400)
+    # Sin el contenido de la nota: puede traer datos del cliente.
+    obtener_logger().info("Lead %s: seguimiento registrado por el usuario %s.",
+                          lead_id, session["usuario_id"])
     return redirect(url_for("admin.lead_detalle", lead_id=lead_id, aviso="actualizado"))
 
 
