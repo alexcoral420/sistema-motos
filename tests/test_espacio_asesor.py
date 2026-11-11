@@ -81,12 +81,18 @@ def base(monkeypatch):
                  "asesor_nombre": None, "tomado_en": None, "gestionado_en": None, "motos": None}
         nuevos = [dict(nuevo, id=i) for i in range(1, 8)]
         nuevos[6]["forma_pago"] = "contado"
+        suyo = dict(nuevo, asesor_id=ASESOR)
         return nuevos + [
-            dict(nuevo, id=20, estado="tomado", asesor_id=ASESOR),
+            dict(suyo, id=20, estado="tomado"),
             # Fecha del lunes 9: el martes 10 ya está atrasado.
-            dict(nuevo, id=21, estado="primer_contacto", asesor_id=ASESOR,
-                 proximo_contacto="2026-11-09"),
-        ]
+            dict(suyo, id=21, estado="primer_contacto", proximo_contacto="2026-11-09"),
+            # Ya le escribió y no programó fecha: antes desaparecía de la portada.
+            dict(suyo, id=22, estado="primer_contacto"),
+            dict(suyo, id=23, estado="cita_pendiente", proximo_contacto="2026-11-20"),
+            dict(suyo, id=30, estado="vendido"),
+            dict(suyo, id=31, estado="descartado"),
+            dict(suyo, id=32, estado="descartado"),
+        ] + [dict(suyo, id=40 + i, estado="segundo_contacto") for i in range(7)]
 
     monkeypatch.setattr(repositorios, "ventas_de_asesor_en_rango", ventas)
     monkeypatch.setattr(repositorios, "compras_de_asesor_en_rango", compras)
@@ -131,20 +137,50 @@ def test_navegacion_entre_semanas_sin_ir_al_futuro(base):
 
 def test_leads_en_portada_contado_primero_y_con_tope(base):
     datos = espacio_asesor.resumen(ASESOR, None, hoy=MARTES)
-    assert datos["total_leads_nuevos"] == 7 and datos["total_leads_en_gestion"] == 2
+    assert datos["total_leads_nuevos"] == 7 and datos["total_leads_en_gestion"] == 11
     assert len(datos["leads_nuevos"]) == espacio_asesor.LEADS_EN_PORTADA
     assert datos["leads_nuevos"][0]["prioridad"]                    # el de contado
     assert all(l["telefono"] is None for l in datos["leads_nuevos"])  # sin contacto hasta tomarlo
 
 
-def test_portada_pone_arriba_lo_de_hoy_y_lo_tomado_sin_contactar(base):
+def test_portada_pone_arriba_lo_de_hoy(base):
     datos = espacio_asesor.resumen(ASESOR, None, hoy=MARTES)
     assert [l["id"] for l in datos["leads_para_hoy"]] == [21]
     assert datos["leads_para_hoy"][0]["seguimiento"] == "vencido"
-    assert [l["id"] for l in datos["leads_por_contactar"]] == [20]
-    assert datos["total_leads_por_contactar"] == 1
     # Son suyos: aquí sí va el contacto, para escribirle de una vez.
     assert datos["leads_para_hoy"][0]["whatsapp_url"]
+
+
+def test_portada_lista_todos_sus_clientes_por_etapa(base):
+    datos = espacio_asesor.resumen(ASESOR, None, hoy=MARTES)
+    etapas = {e["estado"]: e for e in datos["etapas_seguimiento"]}
+    assert list(etapas) == ["tomado", "primer_contacto", "segundo_contacto", "cita_pendiente"]
+    assert [e["titulo"] for e in datos["etapas_seguimiento"]][:2] == ["Por contactar", "Primer contacto"]
+
+    assert [l["id"] for l in etapas["tomado"]["leads"]] == [20]
+    # El 21 ya sale en "para hoy": cuenta en la etapa pero no se repite.
+    assert etapas["primer_contacto"]["total"] == 2
+    assert [l["id"] for l in etapas["primer_contacto"]["leads"]] == [22]
+    assert [l["id"] for l in etapas["cita_pendiente"]["leads"]] == [23]
+    assert etapas["cita_pendiente"]["leads"][0]["seguimiento_texto"] == (
+        "Próximo contacto: 20 de noviembre de 2026")
+
+    # Con tope por etapa: el resto se ve en la bandeja.
+    segundo = etapas["segundo_contacto"]
+    assert segundo["total"] == 7 and segundo["sin_listar"] == 2
+    assert len(segundo["leads"]) == espacio_asesor.CLIENTES_POR_ETAPA
+
+    # Los cerrados no se listan, solo se cuentan.
+    listados = {l["id"] for e in datos["etapas_seguimiento"] for l in e["leads"]}
+    assert not listados & {30, 31, 32}
+    assert (datos["total_leads_vendidos"], datos["total_leads_descartados"]) == (1, 2)
+
+
+def test_portada_sin_clientes_lo_dice(base, monkeypatch):
+    monkeypatch.setattr(repositorios, "listar_leads_bandeja", lambda asesor_id=None: [])
+    datos = espacio_asesor.resumen(ASESOR, None, hoy=MARTES)
+    assert datos["total_leads_en_gestion"] == 0
+    assert all(e["total"] == 0 and e["leads"] == [] for e in datos["etapas_seguimiento"])
 
 
 # ------------------------------------------------------------
@@ -248,10 +284,14 @@ def test_portada_del_asesor_muestra_conteos_y_nunca_pesos(app, base):
     assert "Mi espacio" in html and "Yamaha FZ 2019" in html and "Suzuki GN 2021" in html
     assert "Leads disponibles" in html and "/admin/leads/7/tomar" in html
     assert "7.500.000" not in html and "7500000" not in html and "4000000" not in html
-    # El contacto solo aparece en el WhatsApp de sus dos clientes en
-    # seguimiento; nunca en los leads disponibles, que no son de nadie.
-    assert html.count("3001234567") == 2
-    assert "Para contactar hoy" in html and "Tomados sin contactar" in html
+    # El contacto solo aparece en el WhatsApp de los clientes suyos que se
+    # listan (1 para hoy + 1 + 1 + 5 + 1 por etapa); nunca en los leads
+    # disponibles, que no son de nadie.
+    assert html.count("3001234567") == 9
+    assert "Para contactar hoy" in html and "Mis clientes en seguimiento" in html
+    assert 'href="#mis-clientes"' in html and 'id="mis-clientes"' in html
+    assert "Ver los 7 de segundo contacto" in html and "/admin/leads#etapa-segundo_contacto" in html
+    assert "Cerrados: 1 vendidos · 2 descartados" in html
 
 
 def test_el_asesor_es_el_de_la_sesion_aunque_la_url_diga_otro(app, base):

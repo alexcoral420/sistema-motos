@@ -29,6 +29,12 @@
         .esp-etiqueta.contado { background: var(--naranja); border-color: var(--naranja); color: var(--barra-bg); }
         .esp-fila form { margin: 0; }
         .esp-vacio { padding: 18px; text-align: center; color: var(--texto-tenue); background: var(--superficie); border: 1px dashed var(--borde); border-radius: 12px; }
+        .esp-bloque { scroll-margin-top: calc(var(--alto-barra) + 10px); }
+        .esp-embudo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .esp-embudo span { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 10px; background: var(--superficie); border: 1px solid var(--borde); font-size: 14px; font-weight: 600; }
+        .esp-embudo b { font-size: 13px; padding: 2px 9px; border-radius: 20px; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); }
+        .esp-etapa { margin: 0 0 16px; }
+        .esp-etapa h3 { font-family: 'Barlow Condensed', sans-serif; font-size: 17px; margin: 0 0 8px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: .5px; }
         .esp-pie { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         @media (max-width: 720px) {
             .esp-cifras { grid-template-columns: repeat(2, 1fr); }
@@ -56,11 +62,7 @@
         </section>
 {% endmacro %}
 
-{% macro clientes(titulo, filas, total, urgente=false) %}
-        <section class="esp-bloque {% if urgente %}urgente{% endif %}">
-            <h2>{{ titulo }} <span class="cuenta">{{ total }}</span></h2>
-            <div class="esp-lista">
-                {% for lead in filas %}
+{% macro cliente(lead) %}
                 <div class="esp-fila {% if lead.prioridad %}prioridad{% endif %}">
                     <div class="esp-datos">
                         <strong><a href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}" style="color: inherit; text-decoration: none;">{{ lead.nombre }}</a></strong>
@@ -75,12 +77,6 @@
                     {% endif %}
                     <a class="btn btn-ghost" href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}">Seguimiento</a>
                 </div>
-                {% endfor %}
-            </div>
-            {% if total > filas | length %}
-            <div class="esp-pie"><a class="btn btn-ghost" href="{{ url_for('admin.leads_bandeja') }}">Ver los {{ total }}</a></div>
-            {% endif %}
-        </section>
 {% endmacro %}
 
 {% block contenido %}
@@ -101,15 +97,47 @@
             <div class="esp-cifra"><b>{{ datos.ventas | length }}</b><span>Ventas</span></div>
             <div class="esp-cifra"><b>{{ datos.compras | length }}</b><span>Compras</span></div>
             <div class="esp-cifra"><b>{{ datos.permutas | length }}</b><span>Permutas</span></div>
-            <a class="esp-cifra" href="{{ url_for('admin.leads_bandeja') }}"><b>{{ datos.total_leads_en_gestion }}</b><span>Clientes en seguimiento</span></a>
+            <a class="esp-cifra" href="#mis-clientes"><b>{{ datos.total_leads_en_gestion }}</b><span>Clientes en seguimiento</span></a>
         </div>
 
         {% if datos.leads_para_hoy %}
-        {{ clientes("Para contactar hoy", datos.leads_para_hoy, datos.leads_para_hoy | length, urgente=true) }}
+        <section class="esp-bloque urgente">
+            <h2>Para contactar hoy <span class="cuenta">{{ datos.leads_para_hoy | length }}</span></h2>
+            <div class="esp-lista">
+                {% for lead in datos.leads_para_hoy %}{{ cliente(lead) }}{% endfor %}
+            </div>
+        </section>
         {% endif %}
-        {% if datos.leads_por_contactar %}
-        {{ clientes("Tomados sin contactar", datos.leads_por_contactar, datos.total_leads_por_contactar) }}
-        {% endif %}
+
+        <section class="esp-bloque" id="mis-clientes">
+            <h2>Mis clientes en seguimiento <span class="cuenta">{{ datos.total_leads_en_gestion }}</span></h2>
+            {% if datos.total_leads_en_gestion %}
+            <div class="esp-embudo" aria-label="Clientes por etapa">
+                {% for etapa in datos.etapas_seguimiento %}
+                <span>{{ etapa.titulo }} <b>{{ etapa.total }}</b></span>
+                {% endfor %}
+            </div>
+            {% for etapa in datos.etapas_seguimiento if etapa.leads %}
+            <div class="esp-etapa">
+                <h3>{{ etapa.titulo }}</h3>
+                <div class="esp-lista">
+                    {% for lead in etapa.leads %}{{ cliente(lead) }}{% endfor %}
+                </div>
+                {% if etapa.sin_listar %}
+                <div class="esp-pie"><a class="btn btn-ghost" href="{{ url_for('admin.leads_bandeja') }}#etapa-{{ etapa.estado }}">Ver los {{ etapa.total }} de {{ etapa.titulo | lower }}</a></div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="esp-vacio">Todavía no tiene clientes en seguimiento. Tome un lead disponible o agregue un cliente.</div>
+            {% endif %}
+            <div class="esp-pie">
+                <a class="btn btn-ghost" href="{{ url_for('admin.leads_bandeja') }}">Ver todos mis clientes</a>
+                {% if datos.total_leads_vendidos or datos.total_leads_descartados %}
+                <span class="esp-meta">Cerrados: {{ datos.total_leads_vendidos }} vendidos · {{ datos.total_leads_descartados }} descartados</span>
+                {% endif %}
+            </div>
+        </section>
 
         <section class="esp-bloque">
             <h2>Leads disponibles <span class="cuenta">{{ datos.total_leads_nuevos }}</span></h2>

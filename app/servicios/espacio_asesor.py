@@ -3,9 +3,10 @@
 
 La página de llegada del asesor: cuántas ventas, compras y permutas hizo
 en la semana (lunes a domingo), el detalle de cada una y los leads del
-chat disponibles para contactar. Arriba de todo, sus clientes en
-seguimiento que tocan hoy (o están atrasados) y los que tomó y todavía
-no contacta: es lo primero que tiene que ver al entrar.
+chat disponibles para contactar. Arriba de todo, sus clientes: los que
+tocan hoy (o están atrasados) y, debajo, todos los que tiene en
+seguimiento agrupados por etapa. Es lo primero que tiene que ver al
+entrar: un lead que tomó no puede desaparecer de su portada.
 
 Criterios:
   - Solo lo del asesor en sesión: se filtra por asesor_id (quién hizo el
@@ -27,7 +28,8 @@ from app.servicios import leads_chat
 
 ROL_ESPACIO = "asesor"
 ESTADO_VENTA_VALIDA = "activa"
-LEADS_EN_PORTADA = 5
+LEADS_EN_PORTADA = 5       # leads disponibles que se listan
+CLIENTES_POR_ETAPA = 5     # clientes en seguimiento que se listan por etapa
 
 
 def semana_de(cruda=None, hoy=None):
@@ -90,9 +92,21 @@ def resumen(usuario_id, semana_cruda=None, hoy=None) -> dict:
 
     leads = leads_chat.listar(usuario_id, ROL_ESPACIO, hoy)
     para_hoy = leads["para_hoy"]
-    # Tomados y sin primer contacto. Los que ya salen en "para hoy" no se repiten.
+    # Sus clientes abiertos, por etapa. El conteo de la etapa es el total;
+    # en la lista no se repite al que ya sale arriba en "para hoy", y se
+    # corta en CLIENTES_POR_ETAPA (el resto está en la bandeja).
     ya_listados = {l["id"] for l in para_hoy}
-    por_contactar = [l for l in leads["etapas"][0]["leads"] if l["id"] not in ya_listados]
+    etapas = []
+    for etapa in leads["etapas"]:
+        resto = [l for l in etapa["leads"] if l["id"] not in ya_listados]
+        etapas.append({
+            "estado": etapa["estado"],
+            "titulo": etapa["titulo"],
+            "total": len(etapa["leads"]),
+            "leads": resto[:CLIENTES_POR_ETAPA],
+            "sin_listar": max(0, len(resto) - CLIENTES_POR_ETAPA),
+        })
+    cerrados = leads["cerrados"]
 
     return {
         "periodo": _periodo(lunes, domingo),
@@ -105,8 +119,10 @@ def resumen(usuario_id, semana_cruda=None, hoy=None) -> dict:
         "compras": compras,
         "permutas": permutas,
         "leads_para_hoy": para_hoy,
-        "leads_por_contactar": por_contactar[:LEADS_EN_PORTADA],
-        "total_leads_por_contactar": len(por_contactar),
+        "etapas_seguimiento": etapas,
+        "total_leads_vendidos": sum(1 for l in cerrados if l["estado"] == leads_chat.ESTADO_VENDIDO),
+        "total_leads_descartados": sum(1 for l in cerrados
+                                       if l["estado"] == leads_chat.ESTADO_DESCARTADO),
         "leads_nuevos": leads["nuevos"][:LEADS_EN_PORTADA],
         "total_leads_nuevos": len(leads["nuevos"]),
         "total_leads_en_gestion": len(leads["en_gestion"]),
