@@ -43,6 +43,19 @@ por fuera del chat (un referido, alguien que pasó por la sede).
     historial con quién lo declaró.
   - Un asesor no tiene dos veces abierto al mismo teléfono.
 
+Y el del trabajo por asesor, que ve SOLO el admin en la misma bandeja:
+
+  - Una tabla con una fila por asesor que tenga al menos un lead tomado:
+    cuántos tiene en cada etapa, cuántos atrasados (abiertos con el
+    próximo contacto ya vencido), vendidos y descartados.
+  - Un filtro de periodo, uno solo para toda la tabla y las listas: se
+    cuentan los leads que el asesor TOMÓ en ese periodo, en el estado en
+    que están hoy. Los leads sin tomar no tienen esa fecha: se muestran
+    siempre.
+  - Un filtro por asesor: la bandeja muestra solo sus leads.
+  - Para cualquier otro rol los dos filtros se ignoran, vengan o no en la
+    URL: el asesor sigue viendo solo lo suyo.
+
 La identidad (usuario_id, rol) la pasa la ruta desde la sesión.
 """
 
@@ -51,7 +64,7 @@ from urllib.parse import quote
 
 from app.db import repositorios
 from app.seguridad.logging_config import obtener_logger
-from app.seguridad.tiempo import fecha_legible, hoy_colombia, momento_legible
+from app.seguridad.tiempo import HORA_COLOMBIA, fecha_legible, hoy_colombia, momento_legible
 from app.seguridad.validadores import ErrorValidacion
 from app.servicios import campos_credito
 from app.servicios.campos_credito import FORMA_PAGO_CONTADO
@@ -135,6 +148,19 @@ ROLES_VEN_TODO = ("admin", "gerencia")
 ROL_QUE_TOMA = "asesor"
 ROL_QUE_GESTIONA_AJENOS = "admin"
 ROLES_QUE_GESTIONAN = (ROL_QUE_TOMA, ROL_QUE_GESTIONA_AJENOS)
+# Quién ve la tabla "Trabajo por asesor" y usa sus filtros. Gerencia ve la
+# bandeja completa pero, por ahora, no este resumen.
+ROL_VE_TRABAJO_POR_ASESOR = "admin"
+
+# Periodos del filtro, en el orden en que se ofrecen. Cuentan desde el
+# día en que el asesor tomó el lead (hora de Colombia) hasta hoy.
+PERIODO_TODO = "todo"
+PERIODOS = {
+    PERIODO_TODO: "Todo",
+    "semana": "Esta semana",
+    "mes": "Este mes",
+    "trimestre": "Últimos 90 días",
+}
 
 
 def _ahora():
@@ -154,6 +180,69 @@ def _fecha(cruda):
         return date.fromisoformat(str(cruda)[:10])
     except ValueError:
         return None
+
+
+def _dia_colombia(iso):
+    """El día (en Colombia) de un timestamp ISO de la base, o None."""
+    if not iso:
+        return None
+    try:
+        momento = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=timezone.utc)
+    return momento.astimezone(HORA_COLOMBIA).date()
+
+
+def _inicio_de_periodo(periodo, hoy):
+    """Primer día que entra en el periodo, o None si es 'todo'."""
+    if periodo == "semana":
+        return hoy - timedelta(days=hoy.weekday())      # lunes
+    if periodo == "mes":
+        return hoy.replace(day=1)
+    if periodo == "trimestre":
+        return hoy - timedelta(days=89)
+    return None
+
+
+def _leer_asesor(crudo):
+    """El id de asesor del filtro (viene de la URL), o None si no es un número."""
+    if isinstance(crudo, int) and not isinstance(crudo, bool):
+        return crudo if crudo > 0 else None
+    if isinstance(crudo, str) and crudo.strip().isdigit() and len(crudo.strip()) <= 12:
+        return int(crudo.strip()) or None
+    return None
+
+
+def _trabajo_por_asesor(leads):
+    """
+    Una fila por asesor con al menos un lead: cuántos tiene en cada etapa
+    (en el orden de ESTADOS_DE_SEGUIMIENTO), atrasados, vendidos y
+    descartados. Primero quien más atrasados tiene; luego quien más
+    clientes abiertos lleva.
+    """
+    filas = {}
+    for lead in leads:
+        if lead["asesor_id"] is None:
+            continue
+        fila = filas.setdefault(lead["asesor_id"], {
+            "asesor_id": lead["asesor_id"], "nombre": lead["asesor_nombre"] or "Sin nombre",
+            "etapas": [0] * len(ESTADOS_DE_SEGUIMIENTO),
+            "abiertos": 0, "atrasados": 0, "vendidos": 0, "descartados": 0, "total": 0,
+        })
+        fila["total"] += 1
+        if lead["abierto"]:
+            fila["etapas"][ESTADOS_DE_SEGUIMIENTO.index(lead["estado"])] += 1
+            fila["abiertos"] += 1
+            if lead["seguimiento"] == SEGUIMIENTO_VENCIDO:
+                fila["atrasados"] += 1
+        elif lead["estado"] == ESTADO_VENDIDO:
+            fila["vendidos"] += 1
+        elif lead["estado"] == ESTADO_DESCARTADO:
+            fila["descartados"] += 1
+    return sorted(filas.values(),
+                  key=lambda f: (-f["atrasados"], -f["abiertos"], f["nombre"].lower()))
 
 
 def _moto_texto(lead):
@@ -221,6 +310,9 @@ def _presentar(lead, usuario_id, rol, hoy=None):
         "manual": lead.get("origen") == ORIGEN_ASESOR,
         "recibido": momento_legible(lead.get("created_at")),
         "tomado": momento_legible(lead.get("tomado_en")),
+        # Último cambio de ESTADO (una nota sola no lo mueve).
+        "gestionado": momento_legible(lead.get("gestionado_en")),
+        "asesor_id": lead.get("asesor_id"),
         "asesor_nombre": lead.get("asesor_nombre"),
         "propio": propio,
         # La fecha programada (ISO, para el formulario) y cómo se muestra.
@@ -233,7 +325,7 @@ def _presentar(lead, usuario_id, rol, hoy=None):
     }
 
 
-def listar(usuario_id, rol, hoy=None) -> dict:
+def listar(usuario_id, rol, hoy=None, asesor=None, periodo=None) -> dict:
     """
     La bandeja de este usuario:
       nuevos      sin tomar; primero los de compra de contado
@@ -245,12 +337,43 @@ def listar(usuario_id, rol, hoy=None) -> dict:
       en_gestion  todos los abiertos juntos
       cerrados    vendidos y descartados
     Para el asesor son solo los suyos; admin y gerencia ven los de todos.
+
+    Solo para el admin, además:
+      trabajo     la tabla por asesor (None para los demás roles)
+      filtro      el periodo y el asesor aplicados, y las opciones
+    'asesor' y 'periodo' vienen de la URL: se validan aquí y se ignoran
+    si el rol no es el admin.
     """
     hoy = hoy or hoy_colombia()
     filas = repositorios.listar_leads_bandeja(
         None if rol in ROLES_VEN_TODO else usuario_id
     )
+
+    trabajo = filtro = None
+    if rol == ROL_VE_TRABAJO_POR_ASESOR:
+        periodo = periodo if periodo in PERIODOS else PERIODO_TODO
+        desde = _inicio_de_periodo(periodo, hoy)
+        if desde is not None:
+            # Un lead sin tomar no tiene fecha de toma: se queda siempre.
+            filas = [f for f in filas if f.get("asesor_id") is None
+                     or (_dia_colombia(f.get("tomado_en")) or date.min) >= desde]
+
     leads = [_presentar(f, usuario_id, rol, hoy) for f in filas]
+
+    if rol == ROL_VE_TRABAJO_POR_ASESOR:
+        # La tabla se arma ANTES de filtrar por asesor: siempre muestra a todos.
+        trabajo = _trabajo_por_asesor(leads)
+        elegido = next((t for t in trabajo if t["asesor_id"] == _leer_asesor(asesor)), None)
+        filtro = {
+            "periodo": periodo,
+            "periodos": tuple(PERIODOS.items()),
+            "asesor_id": elegido["asesor_id"] if elegido else None,
+            "asesor_nombre": elegido["nombre"] if elegido else None,
+            "sin_tomar": sum(1 for l in leads if l["estado"] == ESTADO_NUEVO),
+            "etapas": tuple(ETIQUETAS_ESTADO[e] for e in ESTADOS_DE_SEGUIMIENTO),
+        }
+        if elegido:
+            leads = [l for l in leads if l["asesor_id"] == elegido["asesor_id"]]
 
     nuevos = [l for l in leads if l["estado"] == ESTADO_NUEVO]
     nuevos.sort(key=lambda l: not l["prioridad"])   # estable: conserva el orden por fecha
@@ -268,6 +391,8 @@ def listar(usuario_id, rol, hoy=None) -> dict:
                    for estado in ESTADOS_DE_SEGUIMIENTO],
         "en_gestion": abiertos,
         "cerrados": [l for l in leads if l["estado"] in ESTADOS_DE_CIERRE],
+        "trabajo": trabajo,
+        "filtro": filtro,
     }
 
 

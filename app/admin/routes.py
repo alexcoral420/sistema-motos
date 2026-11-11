@@ -1171,7 +1171,10 @@ ERRORES_LEADS = {
 @requiere_rol(*leads_chat.ROLES_BANDEJA)
 def leads_bandeja():
     """Bandeja de leads: nuevos, para hoy, en seguimiento por etapa y cerrados."""
-    grupos = leads_chat.listar(session["usuario_id"], session["rol"])
+    # Los filtros son solo del admin: el servicio los ignora para otro rol.
+    grupos = leads_chat.listar(session["usuario_id"], session["rol"],
+                               asesor=request.args.get("asesor"),
+                               periodo=request.args.get("periodo"))
     return render_template("leads.html", grupos=grupos,
                            aviso=AVISOS_LEADS.get(request.args.get("aviso")),
                            error=ERRORES_LEADS.get(request.args.get("error")))

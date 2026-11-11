@@ -703,3 +703,123 @@ def test_un_error_al_agregar_conserva_lo_escrito(app, alta):
 def test_la_bandeja_del_asesor_ofrece_agregar_cliente(app, bandeja):
     assert "/admin/leads/nuevo" in cliente(app, "asesor").get("/admin/leads").get_data(as_text=True)
     assert "/admin/leads/nuevo" not in cliente(app, "gerencia", 99).get("/admin/leads").get_data(as_text=True)
+
+
+# ------------------------------------------------------------
+# Trabajo por asesor (solo admin): tabla, periodo y filtro
+# ------------------------------------------------------------
+
+ANA, BETO = 21, 22
+
+
+@pytest.fixture
+def equipo(monkeypatch):
+    """Leads de dos asesores y dos sin tomar. HOY es miércoles 11 de noviembre de 2026."""
+    def de(asesor_id, nombre, **cambios):
+        return lead(asesor_id=asesor_id, asesor_nombre=nombre, **cambios)
+
+    filas = [
+        lead(id=1), lead(id=2, forma_pago="contado"),
+        # Ana: tomados esta semana, el mes pasado y hace mucho.
+        de(ANA, "Ana Asesora", id=10, estado="tomado", tomado_en="2026-11-10T15:00:00+00:00"),
+        de(ANA, "Ana Asesora", id=11, estado="primer_contacto", tomado_en="2026-11-03T15:00:00+00:00",
+           gestionado_en="2026-11-04T15:00:00+00:00", proximo_contacto="2026-11-05"),
+        de(ANA, "Ana Asesora", id=12, estado="vendido", tomado_en="2026-10-20T15:00:00+00:00"),
+        de(ANA, "Ana Asesora", id=13, estado="descartado", tomado_en="2026-06-01T15:00:00+00:00"),
+        # Beto: uno solo, con cita para más adelante.
+        de(BETO, "Beto Asesor", id=20, estado="cita_pendiente", tomado_en="2026-11-09T15:00:00+00:00",
+           proximo_contacto="2026-11-20"),
+    ]
+    monkeypatch.setattr(repositorios, "listar_leads_bandeja", lambda asesor_id=None: filas)
+    monkeypatch.setattr(repositorios, "listar_notas_lead", lambda _id: [])
+    return filas
+
+
+def trabajo(grupos):
+    return {t["nombre"]: t for t in grupos["trabajo"]}
+
+
+def test_tabla_por_asesor_cuenta_cada_etapa_y_los_atrasados(equipo):
+    grupos = leads_chat.listar(99, "admin", hoy=HOY)
+    por = trabajo(grupos)
+    # Etapas en el orden del embudo: por contactar, primero, segundo, cita.
+    assert por["Ana Asesora"]["etapas"] == [1, 1, 0, 0]
+    assert (por["Ana Asesora"]["atrasados"], por["Ana Asesora"]["vendidos"],
+            por["Ana Asesora"]["descartados"], por["Ana Asesora"]["total"]) == (1, 1, 1, 4)
+    assert por["Beto Asesor"]["etapas"] == [0, 0, 0, 1] and por["Beto Asesor"]["atrasados"] == 0
+    # Primero quien tiene atrasados.
+    assert [t["nombre"] for t in grupos["trabajo"]] == ["Ana Asesora", "Beto Asesor"]
+    assert grupos["filtro"]["sin_tomar"] == 2
+    assert grupos["filtro"]["etapas"] == ("Por contactar", "Primer contacto",
+                                          "Segundo contacto", "Cita pendiente")
+
+
+def test_solo_salen_asesores_con_al_menos_un_lead_tomado(equipo):
+    del equipo[2:6]                                   # Ana se queda sin leads
+    assert list(trabajo(leads_chat.listar(99, "admin", hoy=HOY))) == ["Beto Asesor"]
+
+
+@pytest.mark.parametrize("periodo, ids_de_ana, total_de_ana", [
+    ("todo", [10, 11, 12, 13], 4),
+    ("semana", [10], 1),               # desde el lunes 9
+    ("mes", [10, 11], 2),              # desde el 1 de noviembre
+    ("trimestre", [10, 11, 12], 3),    # últimos 90 días
+    ("inventado", [10, 11, 12, 13], 4),
+    (None, [10, 11, 12, 13], 4),
+])
+def test_el_periodo_cuenta_los_leads_tomados_en_ese_periodo(equipo, periodo, ids_de_ana, total_de_ana):
+    grupos = leads_chat.listar(99, "admin", hoy=HOY, periodo=periodo)
+    assert trabajo(grupos)["Ana Asesora"]["total"] == total_de_ana
+    listados = {l["id"] for l in grupos["en_gestion"] + grupos["cerrados"]}
+    assert listados & {10, 11, 12, 13} == set(ids_de_ana)
+    # Los que nadie tomó no tienen fecha de toma: se ven con cualquier periodo.
+    assert [l["id"] for l in grupos["nuevos"]] == [2, 1]
+    assert grupos["filtro"]["periodo"] == (periodo if periodo in leads_chat.PERIODOS else "todo")
+
+
+def test_el_periodo_corta_en_hora_de_colombia(equipo):
+    # 3:00 UTC del lunes 9 todavía es domingo 8 en Colombia: fuera de "esta semana".
+    equipo[6]["tomado_en"] = "2026-11-09T03:00:00+00:00"
+    assert "Beto Asesor" not in trabajo(leads_chat.listar(99, "admin", hoy=HOY, periodo="semana"))
+
+
+def test_filtrar_por_asesor_deja_solo_sus_leads_y_la_tabla_completa(equipo):
+    grupos = leads_chat.listar(99, "admin", hoy=HOY, asesor=str(BETO))
+    assert [l["id"] for l in grupos["en_gestion"]] == [20]
+    assert grupos["nuevos"] == [] and grupos["cerrados"] == []
+    assert (grupos["filtro"]["asesor_id"], grupos["filtro"]["asesor_nombre"]) == (BETO, "Beto Asesor")
+    assert set(trabajo(grupos)) == {"Ana Asesora", "Beto Asesor"}
+
+
+@pytest.mark.parametrize("crudo", ["999", "abc", "", "21 or 1=1", "-21", None, "0"])
+def test_un_asesor_inexistente_o_mal_escrito_no_filtra(equipo, crudo):
+    grupos = leads_chat.listar(99, "admin", hoy=HOY, asesor=crudo)
+    assert grupos["filtro"]["asesor_id"] is None and len(grupos["en_gestion"]) == 3
+
+
+@pytest.mark.parametrize("rol", ["asesor", "gerencia"])
+def test_la_tabla_y_los_filtros_son_solo_del_admin(equipo, rol):
+    grupos = leads_chat.listar(ANA, rol, hoy=HOY, asesor=str(BETO), periodo="semana")
+    assert grupos["trabajo"] is None and grupos["filtro"] is None
+    # Los filtros de la URL se ignoran: ve lo de siempre.
+    assert {l["id"] for l in grupos["en_gestion"]} == {10, 11, 20}
+    assert len(grupos["cerrados"]) == 2
+
+
+def test_la_bandeja_del_admin_muestra_la_tabla_y_enlaza_a_cada_asesor(app, equipo):
+    html = cliente(app, "admin", usuario_id=99).get("/admin/leads?periodo=mes").get_data(as_text=True)
+    assert "Trabajo por asesor" in html and "Ana Asesora" in html and "Beto Asesor" in html
+    assert f"/admin/leads?periodo=mes&amp;asesor={ANA}" in html
+    assert "Sin tomar por nadie: 2." in html
+    assert "Último cambio de estado: 4 de noviembre" in html
+
+    filtrado = cliente(app, "admin", usuario_id=99).get(f"/admin/leads?asesor={BETO}").get_data(as_text=True)
+    assert "Mostrando solo los leads de <strong>Beto Asesor</strong>" in filtrado
+    assert "/admin/leads/20" in filtrado and "/admin/leads/10" not in filtrado
+    assert "No hay leads nuevos" not in filtrado
+
+
+@pytest.mark.parametrize("rol", ["asesor", "gerencia"])
+def test_los_demas_roles_no_ven_la_tabla_aunque_la_pidan_por_la_url(app, equipo, rol):
+    html = cliente(app, rol, usuario_id=ANA).get(f"/admin/leads?asesor={BETO}&periodo=semana").get_data(as_text=True)
+    assert "Trabajo por asesor" not in html and "Mostrando solo los leads de" not in html

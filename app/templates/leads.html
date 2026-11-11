@@ -25,6 +25,24 @@
         .embudo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
         .embudo a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 10px; background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); text-decoration: none; font-size: 14px; font-weight: 600; }
         .embudo a:hover { border-color: var(--naranja); }
+        .trabajo { margin-bottom: 28px; }
+        .trabajo h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; margin: 0 0 10px; }
+        .trabajo-periodos { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .trabajo-periodos a { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto-suave); text-decoration: none; font-size: 13px; font-weight: 600; }
+        .trabajo-periodos a.activo { background: var(--naranja); border-color: var(--naranja); color: #fff; }
+        .trabajo-caja { overflow-x: auto; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); }
+        .trabajo table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+        .trabajo th, .trabajo td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--borde); font-variant-numeric: tabular-nums; }
+        .trabajo th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--texto-tenue); font-weight: 700; }
+        .trabajo th:first-child, .trabajo td:first-child { text-align: left; }
+        .trabajo tr:last-child td { border-bottom: none; }
+        .trabajo td a { color: var(--texto); font-weight: 700; text-decoration: none; }
+        .trabajo td a:hover { color: var(--naranja); }
+        .trabajo tr.elegido td { background: var(--naranja-suave); }
+        .trabajo td.cero { color: var(--texto-tenue); }
+        .trabajo td.alerta { color: var(--rojo); font-weight: 700; }
+        .trabajo-nota { font-size: 13px; color: var(--texto-suave); margin: 8px 0 0; }
+        .filtro-activo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 18px; border: 1px solid var(--naranja); border-radius: 10px; background: var(--naranja-suave); font-size: 14px; }
 {% endblock %}
 
 {% macro fila(lead) %}
@@ -40,6 +58,9 @@
                         {% if lead.moto_texto %}{{ lead.moto_texto }} · {% endif %}{{ lead.recibido }}
                         {% if lead.manual %} · {{ lead.origen_texto }}{% endif %}
                         {% if lead.asesor_nombre and not lead.propio %} · {{ lead.asesor_nombre }}{% endif %}
+                        {% if grupos.trabajo is not none and lead.tomado %}
+                        <br>Tomado: {{ lead.tomado }}{% if lead.gestionado %} · Último cambio de estado: {{ lead.gestionado }}{% endif %}
+                        {% endif %}
                     </div>
                 </div>
                 <div class="lead-acciones">
@@ -69,6 +90,62 @@
         {% if error %}<div class="aviso aviso-error" role="alert">{{ error }}</div>{% endif %}
         {% if aviso %}<div class="aviso aviso-exito" role="status">{{ aviso }}</div>{% endif %}
 
+        {% if grupos.trabajo is not none %}
+        {% set f = grupos.filtro %}
+        <section class="trabajo" aria-label="Trabajo por asesor">
+            <h2>Trabajo por asesor</h2>
+            <nav class="trabajo-periodos" aria-label="Periodo">
+                {% for clave, etiqueta in f.periodos %}
+                <a href="{{ url_for('admin.leads_bandeja', periodo=clave, asesor=f.asesor_id) }}"
+                   class="{% if clave == f.periodo %}activo{% endif %}"
+                   {% if clave == f.periodo %}aria-current="true"{% endif %}>{{ etiqueta }}</a>
+                {% endfor %}
+            </nav>
+            {% if grupos.trabajo %}
+            <div class="trabajo-caja">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Asesor</th>
+                            {% for etapa in f.etapas %}<th scope="col">{{ etapa }}</th>{% endfor %}
+                            <th scope="col">Atrasados</th>
+                            <th scope="col">Vendidos</th>
+                            <th scope="col">Descartados</th>
+                            <th scope="col">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in grupos.trabajo %}
+                        <tr class="{% if t.asesor_id == f.asesor_id %}elegido{% endif %}">
+                            <td><a href="{{ url_for('admin.leads_bandeja', periodo=f.periodo, asesor=t.asesor_id) }}">{{ t.nombre }}</a></td>
+                            {% for n in t.etapas %}<td class="{% if not n %}cero{% endif %}">{{ n }}</td>{% endfor %}
+                            <td class="{% if t.atrasados %}alerta{% else %}cero{% endif %}">{{ t.atrasados }}</td>
+                            <td class="{% if not t.vendidos %}cero{% endif %}">{{ t.vendidos }}</td>
+                            <td class="{% if not t.descartados %}cero{% endif %}">{{ t.descartados }}</td>
+                            <td>{{ t.total }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="sin-leads">Ningún asesor tomó leads en este periodo.</div>
+            {% endif %}
+            <p class="trabajo-nota">
+                Cuenta los leads que cada asesor tomó en el periodo, en el estado en que están hoy.
+                Atrasados: abiertos con el próximo contacto ya vencido.
+                Sin tomar por nadie: {{ f.sin_tomar }}.
+            </p>
+        </section>
+
+        {% if f.asesor_id %}
+        <div class="filtro-activo" role="status">
+            <span>Mostrando solo los leads de <strong>{{ f.asesor_nombre }}</strong>.</span>
+            <a class="btn btn-ghost" href="{{ url_for('admin.leads_bandeja', periodo=f.periodo) }}">Ver todos</a>
+        </div>
+        {% endif %}
+        {% endif %}
+
         {% if grupos.para_hoy %}
         <section class="leads-grupo urgente">
             <h2>Para hoy <span class="cuenta">{{ grupos.para_hoy | length }}</span></h2>
@@ -76,6 +153,8 @@
         </section>
         {% endif %}
 
+        {# Con el filtro por asesor no hay "nuevos": un lead sin tomar no es de nadie. #}
+        {% if not (grupos.filtro and grupos.filtro.asesor_id) %}
         <section class="leads-grupo">
             <h2>Nuevos <span class="cuenta">{{ grupos.nuevos | length }}</span></h2>
             {% if grupos.nuevos %}
@@ -84,6 +163,7 @@
             <div class="sin-leads">No hay leads nuevos. Cuando un cliente deje sus datos en el chat aparecerá aquí.</div>
             {% endif %}
         </section>
+        {% endif %}
 
         <section class="leads-grupo">
             <h2>{% if session.rol == 'asesor' %}Mis clientes en seguimiento{% else %}En seguimiento{% endif %} <span class="cuenta">{{ grupos.en_gestion | length }}</span></h2>
