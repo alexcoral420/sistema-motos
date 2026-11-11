@@ -1741,23 +1741,31 @@ def motos_para_exportar(estado=None, sede=None):
 
 _COLUMNAS_LEAD_BANDEJA = (
     "id, created_at, nombre, telefono, correo, moto_id, moto_interes, forma_pago, "
-    "estado, asesor_id, asesor_nombre, tomado_en, gestionado_en, "
+    "estado, asesor_id, asesor_nombre, tomado_en, gestionado_en, proximo_contacto, "
     "motos(marca, modelo, anio, precio)"
 )
 
 
-def listar_leads_bandeja(asesor_id=None, limite: int = 200):
+def listar_leads_bandeja(asesor_id=None, limite: int = 500):
     """
     Leads del chat, los más recientes primero. Con asesor_id, solo los
     que están sin tomar o los que tomó ese asesor; sin él, todos.
+
+    Para el asesor son DOS consultas, cada una con su tope: en una sola,
+    una cola larga de leads sin tomar empujaría fuera del límite a sus
+    propios clientes (o al revés).
     """
-    consulta = (get_supabase_admin().table("leads_chat")
+    def consulta():
+        return (get_supabase_admin().table("leads_chat")
                 .select(_COLUMNAS_LEAD_BANDEJA)
                 .order("created_at", desc=True)
                 .limit(limite))
-    if asesor_id is not None:
-        consulta = consulta.or_(f"asesor_id.is.null,asesor_id.eq.{int(asesor_id)}")
-    return consulta.execute().data
+
+    if asesor_id is None:
+        return consulta().execute().data
+    sin_tomar = consulta().is_("asesor_id", "null").execute().data
+    propios = consulta().eq("asesor_id", int(asesor_id)).execute().data
+    return sin_tomar + propios
 
 
 def obtener_lead_bandeja(lead_id: int):
@@ -1798,6 +1806,28 @@ def cambiar_estado_lead_chat(lead_id: int, estados_permitidos: list, cambios: di
         consulta = consulta.eq("asesor_id", asesor_id)
     resultado = consulta.execute()
     return resultado.data[0] if resultado.data else None
+
+
+def listar_notas_lead(lead_id: int, limite: int = 200):
+    """La línea de tiempo de un lead (migración 030), lo más reciente primero."""
+    resultado = (get_supabase_admin().table("leads_notas")
+                 .select("id, created_at, usuario_nombre, tipo, texto")
+                 .eq("lead_id", lead_id)
+                 .order("created_at", desc=True)
+                 .order("id", desc=True)
+                 .limit(limite)
+                 .execute())
+    return resultado.data
+
+
+def agregar_notas_lead(filas: list):
+    """
+    Inserta renglones ya armados en la línea de tiempo de un lead, en una
+    sola llamada. Solo se agrega: leads_notas no tiene UPDATE ni DELETE.
+    """
+    if not filas:
+        return []
+    return get_supabase_admin().table("leads_notas").insert(filas).execute().data
 
 
 def dispositivos_staff_por_rol(rol: str):

@@ -3,7 +3,9 @@
 
 La página de llegada del asesor: cuántas ventas, compras y permutas hizo
 en la semana (lunes a domingo), el detalle de cada una y los leads del
-chat disponibles para contactar.
+chat disponibles para contactar. Arriba de todo, sus clientes en
+seguimiento que tocan hoy (o están atrasados) y los que tomó y todavía
+no contacta: es lo primero que tiene que ver al entrar.
 
 Criterios:
   - Solo lo del asesor en sesión: se filtra por asesor_id (quién hizo el
@@ -86,7 +88,11 @@ def resumen(usuario_id, semana_cruda=None, hoy=None) -> dict:
         for p in repositorios.permutas_de_asesor_en_rango(usuario_id, inicio, fin)
     ]
 
-    leads = leads_chat.listar(usuario_id, ROL_ESPACIO)
+    leads = leads_chat.listar(usuario_id, ROL_ESPACIO, hoy)
+    para_hoy = leads["para_hoy"]
+    # Tomados y sin primer contacto. Los que ya salen en "para hoy" no se repiten.
+    ya_listados = {l["id"] for l in para_hoy}
+    por_contactar = [l for l in leads["etapas"][0]["leads"] if l["id"] not in ya_listados]
 
     return {
         "periodo": _periodo(lunes, domingo),
@@ -98,6 +104,9 @@ def resumen(usuario_id, semana_cruda=None, hoy=None) -> dict:
         "ventas": ventas,
         "compras": compras,
         "permutas": permutas,
+        "leads_para_hoy": para_hoy,
+        "leads_por_contactar": por_contactar[:LEADS_EN_PORTADA],
+        "total_leads_por_contactar": len(por_contactar),
         "leads_nuevos": leads["nuevos"][:LEADS_EN_PORTADA],
         "total_leads_nuevos": len(leads["nuevos"]),
         "total_leads_en_gestion": len(leads["en_gestion"]),

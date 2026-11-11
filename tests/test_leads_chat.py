@@ -1,11 +1,12 @@
 """
-Pruebas de la bandeja de leads del chat (/admin/leads, migración 029) y
-del aviso push a los asesores.
+Pruebas de la bandeja de leads del chat (/admin/leads, migración 029), del
+seguimiento que hace el asesor (migración 030) y del aviso push.
 
 No tocan la base ni los servicios de push: el repositorio y el envío se
 reemplazan con monkeypatch. Correr desde la raíz:  python -m pytest tests/
 """
 
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from app.servicios import leads_chat, notificaciones_staff, push
 
 RAIZ = Path(__file__).resolve().parent.parent
 ASESOR, OTRO_ASESOR = 10, 11
+HOY = date(2026, 11, 11)
 
 
 def lead(**cambios):
@@ -25,7 +27,7 @@ def lead(**cambios):
         "nombre": "Ana Perez", "telefono": "3001234567", "correo": "ana@correo.com",
         "moto_id": None, "moto_interes": "Yamaha FZ 2019", "forma_pago": "financiado",
         "estado": "nuevo", "asesor_id": None, "asesor_nombre": None,
-        "tomado_en": None, "gestionado_en": None, "motos": None,
+        "tomado_en": None, "gestionado_en": None, "proximo_contacto": None, "motos": None,
     }
     base.update(cambios)
     return base
@@ -40,7 +42,7 @@ def test_asesor_no_ve_el_contacto_de_un_lead_sin_tomar():
     assert visto["nombre"] == "Ana"
     assert visto["telefono"] is None and visto["correo"] is None
     assert visto["whatsapp_url"] is None
-    assert visto["puede_tomar"] and not visto["puede_cerrar"]
+    assert visto["puede_tomar"] and not visto["puede_gestionar"]
 
 
 def test_asesor_ve_el_contacto_de_su_lead():
@@ -48,7 +50,7 @@ def test_asesor_ve_el_contacto_de_su_lead():
     visto = leads_chat._presentar(suyo, ASESOR, "asesor")
     assert visto["nombre"] == "Ana Perez" and visto["telefono"] == "3001234567"
     assert visto["whatsapp_url"].startswith("https://wa.me/573001234567?text=")
-    assert visto["propio"] and visto["puede_cerrar"] and not visto["puede_tomar"]
+    assert visto["propio"] and visto["puede_gestionar"] and not visto["puede_tomar"]
 
 
 @pytest.mark.parametrize("rol", ["admin", "gerencia"])
@@ -58,10 +60,10 @@ def test_admin_y_gerencia_ven_el_contacto_pero_no_toman(rol):
     assert not visto["puede_tomar"]
 
 
-def test_solo_admin_cierra_un_lead_ajeno():
+def test_solo_admin_gestiona_un_lead_ajeno():
     ajeno = lead(estado="tomado", asesor_id=OTRO_ASESOR)
-    assert leads_chat._presentar(ajeno, 99, "admin")["puede_cerrar"]
-    assert not leads_chat._presentar(ajeno, 99, "gerencia")["puede_cerrar"]
+    assert leads_chat._presentar(ajeno, 99, "admin")["puede_gestionar"]
+    assert not leads_chat._presentar(ajeno, 99, "gerencia")["puede_gestionar"]
 
 
 def test_compra_de_contado_es_prioridad():
@@ -81,7 +83,7 @@ def test_listar_pone_primero_los_de_contado_y_agrupa(monkeypatch):
     filas = [
         lead(id=1), lead(id=2, forma_pago="contado"), lead(id=3),
         lead(id=4, estado="tomado", asesor_id=ASESOR),
-        lead(id=5, estado="contactado", asesor_id=ASESOR),
+        lead(id=5, estado="vendido", asesor_id=ASESOR),
     ]
     pedido = []
     monkeypatch.setattr(repositorios, "listar_leads_bandeja",
@@ -97,6 +99,7 @@ def test_listar_pone_primero_los_de_contado_y_agrupa(monkeypatch):
 
 
 def test_asesor_no_abre_el_lead_que_tomo_otro(monkeypatch):
+    monkeypatch.setattr(repositorios, "listar_notas_lead", lambda _id: [])
     monkeypatch.setattr(repositorios, "obtener_lead_bandeja",
                         lambda _id: lead(estado="tomado", asesor_id=OTRO_ASESOR))
     assert leads_chat.obtener(1, ASESOR, "asesor") is None
@@ -139,35 +142,202 @@ def test_solo_el_asesor_toma(monkeypatch, rol):
         leads_chat.tomar(1, 99, "X", rol)
 
 
-def test_cerrar_exige_que_el_lead_sea_del_asesor_y_admin_cierra_cualquiera(monkeypatch):
-    llamadas = []
+# ------------------------------------------------------------
+# Seguimiento: etapas, próximo contacto y notas
+# ------------------------------------------------------------
+
+@pytest.fixture
+def base(monkeypatch):
+    """
+    Un lead en memoria con su línea de tiempo. Devuelve un dict con
+    'lead' (la fila), 'cambios' (cada UPDATE pedido) y 'notas' (lo insertado).
+    """
+    estado = {"lead": lead(estado="tomado", asesor_id=ASESOR, asesor_nombre="Luis"),
+              "cambios": [], "notas": []}
 
     def cambiar(lead_id, estados_permitidos, cambios, asesor_id=None):
-        llamadas.append((estados_permitidos, cambios["estado"], asesor_id))
-        return {"id": lead_id}
+        estado["cambios"].append((estados_permitidos, cambios, asesor_id))
+        fila = estado["lead"]
+        if fila["estado"] not in estados_permitidos:
+            return None
+        if asesor_id is not None and fila["asesor_id"] != asesor_id:
+            return None
+        fila.update(cambios)
+        return fila
 
+    monkeypatch.setattr(repositorios, "obtener_lead_bandeja", lambda _id: estado["lead"])
     monkeypatch.setattr(repositorios, "cambiar_estado_lead_chat", cambiar)
-    leads_chat.cerrar(1, "contactado", ASESOR, "asesor")
-    leads_chat.cerrar(1, "descartado", 99, "admin")
-    assert llamadas[0] == (["tomado", "contactado", "descartado"], "contactado", ASESOR)
-    assert llamadas[1][1:] == ("descartado", None)
+    monkeypatch.setattr(repositorios, "agregar_notas_lead",
+                        lambda filas: estado["notas"].extend(filas) or filas)
+    monkeypatch.setattr(repositorios, "listar_notas_lead", lambda _id: [])
+    return estado
 
 
-@pytest.mark.parametrize("estado, rol", [
-    ("nuevo", "asesor"), ("tomado", "asesor"), (None, "asesor"), ("vendido", "admin"),
-    ("contactado", "gerencia"),
+def seguir(datos, usuario_id=ASESOR, rol="asesor"):
+    leads_chat.registrar_seguimiento(1, datos, usuario_id, "Luis Gomez", rol, hoy=HOY)
+
+
+def test_tomado_se_muestra_como_por_contactar_y_contactado_como_primer_contacto():
+    tomado = leads_chat._presentar(lead(estado="tomado", asesor_id=ASESOR), ASESOR, "asesor")
+    assert tomado["estado_texto"] == "Por contactar"
+    viejo = leads_chat._presentar(lead(estado="contactado", asesor_id=ASESOR), ASESOR, "asesor")
+    assert viejo["estado"] == "primer_contacto" and viejo["abierto"]
+
+
+def test_cambiar_de_etapa_deja_un_renglon_en_el_historial(base):
+    seguir({"estado": "primer_contacto"})
+    permitidos, cambios, asesor_id = base["cambios"][0]
+    # Condicionado al estado que se leyó y al asesor de la sesión.
+    assert permitidos == ["tomado"] and asesor_id == ASESOR
+    assert cambios["estado"] == "primer_contacto" and cambios["gestionado_en"]
+    assert base["notas"] == [{"lead_id": 1, "usuario_id": ASESOR, "usuario_nombre": "Luis Gomez",
+                              "tipo": "evento", "texto": "Estado: Primer contacto"}]
+
+
+def test_se_puede_saltar_etapas_y_volver_atras(base):
+    seguir({"estado": "cita_pendiente"})
+    seguir({"estado": "primer_contacto"})
+    assert base["lead"]["estado"] == "primer_contacto"
+
+
+def test_nota_sola_no_toca_el_lead(base):
+    seguir({"estado": "tomado", "proximo_contacto": "",
+            "nota": "  Llamar despues de las 5\r\nPrefiere WhatsApp  "})
+    assert base["cambios"] == []
+    assert base["notas"] == [{"lead_id": 1, "usuario_id": ASESOR, "usuario_nombre": "Luis Gomez",
+                              "tipo": "nota", "texto": "Llamar despues de las 5\nPrefiere WhatsApp"}]
+
+
+def test_programar_el_proximo_contacto_con_nota(base):
+    seguir({"estado": "primer_contacto", "proximo_contacto": "2026-12-11",
+            "nota": "Contactar dentro de un mes"})
+    assert base["lead"]["proximo_contacto"] == "2026-12-11"
+    assert [n["tipo"] for n in base["notas"]] == ["evento", "nota"]
+    assert base["notas"][0]["texto"] == ("Estado: Primer contacto · "
+                                         "Próximo contacto: 11 de diciembre de 2026")
+
+
+def test_quitar_la_fecha_y_no_tocarla_si_el_campo_no_llega(base):
+    base["lead"]["proximo_contacto"] = "2026-11-20"
+    seguir({"nota": "sigue interesado"})                 # sin el campo: la fecha se queda
+    assert base["cambios"] == [] and base["lead"]["proximo_contacto"] == "2026-11-20"
+    seguir({"proximo_contacto": ""})                     # vacío: se quita
+    assert base["lead"]["proximo_contacto"] is None
+    assert base["notas"][-1]["texto"] == "Sin próximo contacto programado"
+
+
+@pytest.mark.parametrize("fecha", ["2026-11-10", "2027-11-12", "manana", "2026-13-40"])
+def test_fecha_pasada_lejana_o_invalida_se_rechaza(base, fecha):
+    with pytest.raises(ErrorValidacion):
+        seguir({"proximo_contacto": fecha})
+    assert base["cambios"] == [] and base["notas"] == []
+
+
+def test_una_fecha_ya_atrasada_no_impide_agregar_una_nota(base):
+    base["lead"]["proximo_contacto"] = "2026-11-01"
+    seguir({"proximo_contacto": "2026-11-01", "nota": "no contesto"})
+    assert base["cambios"] == [] and base["notas"][0]["texto"] == "no contesto"
+
+
+@pytest.mark.parametrize("cierre", ["vendido", "descartado"])
+def test_cerrar_quita_el_proximo_contacto(base, cierre):
+    base["lead"]["proximo_contacto"] = "2026-11-20"
+    seguir({"estado": cierre, "proximo_contacto": "2026-12-01"})
+    assert base["lead"]["estado"] == cierre and base["lead"]["proximo_contacto"] is None
+    assert base["notas"][0]["texto"] == f"Estado: {leads_chat.ETIQUETAS_ESTADO[cierre]}"
+
+
+def test_un_lead_cerrado_se_puede_reabrir(base):
+    base["lead"]["estado"] = "descartado"
+    seguir({"estado": "segundo_contacto", "nota": "volvio a escribir"})
+    assert base["lead"]["estado"] == "segundo_contacto"
+
+
+def test_sin_cambios_ni_nota_no_guarda_nada(base):
+    with pytest.raises(ErrorValidacion, match="No hay nada que guardar"):
+        seguir({"estado": "tomado", "proximo_contacto": "", "nota": "   "})
+    assert base["cambios"] == [] and base["notas"] == []
+
+
+@pytest.mark.parametrize("datos", [
+    {"estado": "nuevo"}, {"estado": "contactado"}, {"estado": "inventado"},
+    {"nota": "x" * 1001},
 ])
-def test_cerrar_rechaza_estados_y_roles_no_validos(monkeypatch, estado, rol):
-    monkeypatch.setattr(repositorios, "cambiar_estado_lead_chat",
-                        lambda *a, **k: pytest.fail("no debe llegar a la base"))
+def test_estado_o_nota_no_validos_se_rechazan(base, datos):
     with pytest.raises(ErrorValidacion):
-        leads_chat.cerrar(1, estado, ASESOR, rol)
+        seguir(datos)
+    assert base["cambios"] == [] and base["notas"] == []
 
 
-def test_cerrar_un_lead_ajeno_falla(monkeypatch):
+def test_el_asesor_no_gestiona_un_lead_ajeno_ni_uno_sin_tomar(base):
+    with pytest.raises(ErrorValidacion, match="no es suyo"):
+        seguir({"nota": "hola"}, usuario_id=OTRO_ASESOR)
+    base["lead"].update(estado="nuevo", asesor_id=None)
+    with pytest.raises(ErrorValidacion, match="no es suyo"):
+        seguir({"nota": "hola"})
+    assert base["cambios"] == [] and base["notas"] == []
+
+
+def test_admin_gestiona_un_lead_ajeno_y_gerencia_no(base):
+    seguir({"estado": "cita_pendiente"}, usuario_id=99, rol="admin")
+    assert base["cambios"][0][2] is None            # sin filtro de asesor
+    assert base["notas"][0]["usuario_id"] == 99     # queda quién lo hizo
+    with pytest.raises(ErrorValidacion):
+        seguir({"nota": "hola"}, usuario_id=99, rol="gerencia")
+
+
+def test_si_el_lead_cambio_mientras_se_editaba_no_se_pisa(base, monkeypatch):
     monkeypatch.setattr(repositorios, "cambiar_estado_lead_chat", lambda *a, **k: None)
-    with pytest.raises(ErrorValidacion):
-        leads_chat.cerrar(1, "contactado", ASESOR, "asesor")
+    with pytest.raises(ErrorValidacion, match="cambió mientras"):
+        seguir({"estado": "primer_contacto", "nota": "hola"})
+    assert base["notas"] == []
+
+
+def test_si_el_historial_falla_se_avisa(base, monkeypatch):
+    def falla(_filas):
+        raise RuntimeError("sin red")
+    monkeypatch.setattr(repositorios, "agregar_notas_lead", falla)
+    with pytest.raises(ErrorValidacion, match="la nota se perdió"):
+        seguir({"nota": "hola"})
+
+
+def test_para_hoy_incluye_atrasados_y_de_hoy_el_mas_atrasado_primero(monkeypatch):
+    filas = [
+        lead(id=1, estado="tomado", asesor_id=ASESOR),
+        lead(id=2, estado="primer_contacto", asesor_id=ASESOR, proximo_contacto="2026-11-11"),
+        lead(id=3, estado="cita_pendiente", asesor_id=ASESOR, proximo_contacto="2026-11-05"),
+        lead(id=4, estado="primer_contacto", asesor_id=ASESOR, proximo_contacto="2026-11-12"),
+        # Cerrado con una fecha vieja: no es pendiente de nadie.
+        lead(id=5, estado="descartado", asesor_id=ASESOR, proximo_contacto="2026-11-01"),
+    ]
+    monkeypatch.setattr(repositorios, "listar_leads_bandeja", lambda asesor_id=None: filas)
+    grupos = leads_chat.listar(ASESOR, "asesor", hoy=HOY)
+
+    assert [l["id"] for l in grupos["para_hoy"]] == [3, 2]
+    assert [l["seguimiento"] for l in grupos["para_hoy"]] == ["vencido", "hoy"]
+    assert grupos["para_hoy"][0]["seguimiento_texto"] == "Contacto atrasado: 5 de noviembre de 2026"
+    assert [(e["estado"], [l["id"] for l in e["leads"]]) for e in grupos["etapas"]] == [
+        ("tomado", [1]), ("primer_contacto", [2, 4]), ("segundo_contacto", []), ("cita_pendiente", [3])]
+    assert [l["id"] for l in grupos["cerrados"]] == [5]
+    assert grupos["cerrados"][0]["seguimiento"] is None
+
+
+def test_el_historial_solo_se_carga_para_un_lead_tomado(monkeypatch):
+    notas = [{"created_at": "2026-11-10T20:45:00+00:00", "usuario_nombre": "Luis",
+              "tipo": "evento", "texto": "Estado: Primer contacto"},
+             {"created_at": "2026-11-10T20:45:00+00:00", "usuario_nombre": "Luis",
+              "tipo": "nota", "texto": "Llamar el lunes"}]
+    monkeypatch.setattr(repositorios, "listar_notas_lead", lambda _id: notas)
+    monkeypatch.setattr(repositorios, "obtener_lead_bandeja",
+                        lambda _id: lead(estado="primer_contacto", asesor_id=ASESOR))
+    visto = leads_chat.obtener(1, ASESOR, "asesor")
+    assert [(n["automatica"], n["texto"]) for n in visto["notas"]] == [
+        (True, "Estado: Primer contacto"), (False, "Llamar el lunes")]
+
+    monkeypatch.setattr(repositorios, "listar_notas_lead",
+                        lambda _id: pytest.fail("un lead sin tomar no tiene historial"))
+    monkeypatch.setattr(repositorios, "obtener_lead_bandeja", lambda _id: lead())
+    assert leads_chat.obtener(1, ASESOR, "asesor")["notas"] == []
 
 
 # ------------------------------------------------------------
@@ -274,6 +444,9 @@ def bandeja(monkeypatch):
     monkeypatch.setattr(repositorios, "listar_leads_bandeja", lambda asesor_id=None: filas)
     monkeypatch.setattr(repositorios, "obtener_lead_bandeja",
                         lambda lead_id: next((f for f in filas if f["id"] == lead_id), None))
+    monkeypatch.setattr(repositorios, "listar_notas_lead", lambda lead_id: [
+        {"created_at": "2026-11-10T20:45:00+00:00", "usuario_nombre": "Luis Gomez",
+         "tipo": "nota", "texto": "Llamar el lunes <b>temprano</b>"}])
     return filas
 
 
@@ -290,12 +463,29 @@ def test_detalle_muestra_el_contacto_solo_del_lead_propio(app, bandeja):
     nuevo = c.get("/admin/leads/1").get_data(as_text=True)
     assert "3001234567" not in nuevo and "Se muestra al tomar el lead" in nuevo
     propio = c.get("/admin/leads/2").get_data(as_text=True)
-    assert "3001234567" in propio and "Marcar contactado" in propio
+    assert "3001234567" in propio and "Guardar seguimiento" in propio
+    assert "/admin/leads/2/seguimiento" in propio
+    # La nota es texto simple: se muestra escapada, nunca como HTML.
+    assert "Llamar el lunes &lt;b&gt;temprano&lt;/b&gt;" in propio
+
+
+def test_gerencia_ve_el_historial_pero_no_el_formulario(app, bandeja):
+    html = cliente(app, "gerencia", usuario_id=99).get("/admin/leads/2").get_data(as_text=True)
+    assert "Llamar el lunes" in html and "Guardar seguimiento" not in html
 
 
 def test_lead_inexistente_vuelve_a_la_bandeja(app, bandeja):
     respuesta = cliente(app, "asesor").get("/admin/leads/999")
-    assert respuesta.status_code == 302 and "/admin/leads?error=" in respuesta.headers["Location"]
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"].endswith("/admin/leads?error=no_disponible")
+
+
+def test_el_error_de_la_url_es_un_codigo_no_un_texto(app, bandeja):
+    c = cliente(app, "asesor")
+    html = c.get("/admin/leads?error=Su+sesion+vencio,+llame+al+3000000000").get_data(as_text=True)
+    assert "3000000000" not in html and 'role="alert"' not in html
+    html = c.get("/admin/leads?error=ya_tomado").get_data(as_text=True)
+    assert "Otro asesor ya tomó este lead." in html
 
 
 @pytest.mark.parametrize("rol, esperado", [("asesor", 200), ("admin", 200), ("gerencia", 200),
@@ -329,19 +519,33 @@ def test_otros_roles_no_pueden_tomar(app, monkeypatch, rol):
 def test_tomar_un_lead_ya_tomado_avisa_en_la_bandeja(app, monkeypatch):
     monkeypatch.setattr(repositorios, "tomar_lead_chat", lambda *a, **k: None)
     respuesta = cliente(app, "asesor").post("/admin/leads/1/tomar")
-    assert "/admin/leads?error=Otro" in respuesta.headers["Location"]
+    assert respuesta.headers["Location"].endswith("/admin/leads?error=ya_tomado")
 
 
-def test_cerrar_desde_la_ruta(app, monkeypatch):
-    llamadas = []
-    monkeypatch.setattr(repositorios, "cambiar_estado_lead_chat",
-                        lambda lead_id, estados_permitidos, cambios, asesor_id=None:
-                        llamadas.append((cambios["estado"], asesor_id)) or {"id": lead_id})
-    respuesta = cliente(app, "asesor").post("/admin/leads/2/estado", data={"estado": "contactado"})
+def test_seguimiento_desde_la_ruta_usa_la_identidad_de_la_sesion(app, base):
+    base["lead"]["id"] = 2
+    respuesta = cliente(app, "asesor").post("/admin/leads/2/seguimiento", data={
+        "estado": "primer_contacto", "proximo_contacto": "", "nota": "Quedo de pasar el sabado",
+        "usuario_id": OTRO_ASESOR, "asesor_id": OTRO_ASESOR})
     assert respuesta.headers["Location"].endswith("/admin/leads/2?aviso=actualizado")
-    assert llamadas == [("contactado", ASESOR)]
-    assert cliente(app, "gerencia").post("/admin/leads/2/estado",
-                                         data={"estado": "contactado"}).status_code == 403
+    assert base["lead"]["estado"] == "primer_contacto"
+    assert {n["usuario_id"] for n in base["notas"]} == {ASESOR}
+
+
+def test_un_error_de_seguimiento_no_pierde_la_nota_escrita(app, base):
+    respuesta = cliente(app, "asesor").post("/admin/leads/1/seguimiento", data={
+        "estado": "primer_contacto", "proximo_contacto": "2020-01-01",
+        "nota": "Quedo de pasar el sabado"})
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 400
+    assert "no puede ser una fecha pasada" in html and "Quedo de pasar el sabado" in html
+    assert base["cambios"] == [] and base["notas"] == []
+
+
+@pytest.mark.parametrize("rol", ["gerencia", "encargado_sede"])
+def test_otros_roles_no_registran_seguimiento(app, base, rol):
+    respuesta = cliente(app, rol).post("/admin/leads/1/seguimiento", data={"nota": "hola"})
+    assert respuesta.status_code == 403 and base["notas"] == []
 
 
 def test_el_asesor_puede_activar_notificaciones_por_la_url_general(app, monkeypatch):

@@ -4,11 +4,14 @@
 {% block titulo %}Lead del chat{% endblock %}
 
 {% block estilos %}
-        .lead-ficha { max-width: 640px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 22px; }
+        .lead-ficha { max-width: 640px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 22px; margin-bottom: 18px; }
         .lead-ficha.prioridad { border-color: var(--naranja); border-top-width: 5px; }
         .lead-ficha h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; margin: 0 0 8px; }
+        .lead-ficha h3 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; margin: 0 0 14px; }
         .lead-etiqueta { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); }
         .lead-etiqueta.contado { background: var(--naranja); border-color: var(--naranja); color: var(--barra-bg); }
+        .lead-etiqueta.vencido { border-color: var(--rojo); color: var(--rojo); }
+        .lead-etiqueta.hoy { border-color: var(--naranja); color: var(--naranja); }
         .lead-campos { display: grid; grid-template-columns: 140px 1fr; gap: 10px 14px; margin: 18px 0; font-size: 15px; }
         .lead-campos dt { color: var(--texto-tenue); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; padding-top: 2px; }
         .lead-campos dd { margin: 0; overflow-wrap: anywhere; }
@@ -16,18 +19,32 @@
         .lead-botones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
         .lead-botones form { margin: 0; }
         .lead-volver { display: inline-block; margin-bottom: 14px; }
+        .seg-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+        .seg-atajos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .seg-atajos button { padding: 5px 10px; font-size: 12px; }
+        .campo textarea { min-height: 96px; resize: vertical; }
+        .historial { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+        .historial li { padding: 10px 12px; border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie-2); }
+        .historial li.automatica { background: transparent; border-style: dashed; color: var(--texto-suave); font-size: 14px; }
+        .historial .nota-texto { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .historial .nota-meta { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+        @media (max-width: 600px) {
+            .seg-fila { grid-template-columns: 1fr; }
+            .lead-campos { grid-template-columns: 110px 1fr; }
+        }
 {% endblock %}
 
 {% block contenido %}
         <a class="btn btn-ghost lead-volver" href="{{ url_for('admin.leads_bandeja') }}">← Leads del chat</a>
 
-        {% if error %}<div class="aviso-error" role="alert">{{ error }}</div>{% endif %}
-        {% if aviso %}<div class="aviso-exito" role="status">{{ aviso }}</div>{% endif %}
+        {% if error %}<div class="aviso aviso-error" role="alert">{{ error }}</div>{% endif %}
+        {% if aviso %}<div class="aviso aviso-exito" role="status">{{ aviso }}</div>{% endif %}
 
         <div class="lead-ficha {% if lead.prioridad %}prioridad{% endif %}">
             <h2>{{ lead.nombre }}</h2>
             <span class="lead-etiqueta {% if lead.prioridad %}contado{% endif %}">{% if lead.prioridad %}Prioridad · {% endif %}{{ lead.forma_pago_texto }}</span>
             <span class="lead-etiqueta">{{ lead.estado_texto }}</span>
+            {% if lead.seguimiento_texto %}<span class="lead-etiqueta {{ lead.seguimiento }}">{{ lead.seguimiento_texto }}</span>{% endif %}
 
             <dl class="lead-campos">
                 <dt>WhatsApp</dt>
@@ -61,19 +78,85 @@
                 {% if lead.whatsapp_url %}
                 <a class="btn btn-primary" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">Escribir por WhatsApp</a>
                 {% endif %}
-
-                {% if lead.puede_cerrar %}
-                <form method="POST" action="{{ url_for('admin.lead_cerrar', lead_id=lead.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="estado" value="contactado">
-                    <button type="submit" class="btn btn-ghost">Marcar contactado</button>
-                </form>
-                <form method="POST" action="{{ url_for('admin.lead_cerrar', lead_id=lead.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="estado" value="descartado">
-                    <button type="submit" class="btn btn-ghost">Descartar</button>
-                </form>
-                {% endif %}
             </div>
         </div>
+
+        {% if lead.puede_gestionar %}
+        <div class="lead-ficha">
+            <h3>Seguimiento</h3>
+            <form method="POST" action="{{ url_for('admin.lead_seguimiento', lead_id=lead.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% set estado_elegido = borrador.get('estado') or lead.estado %}
+                <div class="seg-fila">
+                    <div class="campo">
+                        <label for="seg-estado">Estado</label>
+                        <select id="seg-estado" name="estado">
+                            {% for valor, etiqueta in estados %}
+                            <option value="{{ valor }}" {% if valor == estado_elegido %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="seg-fecha">Próximo contacto</label>
+                        <input type="date" id="seg-fecha" name="proximo_contacto"
+                               value="{{ borrador.get('proximo_contacto', lead.proximo_contacto) }}">
+                        <div class="seg-atajos">
+                            <button type="button" class="btn btn-ghost" data-dias="1">Mañana</button>
+                            <button type="button" class="btn btn-ghost" data-dias="7">En una semana</button>
+                            <button type="button" class="btn btn-ghost" data-meses="1">En un mes</button>
+                            <button type="button" class="btn btn-ghost" data-quitar="1">Quitar</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="campo">
+                    <label for="seg-nota">Nota</label>
+                    <textarea id="seg-nota" name="nota" maxlength="{{ max_nota }}"
+                              placeholder="Ej.: pidió que lo llame dentro de un mes, cuando reciba la prima.">{{ borrador.get('nota', '') }}</textarea>
+                    <div class="nota">Vendido o Descartado cierran el lead y quitan el próximo contacto.</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar seguimiento</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if lead.notas %}
+        <div class="lead-ficha">
+            <h3>Historial</h3>
+            <ul class="historial">
+                {% for n in lead.notas %}
+                <li class="{% if n.automatica %}automatica{% endif %}">
+                    <div class="nota-texto">{{ n.texto }}</div>
+                    <div class="nota-meta">{{ n.cuando }}{% if n.autor %} · {{ n.autor }}{% endif %}</div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if lead.puede_gestionar %}
+        <script>
+            // Atajos de fecha: solo llenan el campo; la fecha la valida el servidor.
+            (function () {
+                var campo = document.getElementById('seg-fecha');
+                function iso(d) {
+                    function dos(n) { return (n < 10 ? '0' : '') + n; }
+                    return d.getFullYear() + '-' + dos(d.getMonth() + 1) + '-' + dos(d.getDate());
+                }
+                document.querySelectorAll('.seg-atajos button').forEach(function (boton) {
+                    boton.addEventListener('click', function () {
+                        if (boton.dataset.quitar) { campo.value = ''; return; }
+                        var d = new Date();
+                        if (boton.dataset.dias) { d.setDate(d.getDate() + Number(boton.dataset.dias)); }
+                        if (boton.dataset.meses) {
+                            var dia = d.getDate();
+                            d.setMonth(d.getMonth() + Number(boton.dataset.meses));
+                            // 31 de enero + 1 mes: quedarse en el último día de febrero.
+                            if (d.getDate() !== dia) { d.setDate(0); }
+                        }
+                        campo.value = iso(d);
+                    });
+                });
+            })();
+        </script>
+        {% endif %}
 {% endblock %}

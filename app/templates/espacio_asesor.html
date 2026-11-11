@@ -23,6 +23,9 @@
         .esp-meta { font-size: 13px; color: var(--texto-suave); }
         .esp-etiqueta { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); }
         .esp-etiqueta.ok { border-color: var(--verde); color: var(--verde); }
+        .esp-etiqueta.vencido { border-color: var(--rojo); color: var(--rojo); }
+        .esp-etiqueta.hoy { border-color: var(--naranja); color: var(--naranja); }
+        .esp-bloque.urgente h2 { color: var(--naranja); }
         .esp-etiqueta.contado { background: var(--naranja); border-color: var(--naranja); color: var(--barra-bg); }
         .esp-fila form { margin: 0; }
         .esp-vacio { padding: 18px; text-align: center; color: var(--texto-tenue); background: var(--superficie); border: 1px dashed var(--borde); border-radius: 12px; }
@@ -53,6 +56,33 @@
         </section>
 {% endmacro %}
 
+{% macro clientes(titulo, filas, total, urgente=false) %}
+        <section class="esp-bloque {% if urgente %}urgente{% endif %}">
+            <h2>{{ titulo }} <span class="cuenta">{{ total }}</span></h2>
+            <div class="esp-lista">
+                {% for lead in filas %}
+                <div class="esp-fila {% if lead.prioridad %}prioridad{% endif %}">
+                    <div class="esp-datos">
+                        <strong><a href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}" style="color: inherit; text-decoration: none;">{{ lead.nombre }}</a></strong>
+                        <span>
+                            <span class="esp-etiqueta">{{ lead.estado_texto }}</span>
+                            {% if lead.seguimiento_texto %}<span class="esp-etiqueta {{ lead.seguimiento }}">{{ lead.seguimiento_texto }}</span>{% endif %}
+                        </span>
+                        <span class="esp-meta">{% if lead.moto_texto %}{{ lead.moto_texto }} · {% endif %}{{ lead.forma_pago_texto }}</span>
+                    </div>
+                    {% if lead.whatsapp_url %}
+                    <a class="btn btn-primary" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
+                    {% endif %}
+                    <a class="btn btn-ghost" href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}">Seguimiento</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% if total > filas | length %}
+            <div class="esp-pie"><a class="btn btn-ghost" href="{{ url_for('admin.leads_bandeja') }}">Ver los {{ total }}</a></div>
+            {% endif %}
+        </section>
+{% endmacro %}
+
 {% block contenido %}
         <div class="seccion-titulo">Mi espacio</div>
         <p class="esp-saludo">Hola, {{ session.usuario_nombre }}. Esto es lo suyo en la semana.</p>
@@ -71,8 +101,15 @@
             <div class="esp-cifra"><b>{{ datos.ventas | length }}</b><span>Ventas</span></div>
             <div class="esp-cifra"><b>{{ datos.compras | length }}</b><span>Compras</span></div>
             <div class="esp-cifra"><b>{{ datos.permutas | length }}</b><span>Permutas</span></div>
-            <a class="esp-cifra" href="{{ url_for('admin.leads_bandeja') }}"><b>{{ datos.total_leads_en_gestion }}</b><span>Leads en gestión</span></a>
+            <a class="esp-cifra" href="{{ url_for('admin.leads_bandeja') }}"><b>{{ datos.total_leads_en_gestion }}</b><span>Clientes en seguimiento</span></a>
         </div>
+
+        {% if datos.leads_para_hoy %}
+        {{ clientes("Para contactar hoy", datos.leads_para_hoy, datos.leads_para_hoy | length, urgente=true) }}
+        {% endif %}
+        {% if datos.leads_por_contactar %}
+        {{ clientes("Tomados sin contactar", datos.leads_por_contactar, datos.total_leads_por_contactar) }}
+        {% endif %}
 
         <section class="esp-bloque">
             <h2>Leads disponibles <span class="cuenta">{{ datos.total_leads_nuevos }}</span></h2>

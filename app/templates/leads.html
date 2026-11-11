@@ -4,9 +4,10 @@
 {% block titulo %}Leads del chat{% endblock %}
 
 {% block estilos %}
-        .leads-grupo { margin-bottom: 28px; }
+        .leads-grupo { margin-bottom: 28px; scroll-margin-top: calc(var(--alto-barra) + 10px); }
         .leads-grupo h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
-        .leads-grupo h2 .cuenta { font-size: 13px; padding: 2px 9px; border-radius: 20px; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); font-family: 'Barlow', sans-serif; }
+        .leads-grupo h2 .cuenta, .embudo a b { font-size: 13px; padding: 2px 9px; border-radius: 20px; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); font-family: 'Barlow', sans-serif; }
+        .leads-grupo.urgente h2 { color: var(--naranja); }
         .lead-lista { display: flex; flex-direction: column; gap: 10px; }
         .lead-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); }
         .lead-fila.prioridad { border-color: var(--naranja); border-left-width: 5px; }
@@ -16,9 +17,14 @@
         .lead-meta { font-size: 13px; color: var(--texto-suave); }
         .lead-etiqueta { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--superficie-2); border: 1px solid var(--borde); color: var(--texto-suave); }
         .lead-etiqueta.contado { background: var(--naranja); border-color: var(--naranja); color: var(--barra-bg); }
+        .lead-etiqueta.vencido { border-color: var(--rojo); color: var(--rojo); }
+        .lead-etiqueta.hoy { border-color: var(--naranja); color: var(--naranja); }
         .lead-acciones { display: flex; gap: 8px; align-items: center; }
         .lead-acciones form { margin: 0; }
         .sin-leads { padding: 22px; text-align: center; color: var(--texto-tenue); background: var(--superficie); border: 1px dashed var(--borde); border-radius: 12px; }
+        .embudo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .embudo a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 10px; background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); text-decoration: none; font-size: 14px; font-weight: 600; }
+        .embudo a:hover { border-color: var(--naranja); }
 {% endblock %}
 
 {% macro fila(lead) %}
@@ -28,6 +34,7 @@
                     <div>
                         <span class="lead-etiqueta {% if lead.prioridad %}contado{% endif %}">{% if lead.prioridad %}Prioridad · {% endif %}{{ lead.forma_pago_texto }}</span>
                         {% if lead.estado != 'nuevo' %}<span class="lead-etiqueta">{{ lead.estado_texto }}</span>{% endif %}
+                        {% if lead.seguimiento_texto %}<span class="lead-etiqueta {{ lead.seguimiento }}">{{ lead.seguimiento_texto }}</span>{% endif %}
                     </div>
                     <div class="lead-meta">
                         {% if lead.moto_texto %}{{ lead.moto_texto }} · {% endif %}{{ lead.recibido }}
@@ -41,7 +48,7 @@
                         <button type="submit" class="btn btn-primary">Tomar</button>
                     </form>
                     {% endif %}
-                    {% if lead.whatsapp_url and lead.estado == 'tomado' %}
+                    {% if lead.whatsapp_url and lead.abierto %}
                     <a class="btn btn-primary" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
                     {% endif %}
                     <a class="btn btn-ghost" href="{{ url_for('admin.lead_detalle', lead_id=lead.id) }}">Ver</a>
@@ -52,8 +59,15 @@
 {% block contenido %}
         <div class="seccion-titulo">Leads del chat</div>
 
-        {% if error %}<div class="aviso-error" role="alert">{{ error }}</div>{% endif %}
-        {% if aviso %}<div class="aviso-exito" role="status">{{ aviso }}</div>{% endif %}
+        {% if error %}<div class="aviso aviso-error" role="alert">{{ error }}</div>{% endif %}
+        {% if aviso %}<div class="aviso aviso-exito" role="status">{{ aviso }}</div>{% endif %}
+
+        {% if grupos.para_hoy %}
+        <section class="leads-grupo urgente">
+            <h2>Para hoy <span class="cuenta">{{ grupos.para_hoy | length }}</span></h2>
+            <div class="lead-lista">{% for lead in grupos.para_hoy %}{{ fila(lead) }}{% endfor %}</div>
+        </section>
+        {% endif %}
 
         <section class="leads-grupo">
             <h2>Nuevos <span class="cuenta">{{ grupos.nuevos | length }}</span></h2>
@@ -65,13 +79,24 @@
         </section>
 
         <section class="leads-grupo">
-            <h2>{% if session.rol == 'asesor' %}Mis leads en gestión{% else %}En gestión{% endif %} <span class="cuenta">{{ grupos.en_gestion | length }}</span></h2>
+            <h2>{% if session.rol == 'asesor' %}Mis clientes en seguimiento{% else %}En seguimiento{% endif %} <span class="cuenta">{{ grupos.en_gestion | length }}</span></h2>
             {% if grupos.en_gestion %}
-            <div class="lead-lista">{% for lead in grupos.en_gestion %}{{ fila(lead) }}{% endfor %}</div>
+            <nav class="embudo" aria-label="Etapas del seguimiento">
+                {% for etapa in grupos.etapas %}
+                <a href="#etapa-{{ etapa.estado }}">{{ etapa.titulo }} <b>{{ etapa.leads | length }}</b></a>
+                {% endfor %}
+            </nav>
             {% else %}
-            <div class="sin-leads">Ningún lead en gestión.</div>
+            <div class="sin-leads">Ningún cliente en seguimiento.{% if session.rol == 'asesor' %} Tome un lead nuevo para empezar.{% endif %}</div>
             {% endif %}
         </section>
+
+        {% for etapa in grupos.etapas if etapa.leads %}
+        <section class="leads-grupo" id="etapa-{{ etapa.estado }}">
+            <h2>{{ etapa.titulo }} <span class="cuenta">{{ etapa.leads | length }}</span></h2>
+            <div class="lead-lista">{% for lead in etapa.leads %}{{ fila(lead) }}{% endfor %}</div>
+        </section>
+        {% endfor %}
 
         {% if grupos.cerrados %}
         <section class="leads-grupo">
