@@ -329,6 +329,10 @@ def test_origen_invalido_se_rechaza(monkeypatch, origen):
 
 def test_ruta_intenciones_201_luego_200_duplicada(cliente, monkeypatch):
     filas = _base_de_intenciones(monkeypatch)
+    # La ruta no pasa 'ahora': sin fijar el reloj del servicio, la fila
+    # (fechada en AHORA) sale de la ventana de dedup cuando la fecha real
+    # pasa de AHORA + 24 h y la prueba empieza a fallar sola.
+    monkeypatch.setattr(inventario, "datetime", _RelojFijo)
     primera = cliente.post("/api/intenciones", json={"moto_id": 5, "origen": "conv-1"},
                            headers=_bearer(LLAVE))
     segunda = cliente.post("/api/intenciones", json={"moto_id": 5, "origen": "conv-1"},

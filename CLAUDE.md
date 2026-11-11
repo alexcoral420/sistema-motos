@@ -143,3 +143,7 @@ Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial sche
 ### Migrations
 
 SQL migrations live in `migraciones/`, numbered sequentially (`NNN_descripcion.sql`; the old duplicate `005_` pair is now `005a_`/`005b_`). Before adding one, list the folder **including untracked files** — migrations are sometimes created locally before being committed — and take the next free number. Not all schema changes have historically been captured as migrations (some were applied directly against the database), which has caused at least one schema/code drift incident — when changing the schema, always add a migration file rather than applying changes out-of-band.
+
+## Pendientes
+
+- **Rama `docs/claude-md`** (subida al remoto el 2026-11-11 solo como respaldo; un único commit `883e0be` del 2026-10-08 que toca `CLAUDE.md`, 129 commits detrás de `main`): revisar si lo que agrega (tests, migraciones, aislamiento por sede, contratos) ya está cubierto por este archivo. Si lo está, borrar la rama (local y remoto); si no, traer a mano lo que falte y luego borrarla. No fusionarla tal cual: pisaría el `CLAUDE.md` actual.
