@@ -37,12 +37,20 @@ class Config:
     SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
     CLAVE_CIFRADO = os.environ.get("CLAVE_CIFRADO")
-    TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-    TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-    TWILIO_WHATSAPP_NUMBER = os.environ.get("TWILIO_WHATSAPP_NUMBER")
     # --- Integración con el taller (módulo de gastos) ---
     TALLER_URL = os.environ.get("TALLER_URL")
     TALLER_API_KEY = os.environ.get("TALLER_API_KEY")
+    # --- API externa /api (la consume n8n) ---
+    # Llave que n8n manda en "Authorization: Bearer <llave>". El nombre es
+    # histórico (ya no hay webhook). Sin la principal, la API responde 503.
+    # La _ANTERIOR es opcional y solo existe durante una rotación:
+    #   1. copiar la llave actual a API_WEBHOOK_KEY_ANTERIOR,
+    #   2. poner la nueva en API_WEBHOOK_KEY y desplegar (valen las dos),
+    #   3. cambiar la llave en n8n,
+    #   4. borrar API_WEBHOOK_KEY_ANTERIOR cuando el log deje de mostrar
+    #      consumidor=n8n(anterior).
+    API_WEBHOOK_KEY = os.environ.get("API_WEBHOOK_KEY")
+    API_WEBHOOK_KEY_ANTERIOR = os.environ.get("API_WEBHOOK_KEY_ANTERIOR")
     # --- Número de WhatsApp de contacto público (botones "Escríbenos") ---
     # UNA sola fuente de verdad, para no repetirlo en cada template.
     WHATSAPP_CONTACTO = os.environ.get("WHATSAPP_CONTACTO", "3042827795")
@@ -65,12 +73,6 @@ class Config:
     ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO")
     # Guardamos el HASH, nunca la contraseña en texto plano.
     ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
-
-    # --- Meta / WhatsApp Cloud API ---
-    VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
-    WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
-    PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
-    META_APP_SECRET = os.environ.get("META_APP_SECRET")
 
     # --- Seguridadk de cooies de sesión (valores base, seguros) ---
     # Impide que JavaScript dedl navegaor lea la cookie de sesión

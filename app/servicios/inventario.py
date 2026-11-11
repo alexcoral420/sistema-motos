@@ -8,7 +8,9 @@ la diferencia — misma firma, misma forma de datos. Ese era el punto
 de la arquitectura por capas: cambiar la fuente tocando UN archivo.
 """
 
-from datetime import datetime, timezone
+import hashlib
+import hmac
+from datetime import datetime, timedelta, timezone
 
 from app.db import repositorios
 from app.seguridad.validadores import ErrorValidacion
@@ -619,9 +621,99 @@ def registrar_intencion(moto_id: int, sesion_id: str = None):
     if not moto:
         return
         
-    print(f"DEBUG: llamando al repositorio")
     repositorios.registrar_intencion(moto_id, moto.get("sede_id"), sesion_id)
-    print(f"DEBUG: insert ejecutado")
+
+
+# --- Intenciones que llegan por la API (n8n) ---
+#
+# El botón web ya identifica al visitante con su visita_id. La API no
+# tenía nada parecido: cada llamada era una fila más, y con eso se podía
+# inflar la popularidad (destacadas del inicio y reportes). Reglas:
+#   - 'origen' (opcional) identifica la conversación en n8n. Se guarda
+#     solo su HMAC: aunque n8n mande un teléfono, no queda en la base.
+#   - Misma moto y mismo origen dentro de la ventana -> duplicada, no se
+#     inserta. Sin origen no se sabe quién pregunta: la ventana es corta,
+#     solo frena reintentos sin tapar a dos clientes distintos.
+#   - Topes por moto y global, contados en la base (no en memoria).
+# Todas llevan sesion_id con prefijo "api:", que es lo que permite
+# contarlas. Con origen cuentan en el orden del catálogo como una persona
+# más (catalogo_ordenado cuenta sesion_id distintos); las sin origen
+# comparten un solo sesion_id y suman como mucho una.
+PREFIJO_SESION_API = "api:"
+SESION_API_SIN_ORIGEN = PREFIJO_SESION_API + "anon"
+DEDUP_INTENCION_CON_ORIGEN = timedelta(hours=24)
+DEDUP_INTENCION_SIN_ORIGEN = timedelta(minutes=10)
+VENTANA_TOPES_INTENCION_API = timedelta(hours=24)
+TOPE_INTENCIONES_API_POR_MOTO = 15
+TOPE_INTENCIONES_API_GLOBAL = 200
+MAX_LARGO_ORIGEN = 200
+
+INTENCION_REGISTRADA = "registrada"
+INTENCION_DUPLICADA = "duplicada"
+
+
+class TopeIntencionesSuperado(Exception):
+    """Se alcanzó un tope de intenciones por API. 'alcance': 'moto' o 'global'."""
+    def __init__(self, alcance: str):
+        super().__init__(f"Tope de intenciones por API superado ({alcance}).")
+        self.alcance = alcance
+
+
+def sesion_de_origen(origen, clave: str) -> str:
+    """
+    El sesion_id con que se guarda una intención de la API. 'origen' es
+    el identificador que manda n8n (o None). Devuelve "api:<hmac>" o
+    "api:anon"; el origen en claro nunca sale de aquí.
+    """
+    if origen is None:
+        return SESION_API_SIN_ORIGEN
+    if not isinstance(origen, str):
+        raise ErrorValidacion("origen debe ser un texto", "origen")
+    origen = origen.strip()
+    if not origen:
+        return SESION_API_SIN_ORIGEN
+    if len(origen) > MAX_LARGO_ORIGEN:
+        raise ErrorValidacion(f"origen no puede pasar de {MAX_LARGO_ORIGEN} caracteres", "origen")
+    if not clave:
+        raise RuntimeError("Falta SECRET_KEY para firmar el origen de la intención.")
+    firma = hmac.new(clave.encode("utf-8"), ("intencion-api:" + origen).encode("utf-8"),
+                     hashlib.sha256).hexdigest()
+    return PREFIJO_SESION_API + firma[:32]
+
+
+def registrar_intencion_api(moto_id, origen, clave: str, ahora: datetime = None):
+    """
+    Registra una intención que llega por la API, con dedup y topes.
+
+    Devuelve INTENCION_REGISTRADA, INTENCION_DUPLICADA (no se insertó) o
+    None si la moto no existe. Lanza ErrorValidacion si la entrada es
+    inválida y TopeIntencionesSuperado si se alcanzó un tope.
+    """
+    # bool es subclase de int en Python: sin excluirlo, true pasaba como 1.
+    if isinstance(moto_id, bool) or not isinstance(moto_id, int) or moto_id <= 0:
+        raise ErrorValidacion("moto_id es obligatorio y debe ser un número entero", "moto_id")
+    sesion_id = sesion_de_origen(origen, clave)
+
+    moto = obtener_moto(moto_id)
+    if not moto:
+        return None
+
+    ahora = ahora or datetime.now(timezone.utc)
+    ventana = (DEDUP_INTENCION_SIN_ORIGEN if sesion_id == SESION_API_SIN_ORIGEN
+               else DEDUP_INTENCION_CON_ORIGEN)
+    if repositorios.existe_intencion_desde(moto_id, sesion_id, (ahora - ventana).isoformat()):
+        return INTENCION_DUPLICADA
+
+    desde = (ahora - VENTANA_TOPES_INTENCION_API).isoformat()
+    if repositorios.contar_intenciones_por_prefijo(
+            PREFIJO_SESION_API, desde, moto_id) >= TOPE_INTENCIONES_API_POR_MOTO:
+        raise TopeIntencionesSuperado("moto")
+    if repositorios.contar_intenciones_por_prefijo(
+            PREFIJO_SESION_API, desde) >= TOPE_INTENCIONES_API_GLOBAL:
+        raise TopeIntencionesSuperado("global")
+
+    repositorios.registrar_intencion(moto_id, moto.get("sede_id"), sesion_id)
+    return INTENCION_REGISTRADA
 
 def obtener_similares(moto, limite=15):
     """

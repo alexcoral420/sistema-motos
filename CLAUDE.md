@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sistema Universal Motors: a production Flask app for a used-motorcycle dealership in Bogotá (two locations). It manages inventory, a public filterable catalog, sales/purchase/trade-in operations, and an AI-driven WhatsApp financing-lead assistant. Live at universalmotors.online. Not a toy project — real business data, real users daily. See `README.md` for the full design rationale (security model, AI assistant safety guarantees, personal-data compliance, deliberate architectural decisions) — read it before making non-trivial changes; this file only covers what you need to move fast day-to-day.
+Sistema Universal Motors: a production Flask app for a used-motorcycle dealership in Bogotá (two locations). It manages inventory, a public filterable catalog, sales/purchase/trade-in operations, and an AI-driven financing-lead assistant in the site's web chat. Live at universalmotors.online. Not a toy project — real business data, real users daily. See `README.md` for the full design rationale (security model, AI assistant safety guarantees, personal-data compliance, deliberate architectural decisions) — read it before making non-trivial changes; this file only covers what you need to move fast day-to-day.
 
 ## Commands
 
@@ -31,7 +31,7 @@ python -m pytest tests/
 
 There is a small pytest suite in `tests/` covering pure service logic (`test_personas.py`, `test_avaluo.py`, `test_recordatorios.py`). Tests never touch Supabase: repository functions are replaced with `monkeypatch`. `pytest.ini` sets `pythonpath = .` and `testpaths = tests`; there is no `conftest.py`. GitHub Actions (`.github/workflows/test.yml`) runs the suite on every push and PR. There is no configured linter. Coverage is far from complete, so verification is still mostly manual; when changing behavior, add or update tests for pure logic and check the rest by running the app.
 
-Required `.env` vars are listed in `.env.example`: `SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role), `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `CLAVE_CIFRADO` (Fernet key for sensitive fields — irrecoverable if lost, never commit it), `WHATSAPP_CONTACTO`, plus Twilio/Meta WhatsApp Cloud API credentials, and `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for Web Push (generate once; rotating them invalidates every existing push subscription).
+Required `.env` vars are listed in `.env.example`: `SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role), `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `CLAVE_CIFRADO` (Fernet key for sensitive fields — irrecoverable if lost, never commit it), `WHATSAPP_CONTACTO`, `API_WEBHOOK_KEY` (the `/api` key n8n sends; the name is historical) with the optional `API_WEBHOOK_KEY_ANTERIOR` (rotation only, see "External API"), and `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for Web Push (generate once; rotating them invalidates every existing push subscription).
 
 **`requirements.txt` is UTF-16 LE with BOM and CRLF** (a `pip freeze >` from PowerShell). Plain text tools and naive edits will corrupt it — read/write it with `encoding="utf-16"` and insert new lines without re-sorting the rest.
 
@@ -44,7 +44,7 @@ route (blueprint)  →  servicio  →  repositorio  →  Supabase
    orchestrates        decides       queries         stores
 ```
 
-- **Routes** (`app/admin`, `app/publico`, `app/api`, `app/auth`, `app/webhook`): receive the request, delegate, return the response. No validation, no queries here.
+- **Routes** (`app/admin`, `app/publico`, `app/api`, `app/auth`): receive the request, delegate, return the response. No validation, no queries here.
 - **Services** (`app/servicios/`): business logic and input validation live here. This is where criteria live — what counts as a valid filter, what data to request from a customer, when a lead gets saved.
 - **Repositories** (`app/db/repositorios.py`): talk to Supabase. No business vocabulary — receive already-validated, already-translated data.
 
@@ -56,7 +56,6 @@ Respect this separation when adding features: a change to catalog filtering, for
 - `admin` — management panel (`/admin` prefix, role-protected)
 - `auth` — login/session
 - `api` — REST API for external integrations (n8n), API-key authenticated, CSRF-exempt
-- `webhook` — inbound messaging events (WhatsApp/Meta), CSRF-exempt
 - `motero` (`app/motero/`) — "Mi espacio" for end customers: `/registro`, `/ingresar`, `/salir` (POST), `/mi-espacio`. Accounts live in **Supabase Auth**, not in `usuarios`. See below.
 
 ### "Mi espacio" del motero (`app/motero/`, migration 021)
@@ -84,6 +83,13 @@ When adding a table, follow the existing pattern: enable RLS, revoke from `anon`
 Session-based auth (`app/auth/`). Roles: `admin`, `asesor`, `gerencia`, `encargado_sede`. Enforced with `@requiere_rol("admin", "asesor", ...)` and `@requiere_login` from `app/auth/decorators.py`, applied per-route in `app/admin/routes.py`. No session → redirect to login (401-equivalent); wrong role → `403`. **Identity always comes from `session`, never from a submitted form field** — e.g. when recording a sale, the acting user is read from the session so one advisor can't attribute an action to another by editing the HTML. UI role-based hiding is cosmetic only; the real gate is server-side.
 
 The `api` blueprint uses `@requiere_api_key` (`app/auth/api_key.py`) instead of sessions. Deliberate exceptions, public and protected by rate limit instead because the browser calls them (a key in the page would be exposed): `GET /api/avaluo` (aggregates only) and `POST /api/recordatorios`.
+
+### External API (`/api`, consumed only by n8n)
+
+- **Key and rotation** (`app/auth/api_key.py`): `Authorization: Bearer <key>` against `API_WEBHOOK_KEY`; without it every keyed route answers `503` (fail-closed, even if the previous key is set). `API_WEBHOOK_KEY_ANTERIOR` is optional and both are accepted while it exists. To rotate with no downtime: copy the current key to `_ANTERIOR` → put the new one in `API_WEBHOOK_KEY` and deploy → change it in n8n → delete `_ANTERIOR` once the log stops showing `consumidor=n8n(anterior)`.
+- **Per-request log**: an `after_request` on the blueprint writes one line per request, rejections included: `API | METHOD rule | status | ip=… | consumidor=…`, with `consumidor` ∈ `n8n`, `n8n(anterior)`, `sin_llave`, `llave_invalida`, `sin_configurar`, `publico`. It logs the route **rule**, never the query string, the body or the key. Logger `auditoria.api` is pinned to INFO (the parent `auditoria` is WARNING in production), so these lines are kept in production; 2xx → INFO, 4xx → WARNING, 5xx → ERROR.
+- **`POST /api/intenciones`** (`inventario.registrar_intencion_api`): optional `origen` (n8n's conversation id) is stored only as an HMAC, `sesion_id = "api:<hmac>"`; without it, `"api:anon"`. Dedup on same moto + same `sesion_id`: 24 h with `origen`, 10 min without → `200 {"ok": true, "duplicada": true}`, nothing inserted. Caps counted in the database over 24 h: 15 per moto, 200 overall → `429` + WARNING. Intentions with `origen` count in the catalog order as one more person each (`catalogo_ordenado` counts distinct `sesion_id`). The dedup is check-then-insert, not atomic: fine for a single consumer.
+- **Rate limits are in memory, per process** (`app/seguridad/limites.py`): counters reset on every deploy/restart and are not shared between gunicorn workers. Known and deliberately not fixed yet (needs a shared store such as Redis). Don't rely on them for a cap that must hold — count in the database, as `/api/intenciones` does.
 
 ### Permutas (trade-ins)
 
@@ -128,7 +134,7 @@ Asesor's "Mi espacio" (`/admin/mi-espacio`, endpoint `admin.espacio_asesor`, `ap
 
 ### Data model notes
 
-Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial schema): `sedes`, `contactos`, `politicas_privacidad`, `usuarios`, `motos`, `fotos_motos`, `intenciones`, `ventas`, `compras`, `permutas`, `leads_chat`, `conversaciones`, `mensajes`. Later migrations add, among others, `datos_contrato` (007), `recordatorios` (019), `perfiles`/`motos_usuario` (021), `dispositivos`/`alertas`/`alertas_avisos` (023) `permutas.asesor_id`/`asesor_nombre` + `registrar_permuta_moto()` (025), `dispositivos_staff` (027), `leads_chat.moto_interes`/`forma_pago` (028) and `leads_chat.estado`/`asesor_id`/`asesor_nombre` (029). Number 026 is taken on the unmerged `feat/permuta-contrato` branch.
+Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial schema): `sedes`, `contactos`, `politicas_privacidad`, `usuarios`, `motos`, `fotos_motos`, `intenciones`, `ventas`, `compras`, `permutas`, `leads_chat`, `conversaciones`, `mensajes`. **`contactos`, `conversaciones` and `mensajes` are unused**: they belonged to the Meta/Twilio webhook and `POST /api/mensajes`, both removed (there is no WhatsApp integration in the code any more). No application code reads or writes them. Their rows were left in place on purpose; dropping them is a separate migration still to be decided. Later migrations add, among others, `datos_contrato` (007), `recordatorios` (019), `perfiles`/`motos_usuario` (021), `dispositivos`/`alertas`/`alertas_avisos` (023) `permutas.asesor_id`/`asesor_nombre` + `registrar_permuta_moto()` (025), `dispositivos_staff` (027), `leads_chat.moto_interes`/`forma_pago` (028) and `leads_chat.estado`/`asesor_id`/`asesor_nombre` (029). Number 026 is taken on the unmerged `feat/permuta-contrato` branch.
 
 - Sensitive/financial fields are encrypted with Fernet (`app/seguridad/cifrado.py`); the key (`CLAVE_CIFRADO`) lives only in env vars, never in the database or repo.
 - Privacy consent is versioned: `politicas_privacidad` archives each policy version's full text with a SHA-256 hash, and each lead records which version it consented to.
@@ -137,3 +143,7 @@ Core tables (see `migraciones/001_esquema_inicial.sql` for the full initial sche
 ### Migrations
 
 SQL migrations live in `migraciones/`, numbered sequentially (`NNN_descripcion.sql`; the old duplicate `005_` pair is now `005a_`/`005b_`). Before adding one, list the folder **including untracked files** — migrations are sometimes created locally before being committed — and take the next free number. Not all schema changes have historically been captured as migrations (some were applied directly against the database), which has caused at least one schema/code drift incident — when changing the schema, always add a migration file rather than applying changes out-of-band.
+
+## Pendientes
+
+- **Rama `docs/claude-md`** (subida al remoto el 2026-11-11 solo como respaldo; un único commit `883e0be` del 2026-10-08 que toca `CLAUDE.md`, 129 commits detrás de `main`): revisar si lo que agrega (tests, migraciones, aislamiento por sede, contratos) ya está cubierto por este archivo. Si lo está, borrar la rama (local y remoto); si no, traer a mano lo que falte y luego borrarla. No fusionarla tal cual: pisaría el `CLAUDE.md` actual.

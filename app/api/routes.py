@@ -1,24 +1,54 @@
 """
-API REST para sistemas externos (webhook de n8n).
+API REST para sistemas externos (n8n).
 
 Diferencias con los blueprints admin/publico:
   - Devuelve JSON, no HTML (la consume n8n, no un navegador).
   - Se autentica con API key (@requiere_api_key), no con sesión.
   - Solo expone lo mínimo: leer inventario y registrar intención.
+  - Cada petición deja una línea en el log "auditoria.api" (ver
+    registrar_peticion), también en producción.
 
 Reutiliza los servicios existentes: no duplica lógica, solo la envuelve
 en formato JSON para el consumo externo.
 """
 
-from flask import Blueprint, request, jsonify
-from app.auth.api_key import requiere_api_key
-from app.seguridad.logging_config import obtener_logger
+import logging
+
+from flask import Blueprint, current_app, g, request, jsonify
+from app.auth.api_key import requiere_api_key, identificar_consumidor, CONSUMIDOR_PUBLICO
+from app.seguridad.logging_config import obtener_logger, obtener_logger_api
 from app.seguridad.limites import limiter
-from app.servicios import inventario, metricas, catalogo, avaluo, recordatorios
-from app.servicios.metricas import ErrorMetrica
+from app.servicios import inventario, catalogo, avaluo, recordatorios
 from app.seguridad.validadores import ErrorValidacion
 from app.db import repositorios
 api_bp = Blueprint("api", __name__, url_prefix="/api")
+
+
+@api_bp.after_request
+def registrar_peticion(respuesta):
+    """
+    Una línea de log por cada petición a /api, incluidos los rechazos
+    (401, 429, 503): método, ruta, status, IP y consumidor.
+
+    Sin datos personales: la ruta es la PLANTILLA de la regla
+    (/api/motos/<int:moto_id>), nunca el query string (?q= puede traer
+    una placa) ni el cuerpo. Del consumidor se registra la identidad que
+    sale de la llave, jamás la llave.
+    """
+    consumidor = g.get("api_consumidor")
+    if consumidor is None:
+        # El decorador no llegó a correr: ruta pública, o un 429 del
+        # rate limit que cortó antes en una ruta con llave.
+        vista = current_app.view_functions.get(request.endpoint)
+        consumidor = (identificar_consumidor() if getattr(vista, "requiere_api_key", False)
+                      else CONSUMIDOR_PUBLICO)
+
+    ruta = request.url_rule.rule if request.url_rule else "(sin ruta)"
+    status = respuesta.status_code
+    nivel = logging.ERROR if status >= 500 else logging.WARNING if status >= 400 else logging.INFO
+    obtener_logger_api().log(nivel, "API | %s %s | %s | ip=%s | consumidor=%s",
+                             request.method, ruta, status, request.remote_addr, consumidor)
+    return respuesta
 
 
 @api_bp.route("/motos/buscar", methods=["GET"])
@@ -90,58 +120,36 @@ def todas_las_motos():
 def registrar_intencion():
     """
     Registra una intención de compra (el cliente preguntó por una moto).
-    Recibe JSON: { "moto_id": 12 }
-    Reutiliza el mismo servicio que el botón web.
+
+    Recibe JSON: { "moto_id": 12, "origen": "<id de la conversación>" }
+    'origen' es opcional: identifica a quien pregunta para no contarlo dos
+    veces (se guarda solo su HMAC). El dedup y los topes los decide el
+    servicio (inventario.registrar_intencion_api).
+
+    201 {"ok": true}                      registrada
+    200 {"ok": true, "duplicada": true}   ya estaba; no se insertó
+    429                                   se alcanzó un tope (moto o global)
     """
-    datos = request.get_json(silent=True) or {}
+    datos = request.get_json(silent=True)
+    if not isinstance(datos, dict):
+        datos = {}
     moto_id = datos.get("moto_id")
 
-    # Validar que vino un moto_id y que es un entero.
-    if not isinstance(moto_id, int):
-        return jsonify({"error": "moto_id es obligatorio y debe ser un número"}), 400
-
-    # Confirmar que la moto existe antes de registrar.
-    if not inventario.obtener_moto(moto_id):
-        return jsonify({"error": "La moto no existe"}), 404
-
-    inventario.registrar_intencion(moto_id)
-    obtener_logger().info("API: intención registrada para moto %s.", moto_id)
-
-    return jsonify({"ok": True}), 201
-
-@api_bp.route("/mensajes", methods=["POST"])
-@requiere_api_key
-def registrar_mensaje():
-    """
-    Registra un mensaje del webhook con sus métricas.
-    Recibe JSON:
-      {
-        "telefono": "573001112233",   (obligatorio)
-        "canal": "whatsapp",           (opcional, default whatsapp)
-        "nivel": 1,                    (obligatorio: 0, 1 o 2)
-        "tokens_entrada": 120,         (opcional, default 0)
-        "tokens_salida": 45,           (opcional, default 0)
-        "modelo": "modelo-x",          (opcional)
-        "moto_id": 12                  (opcional)
-      }
-    Resuelve contacto y conversación (regla de 24h) y guarda el mensaje.
-    """
-    datos = request.get_json(silent=True) or {}
-
     try:
-        conversacion_id = metricas.registrar_mensaje(
-            telefono=datos.get("telefono"),
-            canal=datos.get("canal"),
-            nivel=datos.get("nivel"),
-            tokens_entrada=datos.get("tokens_entrada", 0),
-            tokens_salida=datos.get("tokens_salida", 0),
-            modelo=datos.get("modelo"),
-            moto_id=datos.get("moto_id"),
-        )
-    except ErrorMetrica as e:
+        resultado = inventario.registrar_intencion_api(
+            moto_id, datos.get("origen"), current_app.config.get("SECRET_KEY"))
+    except ErrorValidacion as e:
         return jsonify({"error": e.mensaje}), 400
+    except inventario.TopeIntencionesSuperado as e:
+        obtener_logger_api().warning(
+            "API: tope de intenciones superado (%s), moto %s.", e.alcance, moto_id)
+        return jsonify({"error": "Demasiadas intenciones registradas. Intenta más tarde."}), 429
 
-    return jsonify({"ok": True, "conversacion_id": conversacion_id}), 201
+    if resultado is None:
+        return jsonify({"error": "La moto no existe"}), 404
+    if resultado == inventario.INTENCION_DUPLICADA:
+        return jsonify({"ok": True, "duplicada": True}), 200
+    return jsonify({"ok": True}), 201
 
 
 @api_bp.route("/avaluo", methods=["GET"])

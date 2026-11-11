@@ -15,7 +15,7 @@ La solución profesional es una FUNCIÓN que fabrica la app a pedido:
 create_app(). Cada vez que se llama, construye una app fresca y la
 configura según el ambiente que le pidas. Eso habilita:
   - elegir configuración (desarrollo/producción/tests) al vuelo
-  - registrar blueprints (las superficies separadas: público/admin/webhook)
+  - registrar blueprints (las superficies separadas: público/admin/api)
   - inicializar extensiones de seguridad (rate limiting, etc.)
 todo en un lugar ordenado y controlado.
 """
@@ -121,8 +121,6 @@ def create_app(nombre_config=None):
     app.register_blueprint(api_bp)
     csrf.exempt(api_bp)
 
-    from app.webhook.routes import webhook_bp
-    app.register_blueprint(webhook_bp)
     @app.after_request
     def limpiar_vary_en_detalle(response):
         # Solo a los rastreadores de preview les quitamos el Vary/cookie.
