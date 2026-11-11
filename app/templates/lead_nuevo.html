@@ -1,0 +1,84 @@
+{% extends "base_operativa.html" %}
+{% set nav_activo = "leads" %}
+
+{% block titulo %}Agregar cliente{% endblock %}
+
+{% block estilos %}
+        .lead-ficha { max-width: 640px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 22px; }
+        .lead-ficha h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; margin: 0 0 6px; }
+        .lead-ayuda { color: var(--texto-suave); font-size: 14px; margin: 0 0 18px; }
+        .lead-volver { display: inline-block; margin-bottom: 14px; }
+        .dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+        .campo textarea { min-height: 84px; resize: vertical; }
+        .autorizo { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie-2); font-size: 14px; }
+        .autorizo input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; }
+        @media (max-width: 600px) { .dos-columnas { grid-template-columns: 1fr; } }
+{% endblock %}
+
+{% block contenido %}
+        <a class="btn btn-ghost lead-volver" href="{{ url_for('admin.leads_bandeja') }}">← Leads del chat</a>
+
+        {% if error %}<div class="aviso aviso-error" role="alert">{{ error }}</div>{% endif %}
+
+        <div class="lead-ficha">
+            <h2>Agregar cliente</h2>
+            <p class="lead-ayuda">Para un cliente que le llegó por fuera del chat. Queda en su seguimiento, como "Por contactar".</p>
+
+            <form method="POST" action="{{ url_for('admin.lead_nuevo') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="dos-columnas">
+                    <div class="campo">
+                        <label for="cli-nombre">Nombre</label>
+                        <input type="text" id="cli-nombre" name="nombre" maxlength="80" required
+                               autocomplete="off" value="{{ borrador.get('nombre', '') }}">
+                    </div>
+                    <div class="campo">
+                        <label for="cli-telefono">WhatsApp</label>
+                        <input type="tel" id="cli-telefono" name="telefono" inputmode="numeric" maxlength="16" required
+                               autocomplete="off" placeholder="3001234567" value="{{ borrador.get('telefono', '') }}">
+                    </div>
+                    <div class="campo">
+                        <label for="cli-canal">¿Por dónde llegó?</label>
+                        <select id="cli-canal" name="canal" required>
+                            <option value="">Elija una opción</option>
+                            {% for valor, etiqueta in canales %}
+                            <option value="{{ valor }}" {% if borrador.get('canal') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="cli-pago">Forma de pago</label>
+                        <select id="cli-pago" name="forma_pago">
+                            {% for valor, etiqueta in formas_pago %}
+                            <option value="{{ valor }}" {% if borrador.get('forma_pago') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="cli-moto">Moto de interés (opcional)</label>
+                        <input type="text" id="cli-moto" name="moto_interes" maxlength="120"
+                               placeholder="Ej.: Yamaha FZ 2019" value="{{ borrador.get('moto_interes', '') }}">
+                    </div>
+                    <div class="campo">
+                        <label for="cli-correo">Correo (opcional)</label>
+                        <input type="email" id="cli-correo" name="correo" maxlength="120"
+                               autocomplete="off" value="{{ borrador.get('correo', '') }}">
+                    </div>
+                </div>
+
+                <div class="campo">
+                    <label for="cli-nota">Nota (opcional)</label>
+                    <textarea id="cli-nota" name="nota" maxlength="{{ max_nota }}"
+                              placeholder="Ej.: lo recomendó un cliente, busca una moto para trabajar.">{{ borrador.get('nota', '') }}</textarea>
+                </div>
+
+                <label class="autorizo">
+                    <input type="checkbox" name="autorizo" value="si" required {% if borrador.get('autorizo') == 'si' %}checked{% endif %}>
+                    <span>El cliente me dio estos datos y autorizó que Universal Motors lo contacte. Queda registrado a mi nombre.</span>
+                </label>
+
+                <button type="submit" class="btn btn-primary">Guardar cliente</button>
+            </form>
+        </div>
+{% endblock %}

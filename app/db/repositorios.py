@@ -1742,6 +1742,7 @@ def motos_para_exportar(estado=None, sede=None):
 _COLUMNAS_LEAD_BANDEJA = (
     "id, created_at, nombre, telefono, correo, moto_id, moto_interes, forma_pago, "
     "estado, asesor_id, asesor_nombre, tomado_en, gestionado_en, proximo_contacto, "
+    "origen, canal, "
     "motos(marca, modelo, anio, precio)"
 )
 
@@ -1805,6 +1806,28 @@ def cambiar_estado_lead_chat(lead_id: int, estados_permitidos: list, cambios: di
     if asesor_id is not None:
         consulta = consulta.eq("asesor_id", asesor_id)
     resultado = consulta.execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def crear_lead_manual(registro: dict):
+    """
+    Inserta un lead que el asesor agregó a mano (migración 031) y devuelve
+    la fila. Recibe el registro ya validado y armado por el servicio:
+    aquí no se decide ni el origen, ni el dueño, ni el consentimiento.
+    """
+    resultado = get_supabase_admin().table("leads_chat").insert(registro).execute()
+    return resultado.data[0] if resultado.data else None
+
+
+def lead_abierto_de_asesor_por_telefono(asesor_id: int, telefono: str, estados: list):
+    """El lead de ese asesor con ese teléfono en alguno de 'estados', o None."""
+    resultado = (get_supabase_admin().table("leads_chat")
+                 .select("id")
+                 .eq("asesor_id", asesor_id)
+                 .eq("telefono", telefono)
+                 .in_("estado", estados)
+                 .limit(1)
+                 .execute())
     return resultado.data[0] if resultado.data else None
 
 
