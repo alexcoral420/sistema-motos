@@ -77,6 +77,24 @@ def obtener_galeria(moto_id: int):
     return repositorios.obtener_fotos_moto(moto_id)
 
 
+def obtener_moto_con_galeria(id: int):
+    """
+    La moto de obtener_moto más su galería en 'fotos', para la API.
+    None si la moto no existe o no es visible (no se consulta la galería).
+
+    De fotos_motos sale solo lo público: la URL (completa, igual que
+    'foto_url' de la portada) y el orden. 'orden' es la posición 1..n en
+    la galería del sitio, no el valor de la base, que puede repetirse.
+    La portada no se repite aquí: sigue en 'foto_url'.
+    """
+    moto = obtener_moto(id)
+    if not moto:
+        return None
+    urls = [f["foto_url"] for f in obtener_galeria(id) if f.get("foto_url")]
+    return {**moto, "fotos": [{"url": url, "orden": posicion}
+                              for posicion, url in enumerate(urls, start=1)]}
+
+
 # ============================================================
 #  ESCRITURA
 # ============================================================

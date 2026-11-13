@@ -84,8 +84,13 @@ def buscar_motos():
 @api_bp.route("/motos/<int:moto_id>", methods=["GET"])
 @requiere_api_key
 def detalle_moto(moto_id):
-    """Devuelve los datos de una moto específica por su id."""
-    moto = inventario.obtener_moto(moto_id)
+    """
+    Devuelve los datos de una moto específica por su id.
+
+    La portada va en 'foto_url'; el resto de la galería, en 'fotos':
+    [{"url": ..., "orden": 1}, ...], en el orden del sitio.
+    """
+    moto = inventario.obtener_moto_con_galeria(moto_id)
     if not moto:
         return jsonify({"error": "Moto no encontrada"}), 404
     return jsonify({"moto": moto})

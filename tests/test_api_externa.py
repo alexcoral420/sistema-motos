@@ -43,6 +43,7 @@ def cliente(app, monkeypatch):
     monkeypatch.setattr(limiter, "enabled", False)
     monkeypatch.setattr(inventario, "obtener_moto",
                         lambda moto_id: {"id": moto_id, "sede_id": 1} if moto_id < 900 else None)
+    monkeypatch.setattr(repositorios, "obtener_fotos_moto", lambda moto_id: [])
     monkeypatch.setattr(catalogo, "buscar_motos", lambda args: {
         "motos": [], "total_motos": 0, "pagina": 1, "total_paginas": 0})
     return app.test_client()
@@ -186,6 +187,85 @@ def test_el_log_de_la_api_se_guarda_aunque_auditoria_este_en_warning():
         padre.removeHandler(destino)
         padre.setLevel(nivel_previo)
     assert recibidos == ["API | GET /api/x | 200"]
+
+
+# -------------------------------------------------- detalle con galería
+
+BUCKET = "https://proyecto.supabase.co/storage/v1/object/public/motos/"
+
+
+def _moto_con_fotos(monkeypatch, galeria):
+    """Una moto con portada y la galería dada (ya en el orden del
+    repositorio). Devuelve la lista de ids por los que se pidió galería."""
+    pedidas = []
+
+    def fotos(moto_id):
+        pedidas.append(moto_id)
+        return galeria
+
+    monkeypatch.setattr(inventario, "obtener_moto", lambda moto_id: {
+        "id": moto_id, "sede_id": 1, "marca": "YAMAHA",
+        "foto_url": BUCKET + "portada.webp", "foto_path": "portada.webp",
+    } if moto_id < 900 else None)
+    monkeypatch.setattr(repositorios, "obtener_fotos_moto", fotos)
+    return pedidas
+
+
+def _foto(id, nombre, orden):
+    return {"id": id, "created_at": "2026-11-01T10:00:00+00:00", "moto_id": 5,
+            "foto_url": BUCKET + nombre if nombre else None,
+            "foto_path": nombre, "orden": orden}
+
+
+def test_detalle_devuelve_portada_y_galeria_en_orden(cliente, monkeypatch):
+    # 'orden' repetido en la base (0, 0, 3): la posición sale 1, 2, 3.
+    pedidas = _moto_con_fotos(monkeypatch, [
+        _foto(11, "galeria/a.webp", 0), _foto(12, "galeria/b.webp", 0),
+        _foto(10, "galeria/c.webp", 3)])
+    respuesta = cliente.get("/api/motos/5", headers=_bearer(LLAVE))
+    assert respuesta.status_code == 200
+    moto = respuesta.get_json()["moto"]
+    assert moto["foto_url"] == BUCKET + "portada.webp"
+    assert moto["marca"] == "YAMAHA"
+    assert moto["fotos"] == [
+        {"url": BUCKET + "galeria/a.webp", "orden": 1},
+        {"url": BUCKET + "galeria/b.webp", "orden": 2},
+        {"url": BUCKET + "galeria/c.webp", "orden": 3},
+    ]
+    assert pedidas == [5]
+
+
+def test_detalle_de_la_galeria_solo_salen_url_y_orden(cliente, monkeypatch):
+    _moto_con_fotos(monkeypatch, [_foto(11, "galeria/a.webp", 0)])
+    respuesta = cliente.get("/api/motos/5", headers=_bearer(LLAVE))
+    (foto,) = respuesta.get_json()["moto"]["fotos"]
+    assert set(foto) == {"url", "orden"}
+
+
+def test_detalle_sin_galeria_devuelve_lista_vacia(cliente, monkeypatch):
+    _moto_con_fotos(monkeypatch, [])
+    moto = cliente.get("/api/motos/5", headers=_bearer(LLAVE)).get_json()["moto"]
+    assert moto["fotos"] == []
+    assert moto["foto_url"] == BUCKET + "portada.webp"
+
+
+def test_detalle_salta_una_foto_sin_url(cliente, monkeypatch):
+    _moto_con_fotos(monkeypatch, [_foto(11, None, 0), _foto(12, "galeria/b.webp", 1)])
+    moto = cliente.get("/api/motos/5", headers=_bearer(LLAVE)).get_json()["moto"]
+    assert moto["fotos"] == [{"url": BUCKET + "galeria/b.webp", "orden": 1}]
+
+
+def test_detalle_404_no_consulta_la_galeria(cliente, monkeypatch):
+    pedidas = _moto_con_fotos(monkeypatch, [_foto(11, "galeria/a.webp", 0)])
+    respuesta = cliente.get("/api/motos/999", headers=_bearer(LLAVE))
+    assert respuesta.status_code == 404
+    assert pedidas == []
+
+
+def test_detalle_sin_llave_no_consulta_la_galeria(cliente, monkeypatch):
+    pedidas = _moto_con_fotos(monkeypatch, [_foto(11, "galeria/a.webp", 0)])
+    assert cliente.get("/api/motos/5").status_code == 401
+    assert pedidas == []
 
 
 # ----------------------------------------------------------- intenciones
