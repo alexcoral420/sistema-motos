@@ -80,12 +80,18 @@ def obtener_moto_por_id_admin(id: int):
 
 
 def obtener_fotos_moto(moto_id: int):
-    """Fotos de galería de una moto, ordenadas por el campo 'orden'."""
+    """Fotos de galería de una moto, ordenadas por el campo 'orden'.
+
+    'orden' se repite en algunas motos (queda así tras borrar o cambiar
+    la portada): el id desempata para que el orden sea siempre el mismo,
+    en el sitio y en la API.
+    """
     supabase = get_supabase_publico()
     resultado = supabase.table("fotos_motos")\
         .select("*")\
         .eq("moto_id", moto_id)\
         .order("orden")\
+        .order("id")\
         .execute()
     return resultado.data
     
